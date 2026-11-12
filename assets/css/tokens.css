@@ -1,0 +1,27 @@
+@font-face{font-family:"Inter";src:url(/fonts/inter.woff2) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage.woff2) format("woff2");font-weight:200 800;font-display:swap}
+
+:root{
+  --canvas:#f7f7f8;--surface:#fff;--line:#ebebee;--line-strong:#dcdce1;
+  --ink:#0c0c10;--ink-2:#3c3c45;--mute:#6e6e78;--faint:#71717a;
+  --accent:#2f6bff;--accent-soft:#eaf1ff;
+  --ok:#17803d;--ok-soft:#e7f6ec;--warn:#c2410c;--warn-soft:#fff1e6;--bad:#c81e3a;--bad-soft:#feecef;
+  --p0:#2f6bff;--p1:#e1166b;--p2:#7c3aed;--p3:#d97706;
+  --c-casa:#1b2a55;--c-pers:#2f6bff;--c-gas:#d97706;--c-sobra:#17803d;
+  --shadow-card:0 1px 2px rgb(12 12 16/.04),0 4px 16px -4px rgb(12 12 16/.06);
+  --shadow-float:0 2px 4px rgb(12 12 16/.04),0 12px 32px -8px rgb(12 12 16/.14);
+  --inset:inset 0 1px 2px rgb(0 0 0/.03);
+  --hover:rgb(0 0 0/.04);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Bricolage","Inter",ui-sans-serif,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --canvas:#0c0c10;--surface:#151519;--line:#26262c;--line-strong:#34343c;
+  --ink:#f4f4f6;--ink-2:#d0d0d6;--mute:#a1a1aa;--faint:#8b8b94;
+  --accent:#5b8bff;--accent-soft:#16213d;
+  --ok:#3ccb72;--ok-soft:#0f2a1a;--warn:#f59e4b;--warn-soft:#2e1a0c;--bad:#ff5c7a;--bad-soft:#33121a;
+  --c-casa:#8ea3e6;--c-pers:#5b8bff;--c-gas:#f0a43a;--c-sobra:#3ccb72;
+  --shadow-card:0 1px 2px rgb(0 0 0/.3);--shadow-float:0 12px 32px -8px rgb(0 0 0/.6);
+  --inset:inset 0 1px 2px rgb(0 0 0/.2);--hover:rgb(255 255 255/.05);
+}}
