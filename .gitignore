@@ -1,0 +1,6 @@
+/target
+*.db
+*.db-*
+/models
+/tickets
+/avatars

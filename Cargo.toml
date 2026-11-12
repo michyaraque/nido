@@ -1,0 +1,24 @@
+[package]
+name = "nido"
+version = "0.6.4"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1", features = ["rt", "net", "macros"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+maud = "0.27"
+serde = { version = "1", features = ["derive"] }
+argon2 = "0.5"
+getrandom = "0.3"
+serde_json = "1"
+serde_urlencoded = "0.7"
+rten = "0.28"
+rten-tensor = "0.28"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+webp = { version = "0.3", default-features = false }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
