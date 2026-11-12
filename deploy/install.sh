@@ -44,6 +44,7 @@ cd /opt/nido
 case "$(uname -m)" in
   aarch64) ARCH=aarch64 ;;
   armv7l)  ARCH=armv7 ;;
+  armv6l)  ARCH=armv6 ;;
   *) echo "Arquitectura no soportada: $(uname -m)"; exit 1 ;;
 esac
 AUTH=""

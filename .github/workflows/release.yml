@@ -16,7 +16,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-unknown-linux-musl,armv7-unknown-linux-musleabihf
+          targets: aarch64-unknown-linux-musl,armv7-unknown-linux-musleabihf,arm-unknown-linux-musleabihf
 
       - uses: Swatinem/rust-cache@v2
 
@@ -51,9 +51,11 @@ jobs:
         run: |
           cargo zigbuild --release --target aarch64-unknown-linux-musl
           cargo zigbuild --release --target armv7-unknown-linux-musleabihf
+          cargo zigbuild --release --target arm-unknown-linux-musleabihf
           mkdir dist
           cp target/aarch64-unknown-linux-musl/release/nido dist/nido-aarch64
           cp target/armv7-unknown-linux-musleabihf/release/nido dist/nido-armv7
+          cp target/arm-unknown-linux-musleabihf/release/nido dist/nido-armv6
 
       - name: Release
         if: steps.version.outputs.new == 'true'
