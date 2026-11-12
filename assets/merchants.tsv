@@ -1,0 +1,311 @@
+# slug|Nombre|dominio|categoría|palabras clave (minúsculas, sin acentos, separadas por coma)
+# Sin slug ni dominio = solo categoriza por palabra clave (sin logo).
+# Logos: tools/fetch-logos.sh los descarga a assets/logos/<slug>.png
+#
+# --- Supermercados ---
+mercadona|Mercadona|mercadona.es|super|mercadona
+carrefour|Carrefour|carrefour.es|super|carrefour,carrefour express,carrefour market,centros comerciales carrefour
+lidl|Lidl|lidl.es|super|lidl
+aldi|Aldi|aldi.es|super|aldi
+dia|Dia|dia.es|super|=dia,supermercados dia,dia retail,dia market,dia supermercado
+alcampo|Alcampo|alcampo.es|super|alcampo,simply
+eroski|Eroski|eroski.es|super|eroski
+consum|Consum|consum.es|super|consum
+hipercor|Hipercor|hipercor.es|super|hipercor,supercor
+bonpreu|Bonpreu|bonpreuesclat.cat|super|bonpreu,esclat
+condis|Condis|condis.es|super|condis
+caprabo|Caprabo|caprabo.com|super|caprabo
+ahorramas|Ahorramas|ahorramas.com|super|ahorramas
+gadis|Gadis|gadis.es|super|gadis
+froiz|Froiz|froiz.com|super|froiz
+masymas|Masymas|masymas.com|super|masymas
+spar|Spar|spar.es|super|spar
+bm|BM Supermercados|bmsupermercados.es|super|bm supermercados
+lupa|Lupa|supermercadoslupa.es|super|lupa
+hiperdino|HiperDino|hiperdino.es|super|hiperdino,superdino
+coviran|Covirán|coviran.es|super|coviran
+ametller|Ametller Origen|ametllerorigen.com|super|ametller
+eci-super|El Corte Inglés Supermercado|elcorteingles.es|super|supermercado el corte ingles
+costco|Costco|costco.es|super|costco
+makro|Makro|makro.es|super|makro
+familia|Familia|autoserviciosfamilia.com|super|=familia,autoservicios familia,supermercados familia,supermercado familia,familia supermercado
+|||super|supermercado,super,fruteria,carniceria,pescaderia,panaderia,mercado,ultramarinos,colmado
+#
+# --- Restauración ---
+mcdonalds|McDonald's|mcdonalds.es|comida|mcdonalds,mc donalds,mcdonald
+burgerking|Burger King|burgerking.es|comida|burger king
+telepizza|Telepizza|telepizza.es|comida|telepizza,telepizza sau
+dominos|Domino's|dominospizza.es|comida|dominos,domino s pizza
+kfc|KFC|kfc.es|comida|kfc
+fosters|Foster's Hollywood|fostershollywood.es|comida|fosters,foster s hollywood
+goiko|Goiko|goiko.com|comida|goiko
+vips|VIPS|vips.es|comida|vips
+montaditos|100 Montaditos|spain.100montaditos.com|comida|100 montaditos,montaditos
+tgb|TGB|tgb.es|comida|tgb,the good burger
+tacobell|Taco Bell|tacobell.es|comida|taco bell
+fiveguys|Five Guys|fiveguys.es|comida|five guys
+popeyes|Popeyes|popeyes.es|comida|popeyes
+subway|Subway|subway.com|comida|subway
+papajohns|Papa John's|papajohns.es|comida|papa johns,papa john s
+tagliatella|La Tagliatella|latagliatella.es|comida|tagliatella
+ginos|Ginos|ginos.es|comida|ginos
+lizarran|Lizarran|lizarran.es|comida|lizarran
+udon|Udon|udon.es|comida|udon
+pansandco|Pans & Company|pansandcompany.com|comida|pans company,pans and company
+rodilla|Rodilla|rodilla.es|comida|rodilla
+sushishop|Sushi Shop|sushishop.eu|comida|sushi shop
+|||comida|restaurante,restaurant,cena,comida,almuerzo,desayuno,pizzeria,hamburgueseria,taberna,meson,asador,sushi,kebab,bodega,tapas,brasa,marisqueria,cerveceria,braseria,bocateria
+#
+# --- Cafeterías ---
+starbucks|Starbucks|starbucks.es|cafe|starbucks
+granier|Granier|panaderiasgranier.com|cafe|granier
+timhortons|Tim Hortons|timhortons.es|cafe|tim hortons
+costa|Costa Coffee|costacoffee.es|cafe|costa coffee
+|||cafe|cafe,cafeteria,bar,cafes,churreria,pasteleria,heladeria,horno
+#
+# --- Delivery ---
+glovo|Glovo|glovoapp.com|delivery|glovo
+justeat|Just Eat|just-eat.es|delivery|just eat,justeat
+ubereats|Uber Eats|ubereats.com|delivery|uber eats,ubereats
+#
+# --- Moda ---
+zara|Zara|zara.com|ropa|zara
+pullandbear|Pull&Bear|pullandbear.com|ropa|pull bear,pull and bear,pullandbear
+bershka|Bershka|bershka.com|ropa|bershka
+stradivarius|Stradivarius|stradivarius.com|ropa|stradivarius
+massimodutti|Massimo Dutti|massimodutti.com|ropa|massimo dutti
+oysho|Oysho|oysho.com|ropa|oysho
+lefties|Lefties|lefties.com|ropa|lefties
+mango|Mango|mango.com|ropa|mango
+primark|Primark|primark.com|ropa|primark
+hm|H&M|hm.com|ropa|h m,h&m,hm hennes
+uniqlo|Uniqlo|uniqlo.com|ropa|uniqlo
+kiabi|Kiabi|kiabi.es|ropa|kiabi
+desigual|Desigual|desigual.com|ropa|desigual
+springfield|Springfield|myspringfield.com|ropa|springfield
+cortefiel|Cortefiel|cortefiel.com|ropa|cortefiel
+shein|Shein|shein.com|ropa|shein
+zalando|Zalando|zalando.es|ropa|zalando
+vinted|Vinted|vinted.es|ropa|vinted
+nike|Nike|nike.com|ropa|nike
+adidas|Adidas|adidas.es|ropa|adidas
+jdsports|JD Sports|jdsports.es|ropa|jd sports
+sprinter|Sprinter|sprintersports.com|deporte|sprinter
+decathlon|Decathlon|decathlon.es|deporte|decathlon
+|||ropa|zapateria,boutique,moda
+#
+# --- Grandes almacenes y compras online ---
+elcorteingles|El Corte Inglés|elcorteingles.es|compras|el corte ingles,corte ingles,eci
+amazon|Amazon|amazon.es|compras|amazon,amzn,amazon es,amazon mktplace
+aliexpress|AliExpress|aliexpress.com|compras|aliexpress
+temu|Temu|temu.com|compras|temu
+tiktokshop|TikTok Shop|shop.tiktok.com|compras|tiktok shop,tiktok
+wallapop|Wallapop|es.wallapop.com|compras|wallapop
+action|Action|action.com|compras|action
+tiger|Flying Tiger|flyingtiger.com|compras|flying tiger,tiger stores
+miravia|Miravia|miravia.es|compras|miravia
+casadellibro|Casa del Libro|casadellibro.com|compras|casa del libro
+|||compras|bazar,chino,papeleria,libreria,estanco,kiosko,quiosco,todo a 100,regalos
+#
+# --- Hogar ---
+ikea|IKEA|ikea.com|hogar|ikea
+leroymerlin|Leroy Merlin|leroymerlin.es|hogar|leroy merlin
+bricomart|Bricomart|bricomart.es|hogar|bricomart
+bricodepot|Brico Depôt|bricodepot.es|hogar|brico depot
+bauhaus|Bauhaus|bauhaus.es|hogar|bauhaus
+conforama|Conforama|conforama.es|hogar|conforama
+jysk|JYSK|jysk.es|hogar|jysk
+maisonsdumonde|Maisons du Monde|maisonsdumonde.com|hogar|maisons du monde
+zarahome|Zara Home|zarahome.com|hogar|zara home
+|||hogar|alquiler,hipoteca,comunidad,ferreteria,muebles,limpieza,lavanderia,tintoreria,cerrajero,fontanero
+#
+# --- Tecnología ---
+mediamarkt|MediaMarkt|mediamarkt.es|tech|media markt,mediamarkt
+fnac|Fnac|fnac.es|tech|fnac
+pccomponentes|PcComponentes|pccomponentes.com|tech|pccomponentes,pc componentes
+worten|Worten|worten.es|tech|worten
+apple|Apple|apple.com|tech|apple store,apple com bill,apple
+backmarket|Back Market|backmarket.es|tech|back market
+game|GAME|game.es|tech|game stores,game es
+#
+# --- Servidores y servicios en la nube ---
+contabo|Contabo|contabo.com|tech|contabo,contabo gmbh
+runpod|RunPod|runpod.io|tech|runpod,runpod io
+cloudflare|Cloudflare|cloudflare.com|tech|cloudflare
+ovh|OVHcloud|ovhcloud.com|tech|ovh,ovhcloud,ovh sas,ovh hispano
+#
+# --- Transporte ---
+renfe|Renfe|renfe.com|transporte|renfe,cercanias
+ouigo|Ouigo|ouigo.com|transporte|ouigo
+iryo|iryo|iryo.eu|transporte|iryo
+alsa|ALSA|alsa.es|transporte|alsa
+blablacar|BlaBlaCar|blablacar.es|transporte|blablacar
+cabify|Cabify|cabify.com|transporte|cabify
+uber|Uber|uber.com|transporte|uber,uber trip,uber bv
+bolt|Bolt|bolt.eu|transporte|bolt
+freenow|FREENOW|free-now.com|transporte|free now,freenow,mytaxi
+metromadrid|Metro de Madrid|metromadrid.es|transporte|metro de madrid,metro madrid
+emt|EMT Madrid|emtmadrid.es|transporte|emt madrid,emt
+tmb|TMB|tmb.cat|transporte|tmb,metro barcelona
+bicimad|BiciMAD|bicimad.com|transporte|bicimad
+lime|Lime|li.me|transporte|lime
+|||transporte|taxi,metro,autobus,bus,tranvia,abono transporte,consorcio transportes,tarjeta transporte
+#
+# --- Viajes ---
+iberia|Iberia|iberia.com|viajes|iberia
+vueling|Vueling|vueling.com|viajes|vueling
+ryanair|Ryanair|ryanair.com|viajes|ryanair
+aireuropa|Air Europa|aireuropa.com|viajes|air europa
+easyjet|easyJet|easyjet.com|viajes|easyjet
+binter|Binter|bintercanarias.com|viajes|binter
+booking|Booking.com|booking.com|viajes|booking
+airbnb|Airbnb|airbnb.es|viajes|airbnb
+nh|NH Hotels|nh-hotels.com|viajes|nh hotel,nh hoteles
+melia|Meliá|melia.com|viajes|melia
+aena|Aena|aena.es|viajes|aena
+|||viajes|hotel,hostal,apartamentos turisticos,aeropuerto,vuelo
+#
+# --- Combustible ---
+repsol|Repsol|repsol.es|combustible|repsol,waylet
+moeve|Moeve (Cepsa)|moeve.es|combustible|cepsa,moeve
+bp|BP|bp.com|combustible|bp,bp oil
+shell|Shell|shell.es|combustible|shell
+galp|Galp|galp.com|combustible|galp
+ballenoil|Ballenoil|ballenoil.es|combustible|ballenoil
+plenoil|Plenoil|plenoil.es|combustible|plenoil
+petroprix|Petroprix|petroprix.com|combustible|petroprix
+|||combustible|gasolinera,gasolina,gasoil,gasoleo,diesel,combustible,carburante,estacion de servicio,repostaje
+#
+# --- Coche ---
+norauto|Norauto|norauto.es|coche|norauto
+midas|Midas|midas.es|coche|midas
+telpark|Telpark|telpark.com|coche|telpark
+empark|Empark|empark.com|coche|empark
+|||coche|parking,aparcamiento,peaje,autopista,itv,taller,lavado,seguro coche,coche
+#
+# --- Suscripciones ---
+netflix|Netflix|netflix.com|subs|netflix
+spotify|Spotify|spotify.com|subs|spotify
+hbomax|HBO Max|hbomax.com|subs|hbo,hbo max,max com
+disney|Disney+|disneyplus.com|subs|disney,disney plus
+primevideo|Prime Video|primevideo.com|subs|prime video,amazon prime
+youtube|YouTube|youtube.com|subs|youtube,youtube premium
+icloud|iCloud|icloud.com|subs|icloud
+dazn|DAZN|dazn.com|subs|dazn
+filmin|Filmin|filmin.es|subs|filmin
+atresplayer|Atresplayer|atresplayer.com|subs|atresplayer
+skyshowtime|SkyShowtime|skyshowtime.com|subs|skyshowtime
+openai|ChatGPT|openai.com|subs|openai,chatgpt
+claude|Claude|claude.ai|subs|claude,anthropic
+deepseek|DeepSeek|deepseek.com|subs|deepseek
+pixellab|PixelLab|pixellab.ai|subs|pixellab,pixel lab
+google|Google|google.com|subs|google,google one,google play
+microsoft|Microsoft|microsoft.com|subs|microsoft,office 365,microsoft 365
+playstation|PlayStation|playstation.com|subs|playstation,psn,sony interactive
+xbox|Xbox|xbox.com|subs|xbox
+nintendo|Nintendo|nintendo.es|subs|nintendo
+steam|Steam|steampowered.com|ocio|steam,steampowered,valve
+audible|Audible|audible.es|subs|audible
+kindle|Kindle|amazon.es|subs|kindle
+|||subs|suscripcion,cuota mensual
+#
+# --- Telefonía e internet ---
+movistar|Movistar|movistar.es|telefono|movistar,telefonica
+vodafone|Vodafone|vodafone.es|telefono|vodafone
+orange|Orange|orange.es|telefono|orange
+yoigo|Yoigo|yoigo.com|telefono|yoigo
+masmovil|MásMóvil|masmovil.es|telefono|masmovil,mas movil
+digi|DIGI|digimobil.es|telefono|digi,digimobil
+pepephone|Pepephone|pepephone.com|telefono|pepephone
+simyo|Simyo|simyo.es|telefono|simyo
+lowi|Lowi|lowi.es|telefono|lowi
+o2|O2|o2online.es|telefono|o2
+finetwork|Finetwork|finetwork.com|telefono|finetwork
+jazztel|Jazztel|jazztel.com|telefono|jazztel
+|||telefono|internet,movil,fibra,telefono,tarifa movil
+#
+# --- Suministros ---
+iberdrola|Iberdrola|iberdrola.es|facturas|iberdrola,curenergia
+endesa|Endesa|endesa.com|facturas|endesa,energia xxi
+naturgy|Naturgy|naturgy.es|facturas|naturgy,gas natural
+totalenergies|TotalEnergies|totalenergies.es|facturas|totalenergies,total energies
+holaluz|Holaluz|holaluz.com|facturas|holaluz
+octopus|Octopus Energy|octopusenergy.es|facturas|octopus energy,octopus
+repsolluz|Repsol Luz y Gas|repsol.es|facturas|repsol luz,repsol electricidad
+canaldeisabel|Canal de Isabel II|canaldeisabelsegunda.es|facturas|canal de isabel,canal isabel ii
+aiguesbcn|Aigües de Barcelona|aiguesdebarcelona.cat|facturas|aigues de barcelona,agbar
+|||facturas|luz,agua,gas,electricidad,basura,ibi,factura,butano,calefaccion
+#
+# --- Salud ---
+sanitas|Sanitas|sanitas.es|salud|sanitas
+adeslas|Adeslas|segurcaixaadeslas.es|salud|adeslas
+dkv|DKV|dkv.es|salud|dkv
+asisa|Asisa|asisa.es|salud|asisa
+quironsalud|Quirónsalud|quironsalud.com|salud|quiron,quironsalud
+vitaldent|Vitaldent|vitaldent.com|salud|vitaldent
+multiopticas|Multiópticas|multiopticas.com|salud|multiopticas
+generaloptica|General Óptica|generaloptica.es|salud|general optica
+|||salud|farmacia,parafarmacia,clinica,hospital,dentista,dental,optica,fisioterapia,fisio,medico,psicologo,veterinario
+#
+# --- Deporte ---
+basicfit|Basic-Fit|basic-fit.com|deporte|basic fit,basicfit
+mcfit|McFIT|mcfit.com|deporte|mcfit
+vivagym|VivaGym|vivagym.es|deporte|vivagym,viva gym
+altafit|Altafit|altafitgymclub.com|deporte|altafit
+gofit|Go fit|go-fit.es|deporte|go fit
+anytimefitness|Anytime Fitness|anytimefitness.es|deporte|anytime fitness
+dir|DIR|dir.cat|deporte|club dir
+|||deporte|gimnasio,gym,piscina,padel,polideportivo,yoga,pilates,crossfit
+#
+# --- Bancos y pagos ---
+bizum|Bizum|bizum.es|banco|bizum
+paypal|PayPal|paypal.com|banco|paypal
+revolut|Revolut|revolut.com|banco|revolut
+bbva|BBVA|bbva.es|banco|bbva
+santander|Santander|bancosantander.es|banco|santander
+caixabank|CaixaBank|caixabank.es|banco|caixabank,la caixa,imagin
+ing|ING|ing.es|banco|ing
+sabadell|Sabadell|bancsabadell.com|banco|sabadell
+bankinter|Bankinter|bankinter.com|banco|bankinter
+openbank|Openbank|openbank.es|banco|openbank
+n26|N26|n26.com|banco|n26
+unicaja|Unicaja|unicajabanco.es|banco|unicaja
+abanca|Abanca|abanca.com|banco|abanca
+kutxabank|Kutxabank|kutxabank.es|banco|kutxabank
+mapfre|Mapfre|mapfre.es|banco|mapfre
+mutua|Mutua Madrileña|mutua.es|banco|mutua madrilena,mutua
+lineadirecta|Línea Directa|lineadirecta.com|banco|linea directa
+|||banco|tarjeta,transferencia,comision,seguro,prestamo,cajero,hacienda,impuesto
+#
+# --- Ocio ---
+yelmo|Yelmo Cines|yelmocines.es|ocio|yelmo
+cinesa|Cinesa|cinesa.es|ocio|cinesa
+kinepolis|Kinépolis|kinepolis.es|ocio|kinepolis
+ticketmaster|Ticketmaster|ticketmaster.es|ocio|ticketmaster
+entradas|Entradas.com|entradas.com|ocio|entradas com
+fever|Fever|feverup.com|ocio|fever,feverup
+habbo|Habbo|habbo.es|ocio|habbo,sulake
+loterias|Loterías y Apuestas|loteriasyapuestas.es|ocio|loterias,loteria
+|||ocio|cine,teatro,concierto,museo,discoteca,pub,bolera,escape room,parque,entradas
+#
+# --- Mascotas ---
+tiendanimal|Tiendanimal|tiendanimal.es|mascotas|tiendanimal
+kiwoko|Kiwoko|kiwoko.com|mascotas|kiwoko
+zooplus|Zooplus|zooplus.es|mascotas|zooplus
+|||mascotas|mascota,veterinaria,pienso
+#
+# --- Belleza ---
+primor|Primor|primor.eu|belleza|primor
+druni|Druni|druni.es|belleza|druni
+sephora|Sephora|sephora.es|belleza|sephora
+douglas|Douglas|douglas.es|belleza|douglas
+arenal|Arenal|arenal.com|belleza|arenal
+|||belleza|peluqueria,barberia,estetica,unas,perfumeria,cosmetica
+#
+# --- Envíos ---
+correos|Correos|correos.es|envios|correos
+seur|SEUR|seur.com|envios|seur
+mrw|MRW|mrw.es|envios|mrw
+#
+# --- Educación ---
+|||educacion|colegio,academia,guarderia,universidad,matricula,curso,libros de texto
