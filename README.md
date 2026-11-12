@@ -6,7 +6,7 @@
 
 ## Hecho para gastar casi nada
 
-Nido está pensado para vivir años en una Raspberry Pi 3 (1 GB de RAM) sin que se note:
+Nido está pensado para vivir años en una Raspberry Pi sin que se note. Funciona hasta en una Pi Zero con 512 MB. Estas son las cifras en una Pi 3 B+:
 
 | | |
 |---|---|
@@ -22,6 +22,35 @@ Cómo se consigue:
 - Una sola conexión SQLite en modo WAL.
 - Plantillas compiladas (maud) y ningún runtime de JavaScript en el servidor.
 - El modelo de OCR solo se carga cuando llega la primera foto.
+
+## ¿Qué Raspberry Pi sirve?
+
+Cualquiera, desde la primera Raspberry Pi. Lo único que cambia de un modelo a otro es lo que tarda en leer un ticket. Las páginas, las cuentas, la compra y las tareas van igual de rápido en todas.
+
+**Memoria que necesita Nido con todo:**
+- ~7 MB en reposo;
+- ~40 MB de Caddy, que da el HTTPS;
+- ~100 MB más, solo mientras lee un ticket.
+
+Con 512 MB sobra.
+
+| Modelo | Sistema | Versión de Nido | Leer un ticket |
+|---|---|---|---|
+| Pi 5, Pi 4, Pi 400, CM4 | 64 bits | `aarch64` | 1–3 s (estimado) |
+| Pi 3 B, 3 B+, 3 A+ | 64 bits | `aarch64` | **4–5 s** (medido en una 3 B+) |
+| Pi Zero 2 W | 64 bits | `aarch64` | 6–8 s (estimado) |
+| Pi 2, o cualquiera con sistema de 32 bits | 32 bits | `armv7` | ~15 s en una 3 B+ (medido); más en una Pi 2 |
+| Pi 1, Pi Zero, Pi Zero W | 32 bits | `armv6` | un minuto o más (estimado): tienen un solo núcleo |
+
+El instalador elige la versión correcta solo. Consejos:
+
+- **Si tu Pi admite 64 bits** (de la 3 en adelante y la Zero 2 W), instala Raspberry Pi OS **(64-bit)**. El lector de tickets va unas 3 veces más rápido que con el sistema de 32 bits en la misma placa.
+- **Con 512 MB o menos** (Zero, Zero 2 W, 3 A+, Pi 1), usa la versión **Lite**, sin escritorio. El escritorio solo ya gasta más que Nido entero.
+- **Pi 1, Zero y Zero W:**
+  - La versión `armv6` está comprobada: solo usa instrucciones de esas placas y funciona en una 3 B+ en modo de 32 bits. Pero no se ha probado en esas placas en sí.
+  - Todo va bien salvo la lectura de tickets, que es lenta. Mientras lee puedes seguir usando Nido, y si no la usas no se nota.
+  - La Pi 1 y la Zero sin W no tienen wifi: necesitan cable o un adaptador.
+- **Tarjeta SD:** con 8 GB sobra. Nido y los modelos ocupan menos de 20 MB, y cada ticket unos 150 KB.
 
 ## Qué hace
 
@@ -60,11 +89,11 @@ Cómo se consigue:
 | HTTPS | [Caddy](https://caddyserver.com) con una autoridad de certificación propia de la casa |
 | Nombre en la red | avahi (mDNS): `nido.local` sin tocar el router |
 | Avisos | [Bot API de Telegram](https://core.telegram.org/bots/api) con widgets HTML, a través de `curl` |
-| Compilación | [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) para ARM (musl, estático) y GitHub Actions para las versiones |
+| Compilación | [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) para ARM de 64 y 32 bits (`aarch64`, `armv7`, `armv6`; musl, estático) y GitHub Actions para las versiones |
 
 ## Instalación
 
-Necesitas una Raspberry Pi (3 B+ o superior, 64 bits recomendado) con Raspberry Pi OS Lite, conectada a la red de casa y con SSH activado. Lo más fácil es prepararla con [Raspberry Pi Imager](https://www.raspberrypi.com/software/): ahí eliges la wifi, el usuario y activas SSH.
+Necesitas una Raspberry Pi ([cualquier modelo](#qué-raspberry-pi-sirve)) con Raspberry Pi OS Lite, conectada a la red de casa y con SSH activado. Lo más fácil es prepararla con [Raspberry Pi Imager](https://www.raspberrypi.com/software/): ahí eliges la wifi, el usuario y activas SSH.
 
 ### 1. Instalar Nido
 
