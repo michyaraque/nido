@@ -9,30 +9,15 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  # The version is the one in Cargo.toml: bump it there to publish a new release.
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      new: ${{ steps.v.outputs.new }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-musl,armv7-unknown-linux-musleabihf,arm-unknown-linux-musleabihf
-
-      - uses: Swatinem/rust-cache@v2
-
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.14.1
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-zigbuild
-
-      - run: cargo test
-
-      # The version is the one in Cargo.toml: bump it there to publish a new release.
-      - name: Version
-        id: version
+      - id: v
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -45,21 +30,56 @@ jobs:
             echo "new=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Static (musl) binaries: run on any Raspberry Pi OS regardless of glibc version.
-      - name: Build
-        if: steps.version.outputs.new == 'true'
-        run: |
-          cargo zigbuild --release --target aarch64-unknown-linux-musl
-          cargo zigbuild --release --target armv7-unknown-linux-musleabihf
-          cargo zigbuild --release --target arm-unknown-linux-musleabihf
-          mkdir dist
-          cp target/aarch64-unknown-linux-musl/release/nido dist/nido-aarch64
-          cp target/armv7-unknown-linux-musleabihf/release/nido dist/nido-armv7
-          cp target/arm-unknown-linux-musleabihf/release/nido dist/nido-armv6
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
 
-      - name: Release
-        if: steps.version.outputs.new == 'true'
-        env:
+  # One job per board family, all at once. Static (musl) binaries run on any Raspberry Pi OS.
+  build:
+    needs: version
+    if: needs.version.outputs.new == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { target: aarch64-unknown-linux-musl, arch: aarch64 }
+          - { target: armv7-unknown-linux-musleabihf, arch: armv7 }
+          - { target: arm-unknown-linux-musleabihf, arch: armv6 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+      - run: |
+          cargo zigbuild --release --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/nido nido-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nido-${{ matrix.arch }}
+          path: nido-${{ matrix.arch }}
+
+  release:
+    needs: [version, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-        run: gh release create "$TAG" dist/* --title "Nido $TAG" --generate-notes
+          TAG: ${{ needs.version.outputs.tag }}
+        run: gh release create "$TAG" dist/* --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Nido $TAG" --generate-notes
