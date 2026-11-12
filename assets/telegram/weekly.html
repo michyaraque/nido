@@ -1,0 +1,64 @@
+<style>
+:root{color-scheme:light dark}
+body{margin:0;font:var(--tg-text-font-size,15px)/1.35 system-ui,sans-serif;color:var(--tg-theme-text-color)}
+.w{padding:12px 14px}
+h3{margin:0;font-size:16px;font-weight:700}
+.s{margin:2px 0 12px;color:var(--tg-theme-hint-color);font-size:13px}
+.l{font-size:12px;font-weight:600;color:var(--tg-theme-hint-color);margin:0 0 6px}
+.bar{display:flex;height:22px;border-radius:7px;overflow:hidden;margin-bottom:6px;background:var(--tg-theme-secondary-bg-color)}
+.bar span{display:flex;align-items:center;padding:0 8px;color:#fff;font-size:12px;font-weight:700}
+.k{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;margin-bottom:14px}
+.k i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.g{font-size:24px;font-weight:700;margin:0}
+.r{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--tg-theme-section-separator-color,rgba(127,127,127,.2));font-size:14px}
+.r b{font-weight:600}
+</style>
+<div class="w">
+  <h3>Resumen de la semana</h3>
+  <p class="s" id="w"></p>
+  <p class="l">Tareas hechas</p>
+  <div class="bar" id="bar"></div>
+  <div class="k" id="k"></div>
+  <p class="l">Tus gastos</p>
+  <p class="g" id="g"></p>
+  <p class="s" id="n"></p>
+  <div id="c"></div>
+</div>
+<script>
+const W = window.TelegramWidget;
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls || "", textContent: text || "" });
+
+function render() {
+  let d;
+  try { d = JSON.parse(W.chatData || "{}"); } catch { d = {}; }
+  const people = d.t || [];
+  const total = people.reduce((a, p) => a + p[1], 0);
+  $("w").textContent = d.w || "";
+  $("bar").replaceChildren(...people.filter((p) => p[1] > 0).map((p) => {
+    const s = el("span", "", String(p[1]));
+    s.style.width = (p[1] * 100 / total) + "%";
+    s.style.background = p[2];
+    return s;
+  }));
+  if (!total) $("bar").replaceChildren(el("span", "", ""));
+  $("k").replaceChildren(...people.map((p) => {
+    const s = el("span", "", p[0] + " · " + p[1]);
+    const dot = el("i");
+    dot.style.background = p[2];
+    s.prepend(dot);
+    return s;
+  }));
+  $("g").textContent = d.g || "0,00 €";
+  $("n").textContent = (d.n || 0) + ((d.n === 1) ? " compra en 7 días" : " compras en 7 días");
+  $("c").replaceChildren(...(d.c || []).map((c) => {
+    const r = el("div", "r");
+    r.append(el("span", "", c[0]), el("b", "", c[1]));
+    return r;
+  }));
+}
+
+W.onEvent("chatDataChanged", render);
+render();
+W.ready();
+</script>

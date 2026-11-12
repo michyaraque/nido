@@ -1,0 +1,74 @@
+<style>
+:root{color-scheme:light dark}
+body{margin:0;font:var(--tg-text-font-size,15px)/1.35 system-ui,sans-serif;color:var(--tg-theme-text-color)}
+.w{padding:12px 14px 6px}
+h3{margin:0;font-size:16px;font-weight:700}
+.s{margin:2px 0 8px;color:var(--tg-theme-hint-color);font-size:13px}
+.r{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--tg-theme-section-separator-color,rgba(127,127,127,.2))}
+.d{width:10px;height:10px;border-radius:50%;flex:none}
+.t{flex:1;min-width:0}
+.t b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t small{color:var(--tg-theme-hint-color);font-size:12px}
+button{flex:none;border:0;border-radius:10px;padding:8px 12px;min-width:76px;font:600 13px system-ui,sans-serif;background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color)}
+button:active{opacity:.7}
+.x b{text-decoration:line-through;color:var(--tg-theme-hint-color)}
+.x button{background:transparent;color:var(--tg-theme-hint-color)}
+.e{padding:12px 0;color:var(--tg-theme-hint-color);font-size:13px}
+</style>
+<div class="w"><h3 id="h"></h3><p class="s" id="s"></p><div id="l"></div></div>
+<script>
+const W = window.TelegramWidget;
+const $ = (id) => document.getElementById(id);
+const busy = new Set();
+
+function state() {
+  try { return JSON.parse(W.chatData || '{"h":"","i":[]}'); } catch { return { h: "", i: [] }; }
+}
+
+function render() {
+  const d = state();
+  const left = d.i.filter((it) => !it[4] && !busy.has(it[0])).length;
+  $("h").textContent = d.h;
+  $("s").textContent = left ? left + (left === 1 ? " pendiente" : " pendientes") : "Todo hecho. ¡Bien!";
+  $("l").replaceChildren(...d.i.map((it) => {
+    const [key, name, why, color, done] = it;
+    const row = document.createElement("div");
+    row.className = "r" + (done || busy.has(key) ? " x" : "");
+    const dot = document.createElement("span");
+    dot.className = "d";
+    dot.style.background = color;
+    const txt = document.createElement("div");
+    txt.className = "t";
+    const b = document.createElement("b");
+    b.textContent = name;
+    const sm = document.createElement("small");
+    sm.textContent = done ? "Hecha" : why;
+    txt.append(b, sm);
+    const btn = document.createElement("button");
+    btn.textContent = done ? "Hecha" : busy.has(key) ? "…" : "Hecha";
+    if (!done && !busy.has(key)) btn.addEventListener("click", () => tap(key));
+    row.append(dot, txt, btn);
+    return row;
+  }));
+}
+
+// Must start synchronously in the tap: Telegram only lets a widget ask the bot from a user gesture.
+function tap(key) {
+  busy.add(key);
+  const p = W.request("done:" + key);
+  render();
+  p.then((r) => {
+    busy.delete(key);
+    if (r.result !== "ok") fail();
+    render();
+  }).catch(() => { busy.delete(key); fail(); render(); });
+}
+
+function fail() {
+  $("s").textContent = "No se ha podido apuntar. Inténtalo otra vez.";
+}
+
+W.onEvent("chatDataChanged", render);
+render();
+W.ready();
+</script>
