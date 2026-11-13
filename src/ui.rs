@@ -43,7 +43,20 @@ pub fn initial(name: &str) -> String {
     name.chars().find(|c| c.is_alphanumeric()).unwrap_or('?').to_uppercase().to_string()
 }
 
-pub const PALETTE: [&str; 8] = ["#2f6bff", "#e1166b", "#7c3aed", "#d97706", "#0891b2", "#17803d", "#db2777", "#52525b"];
+/// House themes: (id, name, description, preview [side, surface, accent]). First is the default.
+pub const THEMES: [(&str, &str, &str, [&str; 3]); 5] = [
+    ("zinc", "Neutro", "Grises limpios, el de siempre", ["#f4f4f5", "#ffffff", "#09090b"]),
+    ("warm", "Cálido", "Piedra y beige, como papel", ["#efece6", "#ffffff", "#1c1a17"]),
+    ("ocean", "Océano", "Azul pizarra, tranquilo", ["#eef2f7", "#ffffff", "#0369a1"]),
+    ("forest", "Bosque", "Verde salvia, natural", ["#edf2ee", "#ffffff", "#15803d"]),
+    ("rose", "Rosa", "Suave, con un toque de color", ["#f5eef1", "#ffffff", "#be185d"]),
+];
+
+pub fn theme_id(s: &str) -> &'static str {
+    THEMES.iter().find(|t| t.0 == s).map_or(THEMES[0].0, |t| t.0)
+}
+
+pub const PALETTE:[&str; 8] = ["#2f6bff", "#e1166b", "#7c3aed", "#d97706", "#0891b2", "#17803d", "#db2777", "#52525b"];
 
 pub fn hue(s: &str) -> &'static str {
     PALETTE[s.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32)) as usize % PALETTE.len()]

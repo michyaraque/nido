@@ -26,3 +26,15 @@
   --shadow-card:0 1px 2px rgb(0 0 0/.3);--shadow-float:0 12px 32px -8px rgb(0 0 0/.6);
   --inset:inset 0 1px 2px rgb(0 0 0/.2);--hover:rgb(255 255 255/.05);
 }}
+
+/* House themes (Ajustes de la casa). Default zinc lives in :root above. */
+.theme-warm{--canvas:#f6f4f0;--side:#efece6;--frame:#efece6;--surface:#fff;--line:#e7e3dc;--line-strong:#d8d3ca;--ink:#1c1a17;--ink-2:#45413b;--mute:#6b665e;--faint:#6f6a62;--accent:#2f6bff;--accent-soft:#eaf1ff}
+.theme-ocean{--canvas:#f6f8fb;--side:#f1f5f9;--frame:#eef2f7;--surface:#fff;--line:#e2e8f0;--line-strong:#cbd5e1;--ink:#0f172a;--ink-2:#334155;--mute:#566578;--faint:#5f6f84;--accent:#0369a1;--accent-soft:#e0f2fe}
+.theme-forest{--canvas:#f6f8f6;--side:#f1f5f2;--frame:#edf2ee;--surface:#fff;--line:#dfe7e1;--line-strong:#c9d5cc;--ink:#0f1a14;--ink-2:#2f3d34;--mute:#56675c;--faint:#5c6d62;--accent:#15803d;--accent-soft:#e6f4ea}
+.theme-rose{--canvas:#fbf8f9;--side:#f8f2f4;--frame:#f5eef1;--surface:#fff;--line:#ecdfe4;--line-strong:#dccbd2;--ink:#1f1418;--ink-2:#4a3a40;--mute:#705e66;--faint:#74626a;--accent:#be185d;--accent-soft:#fce7f0}
+@media (prefers-color-scheme:dark){
+.theme-warm{--canvas:#121110;--side:#0d0c0b;--frame:#1a1917;--surface:#1f1d1b;--line:#2c2a27;--line-strong:#3a3733;--ink:#f5f3ef;--ink-2:#d6d2cb;--mute:#a8a29a;--faint:#948e85;--accent:#5b8bff;--accent-soft:#16213d}
+.theme-ocean{--canvas:#0b1120;--side:#0b1120;--frame:#0f172a;--surface:#131c31;--line:#1e293b;--line-strong:#334155;--ink:#f1f5f9;--ink-2:#cbd5e1;--mute:#94a3b8;--faint:#8292a8;--accent:#38bdf8;--accent-soft:#0c2a3f}
+.theme-forest{--canvas:#0a100c;--side:#0a100c;--frame:#0f1712;--surface:#141d17;--line:#223027;--line-strong:#2f4035;--ink:#eef5f0;--ink-2:#c9d6cd;--mute:#9aab9f;--faint:#85968a;--accent:#4ade80;--accent-soft:#11291a}
+.theme-rose{--canvas:#120c0e;--side:#120c0e;--frame:#1a1215;--surface:#20171a;--line:#33262b;--line-strong:#45343a;--ink:#f8eff2;--ink-2:#dccbd1;--mute:#b09ca4;--faint:#988690;--accent:#f472b6;--accent-soft:#3a1426}
+}

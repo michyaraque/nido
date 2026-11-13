@@ -112,6 +112,7 @@ pub struct View {
     pub logs: Vec<Log>,
     pub plans: Vec<Plan>,
     pub share_expenses: bool,
+    pub theme: &'static str,
     pub who: String,
     pub shown: Vec<Exp>,
     pub day: Option<String>,
@@ -244,6 +245,8 @@ impl View {
             .query_row("SELECT value='1' FROM settings WHERE key='share_expenses'", [], |r| r.get(0))
             .optional()?
             .unwrap_or(false);
+        let theme: Option<String> = c.query_row("SELECT value FROM settings WHERE key='theme'", [], |r| r.get(0)).optional()?;
+        let theme = theme_id(theme.as_deref().unwrap_or(""));
         let who = match who {
             Some("all") if share_expenses => "all".to_string(),
             Some(id) if share_expenses && id.parse::<i64>().is_ok() => id.to_string(),
@@ -265,6 +268,7 @@ impl View {
             logs,
             plans,
             share_expenses,
+            theme,
             who,
             shown,
             day,
@@ -535,5 +539,6 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
         _ => home::render(&v),
     };
     let body = v.shell(content, q.ok.as_deref().and_then(flash));
-    Ok(page(&format!("{} {} · Nido", v.month_name(), v.year()), "", body))
+    // ponytail: only the app shell is themed; login and sheets stay on the default
+    Ok(page(&format!("{} {} · Nido", v.month_name(), v.year()), &format!("theme-{}", v.theme), body))
 }

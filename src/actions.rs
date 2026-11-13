@@ -315,6 +315,22 @@ pub async fn save_house(State(db): State<Db>, h: HeaderMap, F(f): F<HouseF>) -> 
     back(&month(&c, Some(&f.month))?, Some("household"), "house_saved")
 }
 
+#[derive(Deserialize)]
+pub struct ThemeF {
+    theme: String,
+    month: String,
+}
+
+pub async fn save_theme(State(db): State<Db>, h: HeaderMap, F(f): F<ThemeF>) -> R {
+    let c = lock(&db);
+    require_user!(c, h);
+    c.execute(
+        "INSERT INTO settings(key,value) VALUES('theme',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [theme_id(&f.theme)],
+    )?;
+    back(&month(&c, Some(&f.month))?, Some("household"), "house_saved")
+}
+
 pub async fn toggle_whole(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<Ctx>) -> R {
     let c = lock(&db);
     let me = require_user!(c, h);

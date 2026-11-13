@@ -156,6 +156,7 @@ async fn main() {
         .route("/plans/{id}/done", post(complete_plan))
         .route("/plans/{id}/delete", post(delete_plan))
         .route("/house/settings", post(save_house))
+        .route("/house/theme", post(save_theme))
         .route("/backups/password", post(backup::save_password))
         .route("/backups/time", post(backup::save_time))
         .route("/backups/run", post(backup::run_backup))

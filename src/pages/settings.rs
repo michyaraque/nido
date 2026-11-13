@@ -10,46 +10,42 @@ fn sections(v: &View) -> Markup {
 }
 
 pub fn render(v: &View) -> Markup {
-    html! {
-        (v.head("Ajustes", html! { "Tu perfil, tus avisos y este dispositivo" }))
-        (sections(v))
-        div.settings {
-            div.stack {
-                section.card #profile {
-                    div.card-head { span.stat-ico { (icon("users")) } div { h2 { "Tu perfil" } p { "Tu foto aparece en el calendario, en las cuentas y junto a lo que apuntas" } } }
+    let has_photo = v.users.iter().any(|u| u.id == v.me.id && u.photo > 0);
+    let main = html! {
+        (sec("profile", "Tu perfil", html! { "Cómo te ven los demás y con qué sueldo calculamos tus cuentas." }, html! {
+            div.card.set-card {
+                (item("Foto", "Aparece en el calendario, en las cuentas y junto a lo que apuntas.", html! {
                     div.profile {
                         @if let Some(u) = v.users.iter().find(|u| u.id == v.me.id) {
-                            @if u.photo > 0 {
-                                img.avatar.big src={ "/avatars/" (u.id) "?v=" (u.photo) } alt={ "Foto de " (u.name) };
-                            } @else {
-                                span.avatar.big.p0 { (initial(&u.name)) }
-                            }
+                            @if u.photo > 0 { img.avatar.big src={ "/avatars/" (u.id) "?v=" (u.photo) } alt={ "Foto de " (u.name) }; }
+                            @else { span.avatar.big.p0 { (initial(&u.name)) } }
                         }
                         div.profile-actions {
-                            b { (v.me.name) }
                             form.photo-form method="post" action="/me/avatar" enctype="multipart/form-data" {
                                 label.btn.outline.sm { input type="file" name="photo" accept="image/*" required; (icon("camera")) "Cambiar foto" }
                                 button.btn.primary.sm.photo-go { "Subir" }
                             }
-                            @if v.users.iter().any(|u| u.id == v.me.id && u.photo > 0) {
-                                form method="post" action="/me/avatar/delete" { button.btn.ghost.sm { "Quitar foto" } }
-                            }
+                            @if has_photo { form method="post" action="/me/avatar/delete" { button.btn.ghost.sm { "Quitar foto" } } }
                         }
                     }
-                }
-                section.card #salary {
-                    div.card-head { span.stat-ico { (icon("banknote")) } div { h2 { "Tu sueldo" } p { "Lo que cobras neto cada mes. Con él calculamos tu parte de la casa y lo que te sobra." } } }
-                    form.form method="post" action="/me/salary" accept-charset="utf-8" {
+                }))
+                div.set-item #salary {
+                    div.set-item-txt { label for="s" { b { "Sueldo neto mensual" } } small { "Con él calculamos tu parte de la casa y lo que te sobra." } }
+                    form.inline-field method="post" action="/me/salary" accept-charset="utf-8" {
                         (v.ctx())
-                        div.field { label for="s" { "Sueldo neto mensual" } input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary)); }
-                        button.btn.primary { "Guardar sueldo" }
+                        input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary));
+                        button.btn.outline { "Guardar" }
                     }
                 }
-                @if let Some(tg) = &v.tg { (telegram(v, tg)) }
             }
-            div.stack {
-                section.card {
-                    div.card-head { span.stat-ico { (icon("smartphone")) } div { h2 { "Atajo de iPhone" } p { "Registra cada pago con Apple Pay sin abrir la app. El iPhone tiene que poder llegar a este servidor, por ejemplo desde la wifi de casa." } } }
+        }))
+        @if let Some(tg) = &v.tg {
+            (sec("avisos", "Tus avisos", html! { "En Telegram: cuando te planifican una tarea, lo pendiente cada día y un resumen los domingos." }, telegram(v, tg)))
+        }
+        (sec("device", "Este dispositivo", html! { "Atajos y uso sin conexión. Se configura en cada móvil." }, html! {
+            div.card.set-card {
+                div.set-item.stacked {
+                    div.set-item-txt { b { "Atajo de iPhone" } small { "Registra cada pago con Apple Pay sin abrir la app. El iPhone tiene que poder llegar a este servidor, por ejemplo desde la wifi de casa." } }
                     div.form {
                         div.field {
                             label for="u" { "Dirección" }
@@ -72,8 +68,8 @@ pub fn render(v: &View) -> Markup {
                         }
                     }
                 }
-                section.card #offline {
-                    div.card-head { span.stat-ico { (icon("cloud-off")) } div { h2 { "Usar sin conexión" } p { "Fuera de casa, Nido abre con lo último que viste y guarda lo que apuntes; al volver a la wifi de casa lo envía solo. El iPhone necesita para ello el certificado de casa (una vez por móvil)." } } }
+                div.set-item.stacked #offline {
+                    div.set-item-txt { b { "Usar sin conexión" } small { "Fuera de casa, Nido abre con lo último que viste y guarda lo que apuntes; al volver a la wifi de casa lo envía solo. El iPhone necesita el certificado de casa (una vez por móvil)." } }
                     details.steps {
                         summary { (icon("chevron-right")) "Cómo activarlo en el iPhone" }
                         ol {
@@ -87,52 +83,81 @@ pub fn render(v: &View) -> Markup {
                         }
                     }
                 }
-                section.card {
-                    div.card-head { span.stat-ico { (icon("log-out")) } div { h2 { "Sesión" } p { "Has entrado como " b { (v.me.name) } ". Cerrar la sesión solo afecta a este dispositivo." } } }
-                    form method="post" action="/logout" { button.btn.danger { (icon("log-out")) "Cerrar sesión" } }
-                    p.hint.top { "Versión " (VERSION) " · " (merchants::LOGOS.len()) " comercios con logo" }
-                }
+                (item("Cerrar sesión", "Solo afecta a este dispositivo.", html! {
+                    form method="post" action="/logout" { button.btn.danger.sm { (icon("log-out")) "Cerrar sesión" } }
+                }))
             }
+        }))
+    };
+    html! {
+        (layout(v, html! { "Tu perfil, tus avisos y este dispositivo" }, main))
+    }
+}
+
+/// Shared by both settings tabs: one centred column of blocks.
+fn layout(v: &View, sub: Markup, main: Markup) -> Markup {
+    html! { div.set-page { (v.head("Ajustes", sub)) (sections(v)) div.set-list { (main) } } }
+}
+
+/// One settings block: heading above, its card below.
+fn sec(id: &str, title: &str, desc: Markup, body: Markup) -> Markup {
+    html! {
+        section.set-group id=(id) aria-labelledby={ (id) "-t" } {
+            div.set-head { h2 id={ (id) "-t" } { (title) } p { (desc) } }
+            (body)
         }
     }
 }
 
+/// A line inside a settings card: label + hint, control beside (or below with `.stacked`).
+fn item(title: &str, hint: &str, control: Markup) -> Markup {
+    html! { div.set-item { div.set-item-txt { b { (title) } small { (hint) } } (control) } }
+}
+
 pub fn render_house(v: &View) -> Markup {
-    let month_lc = v.month_lc();
     html! {
-        (v.head("Ajustes", html! { "Lo que comparte toda la casa. Lo puede cambiar cualquiera." }))
-        (sections(v))
-        div.settings {
-            div.stack {
-                section.card #house {
-                    div.card-head { span.stat-ico { (icon("house")) } div { h2 { "Control de la casa" } p { "Afecta a toda la casa. Lo puede cambiar cualquiera." } } }
-                    form.form.auto-submit method="post" action="/house/settings" {
-                        (v.ctx())
-                        input type="hidden" name="present" value="1";
-                        label.switch {
-                            input type="checkbox" name="share_expenses" checked[v.share_expenses];
-                            span { "Ver los gastos de los demás" small { "Cada uno podrá ver los gastos del día a día de toda la casa. Solo el autor puede editarlos o borrarlos." } }
+        (layout(v, html! { "Lo que comparte toda la casa. Lo puede cambiar cualquiera." }, html! {
+            (sec("house", "General", html! { "Afecta a todos los de la casa." }, html! {
+                div.card.set-card {
+                    div.set-item.stacked #theme {
+                        div.set-item-txt { b { "Tema" } small { "Los colores de Nido. En modo oscuro se adaptan solos." } }
+                        form.auto-submit method="post" action="/house/theme" {
+                            (v.ctx())
+                            div.theme-pick role="radiogroup" aria-label="Tema" {
+                                @for (id, name, desc, [side, surface, accent]) in THEMES {
+                                    label.theme-opt {
+                                        input type="radio" name="theme" value=(id) checked[id == v.theme];
+                                        span.theme-swatch style={ "--s1:" (side) ";--s2:" (surface) ";--s3:" (accent) } { span {} span {} span {} }
+                                        span.theme-txt { b { (name) } small { (desc) } }
+                                    }
+                                }
+                            }
+                            button.btn.outline.sm.auto-go { "Guardar" }
                         }
-                        button.btn.outline.sm.auto-go { "Guardar" }
                     }
+                    (item("Ver los gastos de los demás", "Cada uno ve el día a día de toda la casa. Solo el autor puede editarlos o borrarlos.", html! {
+                        form.auto-submit method="post" action="/house/settings" {
+                            (v.ctx())
+                            input type="hidden" name="present" value="1";
+                            label.toggle { input type="checkbox" name="share_expenses" checked[v.share_expenses] aria-label="Ver los gastos de los demás"; span {} }
+                            button.btn.outline.sm.auto-go { "Guardar" }
+                        }
+                    }))
                 }
-                @if let Some(tg) = &v.tg { (house_bot(v, tg)) }
-                @if let Some(b) = &v.backups { (backups(v, b)) }
+            }))
+            @if let Some(tg) = &v.tg {
+                (sec("bot-set", "Avisos por Telegram", html! { "El bot de la casa envía los avisos. Se conecta una vez; después cada persona se vincula en Mis ajustes." }, house_bot(v, tg)))
             }
-            div.stack {
-                section.card #new-bill {
-                    div.card-head { span.stat-ico { (icon("calendar-plus")) } div { h2 { "Nueva cuenta mensual" } p { "Un pago que se repite cada mes, como el alquiler o la luz. Aparecerá desde " (month_lc) "." } } }
-                    (bills::form(v))
-                }
+            @if let Some(b) = &v.backups {
+                (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir de la Pi." }, backups(v, b)))
             }
-        }
+        }))
     }
 }
 
 fn house_bot(v: &View, tg: &crate::notify::Panel) -> Markup {
     html! {
-        section.card #bot {
-        div.card-head { span.stat-ico { (icon("send")) } div { h2 { "Bot de Telegram" } p { "Envía los avisos de casa. Se conecta una vez; después cada persona se vincula en Mis ajustes." } } }
+        div.card #bot {
         @match &tg.bot {
             None => {
                 details.steps {
@@ -198,11 +223,7 @@ fn house_bot(v: &View, tg: &crate::notify::Panel) -> Markup {
 fn telegram(v: &View, tg: &crate::notify::Panel) -> Markup {
     let me_linked = tg.linked.iter().any(|(u, l)| *u == v.me.id && *l);
     html! {
-        section.card #telegram {
-            div.card-head {
-                span.stat-ico { (icon("bell-ring")) }
-                div { h2 { "Tus avisos" } p { "En Telegram: cuando te planifican una tarea, lo pendiente cada día y un resumen los domingos, con un botón para marcar cada tarea como hecha" } }
-            }
+        div.card #telegram {
             @match &tg.bot {
                 None => p.hint { "Primero hay que conectar el bot de la casa, en " a href=(v.link("household")) { "Ajustes → La casa" } },
                 Some(bot) => {
@@ -253,11 +274,7 @@ fn backups(v: &View, b: &crate::backup::Panel) -> Markup {
     let last = b.targets.iter().filter(|t| t.last_ok == Some(true)).filter_map(|t| t.last_at.as_deref()).max();
     let next = format!("{} a las {}", if b.now.as_str() < b.at.as_str() { "hoy" } else { "mañana" }, b.at);
     html! {
-        section.card #backups {
-            div.card-head.backup-head {
-                span.stat-ico { (icon("database-backup")) }
-                div { h2 { "Copias de seguridad" } p { "Cifradas con vuestra contraseña antes de salir de la Pi" } }
-            }
+        div.card #backups {
             @if !b.has_pass {
                 div.backup-start {
                     p { "Primero, una contraseña para cifrar las copias. Guardadla fuera de Nido: " b { "sin ella no se pueden recuperar." } }
