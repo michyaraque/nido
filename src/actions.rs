@@ -376,6 +376,33 @@ pub async fn set_color(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, 
     back(&month(&c, Some(&f.month))?, Some(nav::tab(f.tab.as_deref())), "color_saved")
 }
 
+/// Ajustes de la casa → Reparto. For "custom", every person's % must add up to 100.
+pub async fn save_split(State(db): State<Db>, h: HeaderMap, F(f): F<std::collections::HashMap<String, String>>) -> R {
+    let c = lock(&db);
+    require_user!(c, h);
+    let mode = split_id(f.get("mode").map(String::as_str).unwrap_or(""));
+    if mode == "custom" {
+        let ids: Vec<i64> = c.prepare("SELECT id FROM users")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        let mut shares = Vec::new();
+        for id in &ids {
+            let Some(p) = f.get(&format!("share_{id}")).and_then(|v| v.trim().parse::<i64>().ok()).filter(|p| (0..=100).contains(p)) else {
+                return bad("Pon un porcentaje entre 0 y 100 para cada persona.");
+            };
+            shares.push((*id, p));
+        }
+        let sum: i64 = shares.iter().map(|s| s.1).sum();
+        if sum != 100 {
+            return Ok((StatusCode::BAD_REQUEST, format!("Los porcentajes tienen que sumar 100 (ahora suman {sum}).")).into_response());
+        }
+        for (id, p) in shares {
+            c.execute("UPDATE users SET share=?2 WHERE id=?1", params![id, p])?;
+        }
+    }
+    c.execute("INSERT INTO settings(key,value) VALUES('split',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [mode])?;
+    let m = month(&c, f.get("month").map(String::as_str))?;
+    back(&m, Some("household"), "split_saved")
+}
+
 pub async fn toggle_whole(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<Ctx>) -> R {
     let c = lock(&db);
     let me = require_user!(c, h);

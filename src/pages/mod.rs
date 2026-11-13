@@ -19,6 +19,18 @@ pub struct U {
     pub salary: i64,
     pub photo: i64, // version of the profile photo, 0 = none
     pub color: String, // "#rrggbb"; defaults to PALETTE by position
+    pub share: i64,    // % for the "custom" split
+}
+
+/// Money that came in during `m` for one person (cash basis: counted when it arrives).
+/// `tracks_from`: month from which the fixed income must be ticked by hand; before it, or if
+/// the person doesn't track it, the fixed income counts as received in its own month.
+pub fn cash_in(m: &str, salary: i64, tracks_from: Option<&str>, salaries: &[(String, String, i64)], received: &[(String, i64)]) -> i64 {
+    let tracked = tracks_from.is_some_and(|p| m >= p);
+    let assumed = if salary > 0 && !tracked { salary } else { 0 };
+    let ticked: i64 = salaries.iter().filter(|s| s.1.starts_with(m)).map(|s| s.2).sum();
+    let extras: i64 = received.iter().filter(|r| r.0.starts_with(m)).map(|r| r.1).sum();
+    assumed + ticked + extras
 }
 pub struct Bill {
     pub id: i64,
@@ -133,6 +145,8 @@ pub struct View {
     pub plans: Vec<Plan>,
     pub share_expenses: bool,
     pub theme: &'static str,
+    pub split: &'static str,
+    pub weights: Vec<(i64, i64)>, // (user id, weight) for shared bills
     pub who: String,
     pub shown: Vec<Exp>,
     pub day: Option<String>,
@@ -148,9 +162,16 @@ pub struct View {
 impl View {
     fn load(c: &Connection, me: User, m: String, t: &'static str, host: String, day: Option<&str>, who: Option<&str>) -> rusqlite::Result<View> {
         let mut users: Vec<U> = c
-            .prepare("SELECT id,name,salary,photo,color FROM users ORDER BY id")?
+            .prepare("SELECT id,name,salary,photo,color,share FROM users ORDER BY id")?
             .query_map([], |r| {
-                Ok(U { id: r.get(0)?, name: r.get(1)?, salary: r.get(2)?, photo: r.get(3)?, color: r.get::<_, Option<String>>(4)?.unwrap_or_default() })
+                Ok(U {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    salary: r.get(2)?,
+                    photo: r.get(3)?,
+                    color: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                    share: r.get(5)?,
+                })
             })?
             .collect::<Result<_, _>>()?;
         for (i, u) in users.iter_mut().enumerate() {
@@ -288,6 +309,9 @@ impl View {
         )?;
         let theme: Option<String> = c.query_row("SELECT value FROM settings WHERE key='theme'", [], |r| r.get(0)).optional()?;
         let theme = theme_id(theme.as_deref().unwrap_or(""));
+        let split: Option<String> = c.query_row("SELECT value FROM settings WHERE key='split'", [], |r| r.get(0)).optional()?;
+        let split = split_id(split.as_deref().unwrap_or(""));
+        let weights = weights(c, split, &users, &m)?;
         let who = match who {
             Some("all") if share_expenses => "all".to_string(),
             Some(id) if share_expenses && id.parse::<i64>().is_ok() => id.to_string(),
@@ -314,6 +338,8 @@ impl View {
             plans,
             share_expenses,
             theme,
+            split,
+            weights,
             who,
             shown,
             day,
@@ -356,14 +382,16 @@ impl View {
         &self.m[..4]
     }
 
-    /// Shared bills are split proportionally to salary (evenly if nobody set one).
-    fn part(&self, amount: i64, sal: i64) -> i64 {
-        let total: i64 = self.users.iter().map(|u| u.salary).sum();
-        if total > 0 { amount * sal / total } else { amount / self.users.len().max(1) as i64 }
+    /// Shared bills are split by each person's weight (see `weights`); evenly if all weights are 0.
+    fn part(&self, amount: i64, user: i64) -> i64 {
+        let total: i64 = self.weights.iter().map(|w| w.1).sum();
+        let mine = self.weights.iter().find(|w| w.0 == user).map_or(0, |w| w.1);
+        if total > 0 { amount * mine / total } else { amount / self.users.len().max(1) as i64 }
     }
-    fn share_pct(&self, sal: i64) -> f64 {
-        let total: i64 = self.users.iter().map(|u| u.salary).sum();
-        if total > 0 { sal as f64 * 100.0 / total as f64 } else { 100.0 / self.users.len().max(1) as f64 }
+    fn share_pct(&self, user: i64) -> f64 {
+        let total: i64 = self.weights.iter().map(|w| w.1).sum();
+        let mine = self.weights.iter().find(|w| w.0 == user).map_or(0, |w| w.1);
+        if total > 0 { mine as f64 * 100.0 / total as f64 } else { 100.0 / self.users.len().max(1) as f64 }
     }
     fn shared(&self) -> i64 {
         self.bills.iter().filter(|b| b.owner.is_none()).map(|b| b.amount).sum()
@@ -381,15 +409,15 @@ impl View {
         match (b.owner, self.carrier(b)) {
             (Some(owner), _) => if owner == user.id { b.amount } else { 0 },
             (None, Some(c)) => if c == user.id { b.amount } else { 0 },
-            (None, None) => self.part(b.amount, user.salary),
+            (None, None) => self.part(b.amount, user.id),
         }
     }
     fn house_share(&self, user: &U) -> i64 {
         self.bills.iter().filter(|b| b.owner.is_none()).map(|b| self.share_of(b, user)).sum()
     }
     fn me_u(&self) -> U {
-        self.users.iter().find(|u| u.id == self.me.id).map(|u| U { id: u.id, name: u.name.clone(), salary: u.salary, photo: u.photo, color: u.color.clone() })
-            .unwrap_or(U { id: self.me.id, name: self.me.name.clone(), salary: self.me.salary, photo: 0, color: PALETTE[0].into() })
+        self.users.iter().find(|u| u.id == self.me.id).map(|u| U { id: u.id, name: u.name.clone(), salary: u.salary, photo: u.photo, color: u.color.clone(), share: u.share })
+            .unwrap_or(U { id: self.me.id, name: self.me.name.clone(), salary: self.me.salary, photo: 0, color: PALETTE[0].into(), share: 0 })
     }
     fn my_house(&self) -> i64 {
         self.house_share(&self.me_u())
@@ -406,7 +434,7 @@ impl View {
             div.field {
                 label { "¿Quién la paga?" }
                 div.chips role="radiogroup" aria-label="Quién la paga" {
-                    label.chip-radio { input type="radio" name="mode" value="split" checked[current == "split"]; span { "Repartida según sueldo" } }
+                    label.chip-radio { input type="radio" name="mode" value="split" checked[current == "split"]; span { "Repartida" } }
                     @for u in &self.users {
                         @let value = format!("user:{}", u.id);
                         label.chip-radio { input type="radio" name="mode" value=(value) checked[current == value];
@@ -427,10 +455,9 @@ impl View {
     }
     /// Money that actually came in during month `m` (cash basis: a late payslip counts when it arrives).
     fn income_in(&self, m: &str) -> i64 {
-        let assumed = if self.me.salary > 0 && !self.tracks_salary(m) { self.me.salary } else { 0 };
-        let salaries: i64 = self.salaries.iter().filter(|s| s.1.starts_with(m)).map(|s| s.2).sum();
-        let extras: i64 = self.incomes.iter().filter(|i| i.received.as_deref().is_some_and(|d| d.starts_with(m))).map(|i| i.amount).sum();
-        assumed + salaries + extras
+        let received: Vec<(String, i64)> = self.incomes.iter().filter_map(|i| Some((i.received.clone()?, i.amount))).collect();
+        let tracks_from = self.track_pay.then_some(self.pay_since.as_str());
+        cash_in(m, self.me.salary, tracks_from, &self.salaries, &received)
     }
     fn income(&self) -> i64 {
         self.income_in(&self.m)
@@ -481,7 +508,7 @@ impl View {
         let paid_by_me: i64 = self.bills.iter().filter(split).filter(|b| b.payer == Some(self.me.id)).map(|b| b.amount).sum();
         let received: i64 = self.settles.iter().filter(|s| s.to == self.me.id).map(|s| s.amount).sum();
         let sent: i64 = self.settles.iter().filter(|s| s.from == self.me.id).map(|s| s.amount).sum();
-        paid_by_me - self.part(paid_shared, self.me.salary) - received + sent
+        paid_by_me - self.part(paid_shared, self.me.id) - received + sent
     }
     fn pct_of_income(&self, v: i64) -> i64 {
         let income = self.income();
@@ -608,6 +635,35 @@ impl View {
     }
 }
 
+/// Each person's weight in the shared bills for month `m`, following the house's split mode.
+fn weights(c: &Connection, split: &str, users: &[U], m: &str) -> rusqlite::Result<Vec<(i64, i64)>> {
+    Ok(match split {
+        "equal" => users.iter().map(|u| (u.id, 1)).collect(),
+        "custom" => users.iter().map(|u| (u.id, u.share)).collect(),
+        "avg3" => {
+            let salaries: Vec<(i64, String, String, i64)> = c
+                .prepare("SELECT user_id,month,day,amount FROM salary_received")?
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                .collect::<Result<_, _>>()?;
+            let received: Vec<(i64, String, i64)> = c
+                .prepare("SELECT user_id,received,amount FROM incomes WHERE received IS NOT NULL")?
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<Result<_, _>>()?;
+            let mut out = Vec::new();
+            for u in users {
+                let (track, since): (bool, Option<String>) = c.query_row("SELECT track_pay, pay_since FROM users WHERE id=?1", [u.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+                let mine_s: Vec<(String, String, i64)> = salaries.iter().filter(|s| s.0 == u.id).map(|s| (s.1.clone(), s.2.clone(), s.3)).collect();
+                let mine_r: Vec<(String, i64)> = received.iter().filter(|r| r.0 == u.id).map(|r| (r.1.clone(), r.2)).collect();
+                let from = if track { since.as_deref() } else { None };
+                let total: i64 = (1..=3).map(|k| cash_in(&shift(m, -k), u.salary, from, &mine_s, &mine_r)).sum();
+                out.push((u.id, total / 3));
+            }
+            out
+        }
+        _ => users.iter().map(|u| (u.id, u.salary)).collect(),
+    })
+}
+
 #[derive(Deserialize)]
 pub struct DashQ {
     month: Option<String>,
@@ -674,5 +730,37 @@ mod tests {
         let v = View::load(&c, me, now.clone(), "home", "h".into(), None, None).unwrap();
         assert_eq!(v.owed().iter().filter(|o| o.label.starts_with("Ingreso fijo")).count(), 0);
         assert_eq!(v.income(), 180000 + 180000 + 20000);
+    }
+}
+
+#[cfg(test)]
+mod split_tests {
+    use super::*;
+
+    fn part_of(c: &Connection, user: i64) -> i64 {
+        let now = today(c).unwrap()[..7].to_string();
+        let me = User { id: user, name: "x".into(), salary: 0, token: "t".into() };
+        View::load(c, me, now, "house", "h".into(), None, None).unwrap().part(100000, user)
+    }
+
+    /// 1.000 € of shared bills between Ana (fixed 3.000) and Leo (fixed 1.000, plus 2.000 extra each past month).
+    #[test]
+    fn split_modes() {
+        let c = Connection::open_in_memory().unwrap();
+        migrate(&c);
+        let now = today(&c).unwrap()[..7].to_string();
+        c.execute_batch("INSERT INTO users(id,name,pass,token,salary,share) VALUES(1,'Ana','x','a',300000,70),(2,'Leo','x','b',100000,30);").unwrap();
+        for k in 1..=3 {
+            c.execute("INSERT INTO incomes(user_id,month,concept,amount,received) VALUES(2,?1,'Extra',200000,?1 || '-15')", [shift(&now, -k)]).unwrap();
+        }
+        let set = |mode: &str| { c.execute("INSERT INTO settings(key,value) VALUES('split',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [mode]).unwrap(); };
+
+        assert_eq!((part_of(&c, 1), part_of(&c, 2)), (75000, 25000)); // default: fixed income 3:1
+        set("equal");
+        assert_eq!((part_of(&c, 1), part_of(&c, 2)), (50000, 50000));
+        set("custom");
+        assert_eq!((part_of(&c, 1), part_of(&c, 2)), (70000, 30000));
+        set("avg3"); // Ana 3.000/month, Leo 1.000 + 2.000 = 3.000/month
+        assert_eq!((part_of(&c, 1), part_of(&c, 2)), (50000, 50000));
     }
 }

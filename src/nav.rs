@@ -44,6 +44,7 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "plan_deleted" => "Quitada del calendario",
         "house_saved" => "Ajustes de la casa guardados",
         "member_added" => "Persona añadida: ya puede entrar",
+        "split_saved" => "Reparto guardado",
         "color_saved" => "Color guardado",
         "password_saved" => "Contraseña cambiada",
         "income_added" => "Ingreso apuntado",

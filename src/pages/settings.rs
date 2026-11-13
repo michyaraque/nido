@@ -182,6 +182,7 @@ pub fn render_house(v: &View) -> Markup {
                     }))
                 }
             }))
+            (sec("split", "Reparto de las cuentas", html! { "Cómo se dividen las cuentas comunes." }, split(v)))
             (sec("people", "Personas", html! { "Quién vive en casa y su color." }, people(v)))
             @if let Some(tg) = &v.tg {
                 (sec("bot-set", "Avisos por Telegram", html! { "Un bot para toda la casa. Cada uno se vincula en Mis ajustes." }, house_bot(v, tg)))
@@ -190,6 +191,47 @@ pub fn render_house(v: &View) -> Markup {
                 (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir de la Pi." }, backups(v, b)))
             }
         }))
+    }
+}
+
+/// Ajustes de la casa → Reparto: the four modes, with % inputs when "custom" is picked.
+fn split(v: &View) -> Markup {
+    let even = 100 / v.users.len().max(1) as i64;
+    html! {
+        div.card {
+            form.form method="post" action="/house/split" {
+                (v.ctx())
+                div.split-pick role="radiogroup" aria-label="Repartir según" {
+                    @for (id, name, desc) in SPLITS {
+                        label.split-opt {
+                            input type="radio" name="mode" value=(id) checked[id == v.split];
+                            span.split-txt { b { (name) } small { (desc) } }
+                        }
+                    }
+                }
+                div.split-custom {
+                    @for u in &v.users {
+                        div.split-row {
+                            (v.avatar(u.id))
+                            label for={ "sh" (u.id) } { (u.name) }
+                            div.split-in {
+                                input.input id={ "sh" (u.id) } type="number" name={ "share_" (u.id) } min="0" max="100" step="1" inputmode="numeric"
+                                    value=(if v.users.iter().any(|x| x.share > 0) { u.share } else { even });
+                                span { "%" }
+                            }
+                        }
+                    }
+                    p.hint { "Tienen que sumar 100." }
+                }
+                div.split-now {
+                    span.muted { "Este mes:" }
+                    @for u in &v.users {
+                        span.split-who { (v.avatar(u.id)) (u.name) " " b { (format!("{:.0}", v.share_pct(u.id))) " %" } }
+                    }
+                }
+                button.btn.primary { "Guardar reparto" }
+            }
+        }
     }
 }
 

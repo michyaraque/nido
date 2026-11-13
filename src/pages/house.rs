@@ -6,7 +6,10 @@ pub fn render(v: &View) -> Markup {
     let month_lc = v.month_lc();
     let new_bill = "#new-bill".to_string();
     html! {
-        (v.head("La casa", html! { "Cuentas comunes de " (month_lc) ", repartidas según el sueldo de cada uno" }))
+        (v.head("La casa", html! {
+            "Cuentas comunes de " (month_lc) ", repartidas "
+            (match v.split { "avg3" => "según lo cobrado (media de 3 meses)", "equal" => "a partes iguales", "custom" => "con porcentajes fijos", _ => "según el ingreso fijo de cada uno" })
+        }))
         div.stats {
             (stat("house", "Total de la casa", money(shared), html! { (v.bills.iter().filter(|b| b.owner.is_none()).count()) " cuentas comunes" }))
             @for (i, u) in v.users.iter().enumerate() {
@@ -14,7 +17,7 @@ pub fn render(v: &View) -> Markup {
                 (stat("users", &format!("Paga {}", u.name), money(share), html! {
                     span.dot class={ "p" (i) } {}
                     @if shared > 0 { (format!("{:.1}", share as f64 * 100.0 / shared as f64).replace('.', ",")) " % de la casa" }
-                    @else { (format!("{:.1}", v.share_pct(u.salary)).replace('.', ",")) " % según su sueldo" }
+                    @else { (format!("{:.1}", v.share_pct(u.id)).replace('.', ",")) " % del reparto" }
                 }))
             }
         }

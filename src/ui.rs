@@ -52,6 +52,18 @@ pub const THEMES: [(&str, &str, &str, [&str; 3]); 5] = [
     ("rose", "Rosa", "Suave, con un toque de color", ["#f5eef1", "#ffffff", "#be185d"]),
 ];
 
+/// How shared bills are divided: (id, name, description). First is the default.
+pub const SPLITS: [(&str, &str, &str); 4] = [
+    ("salary", "Ingreso fijo", "Según el ingreso fijo de cada uno."),
+    ("avg3", "Lo cobrado", "Media de los últimos 3 meses. Para quien cobra distinto cada mes."),
+    ("equal", "A partes iguales", "Todos pagan lo mismo."),
+    ("custom", "Porcentajes fijos", "Lo que hayáis pactado, como 60 / 40."),
+];
+
+pub fn split_id(s: &str) -> &'static str {
+    SPLITS.iter().find(|t| t.0 == s).map_or(SPLITS[0].0, |t| t.0)
+}
+
 pub fn theme_id(s: &str) -> &'static str {
     THEMES.iter().find(|t| t.0 == s).map_or(THEMES[0].0, |t| t.0)
 }
