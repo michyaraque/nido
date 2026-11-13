@@ -18,6 +18,7 @@ pub struct U {
     pub name: String,
     pub salary: i64,
     pub photo: i64, // version of the profile photo, 0 = none
+    pub color: String, // "#rrggbb"; defaults to PALETTE by position
 }
 pub struct Bill {
     pub id: i64,
@@ -127,10 +128,18 @@ pub struct View {
 
 impl View {
     fn load(c: &Connection, me: User, m: String, t: &'static str, host: String, day: Option<&str>, who: Option<&str>) -> rusqlite::Result<View> {
-        let users = c
-            .prepare("SELECT id,name,salary,photo FROM users ORDER BY id")?
-            .query_map([], |r| Ok(U { id: r.get(0)?, name: r.get(1)?, salary: r.get(2)?, photo: r.get(3)? }))?
+        let mut users: Vec<U> = c
+            .prepare("SELECT id,name,salary,photo,color FROM users ORDER BY id")?
+            .query_map([], |r| {
+                Ok(U { id: r.get(0)?, name: r.get(1)?, salary: r.get(2)?, photo: r.get(3)?, color: r.get::<_, Option<String>>(4)?.unwrap_or_default() })
+            })?
             .collect::<Result<_, _>>()?;
+        for (i, u) in users.iter_mut().enumerate() {
+            // Only palette colours reach the page (they go into an inline <style>).
+            if !PALETTE.contains(&u.color.as_str()) {
+                u.color = PALETTE[i % PALETTE.len()].to_string();
+            }
+        }
         let bills = c
             .prepare(
                 "SELECT b.id,b.name,COALESCE(a.amount,b.amount),b.amount,b.due_day,b.owner_id,p.payer_id,b.covered_by,COALESCE(p.whole,0) FROM bills b
@@ -343,8 +352,8 @@ impl View {
         self.bills.iter().filter(|b| b.owner.is_none()).map(|b| self.share_of(b, user)).sum()
     }
     fn me_u(&self) -> U {
-        self.users.iter().find(|u| u.id == self.me.id).map(|u| U { id: u.id, name: u.name.clone(), salary: u.salary, photo: u.photo })
-            .unwrap_or(U { id: self.me.id, name: self.me.name.clone(), salary: self.me.salary, photo: 0 })
+        self.users.iter().find(|u| u.id == self.me.id).map(|u| U { id: u.id, name: u.name.clone(), salary: u.salary, photo: u.photo, color: u.color.clone() })
+            .unwrap_or(U { id: self.me.id, name: self.me.name.clone(), salary: self.me.salary, photo: 0, color: PALETTE[0].into() })
     }
     fn my_house(&self) -> i64 {
         self.house_share(&self.me_u())
@@ -417,7 +426,7 @@ impl View {
             @if u.photo > 0 {
                 img.avatar src={ "/avatars/" (u.id) "?v=" (u.photo) } alt="" title=(u.name) width="30" height="30";
             } @else {
-                span class={ "avatar p" (i % 4) } title=(u.name) { (initial(&u.name)) }
+                span class={ "avatar p" (i) } title=(u.name) { (initial(&u.name)) }
             }
         }
     }
@@ -467,8 +476,14 @@ impl View {
         }
     }
 
+    /// Each person's colour, by position: `.p{i}` paints a background, `.u{i}` sets `--u`.
+    fn people_css(&self) -> String {
+        self.users.iter().enumerate().map(|(i, u)| format!(".p{i}{{background:{c}}}.u{i}{{--u:{c}}}", c = u.color)).collect()
+    }
+
     fn shell(&self, content: Markup, flash_msg: Option<&str>) -> Markup {
         html! {
+            style { (PreEscaped(self.people_css())) }
             a.skip href="#main" { "Saltar al contenido" }
             div.app {
                 aside.side {

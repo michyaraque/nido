@@ -12,7 +12,7 @@ pub fn render(v: &View) -> Markup {
             @for (i, u) in v.users.iter().enumerate() {
                 @let share = v.house_share(u);
                 (stat("users", &format!("Paga {}", u.name), money(share), html! {
-                    span.dot class={ "p" (i % 4) } {}
+                    span.dot class={ "p" (i) } {}
                     @if shared > 0 { (format!("{:.1}", share as f64 * 100.0 / shared as f64).replace('.', ",")) " % de la casa" }
                     @else { (format!("{:.1}", v.share_pct(u.salary)).replace('.', ",")) " % según su sueldo" }
                 }))

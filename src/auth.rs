@@ -103,3 +103,30 @@ pub async fn logout(State(db): State<Db>, h: HeaderMap) -> R {
     }
     Ok(([(header::SET_COOKIE, "sid=; Path=/; Max-Age=0")], Redirect::to("/login")).into_response())
 }
+
+#[derive(Deserialize)]
+pub struct PasswordF {
+    current: String,
+    new: String,
+    repeat: String,
+    month: String,
+}
+
+/// Mis ajustes → Contraseña. Signs out every other device of this user.
+pub async fn change_password(State(db): State<Db>, h: HeaderMap, F(f): F<PasswordF>) -> R {
+    let c = lock(&db);
+    let me = require_user!(c, h);
+    let stored: String = c.query_row("SELECT pass FROM users WHERE id=?1", [me.id], |r| r.get(0))?;
+    if !verify(&f.current, &stored) {
+        return bad("La contraseña actual no es correcta.");
+    }
+    if f.new.chars().count() < 4 {
+        return bad("La nueva contraseña necesita al menos 4 caracteres.");
+    }
+    if f.new != f.repeat {
+        return bad("Las dos contraseñas nuevas no coinciden.");
+    }
+    c.execute("UPDATE users SET pass=?2 WHERE id=?1", params![me.id, hash(&f.new)])?;
+    c.execute("DELETE FROM sessions WHERE user_id=?1 AND token!=?2", params![me.id, sid(&h).unwrap_or_default()])?;
+    back(&month(&c, Some(&f.month))?, Some("settings"), "password_saved")
+}

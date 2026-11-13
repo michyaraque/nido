@@ -331,6 +331,51 @@ pub async fn save_theme(State(db): State<Db>, h: HeaderMap, F(f): F<ThemeF>) -> 
     back(&month(&c, Some(&f.month))?, Some("household"), "house_saved")
 }
 
+#[derive(Deserialize)]
+pub struct MemberF {
+    name: String,
+    password: String,
+    color: Option<String>,
+    month: String,
+}
+
+/// New person in the house, with their own login. Anyone in the house can add one.
+pub async fn add_member(State(db): State<Db>, h: HeaderMap, F(f): F<MemberF>) -> R {
+    let c = lock(&db);
+    require_user!(c, h);
+    let name = f.name.trim();
+    if name.is_empty() || name.chars().count() > 40 {
+        return bad("Escribe un nombre (hasta 40 letras).");
+    }
+    if f.password.chars().count() < 4 {
+        return bad("La contraseña necesita al menos 4 caracteres.");
+    }
+    let taken: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM users WHERE lower(name)=lower(?1))", [name], |r| r.get(0))?;
+    if taken {
+        return bad("Ya hay alguien con ese nombre en casa.");
+    }
+    let color = f.color.as_deref().filter(|c| PALETTE.contains(c));
+    c.execute("INSERT INTO users(name,pass,token,color) VALUES(?1,?2,?3,?4)", params![name, hash(&f.password), rand_hex(24), color])?;
+    back(&month(&c, Some(&f.month))?, Some("household"), "member_added")
+}
+
+#[derive(Deserialize)]
+pub struct ColorF {
+    color: String,
+    month: String,
+    tab: Option<String>,
+}
+
+pub async fn set_color(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<ColorF>) -> R {
+    let c = lock(&db);
+    require_user!(c, h);
+    if !PALETTE.contains(&f.color.as_str()) {
+        return bad("Color no válido");
+    }
+    c.execute("UPDATE users SET color=?2 WHERE id=?1", params![id, f.color])?;
+    back(&month(&c, Some(&f.month))?, Some(nav::tab(f.tab.as_deref())), "color_saved")
+}
+
 pub async fn toggle_whole(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<Ctx>) -> R {
     let c = lock(&db);
     let me = require_user!(c, h);

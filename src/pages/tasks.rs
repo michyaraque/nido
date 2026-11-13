@@ -198,7 +198,7 @@ fn plan_row(v: &View, p: &Plan, show_when: bool) -> Markup {
 }
 
 fn calendar(v: &View) -> Markup {
-    let user_idx = |id: i64| v.users.iter().position(|u| u.id == id).unwrap_or(0) % 4;
+    let user_idx = |id: i64| v.users.iter().position(|u| u.id == id).unwrap_or(0);
     html! {
         div.cal role="grid" aria-label="Calendario de tareas" {
             @for w in WEEK { span.cal-wd role="columnheader" { (w) } }
@@ -368,14 +368,14 @@ pub fn render(v: &View) -> Markup {
                         div.bar.shares {
                             @for (i, u) in v.users.iter().enumerate() {
                                 @let n = v.logs.iter().filter(|l| l.user_id == u.id).count();
-                                @if n > 0 { span class={ "p" (i % 4) } style={ "width:" (n * 100 / total) "%" } { (n) } }
+                                @if n > 0 { span class={ "p" (i) } style={ "width:" (n * 100 / total) "%" } { (n) } }
                             }
                         }
                     }
                     ul.legend {
                         @for (i, u) in v.users.iter().enumerate() {
                             @let n = v.logs.iter().filter(|l| l.user_id == u.id).count();
-                            li { span class={ "dot p" (i % 4) } {} span.l { (u.name) } span.amt { (n) " tarea" @if n != 1 { "s" } } }
+                            li { span class={ "dot p" (i) } {} span.l { (u.name) } span.amt { (n) " tarea" @if n != 1 { "s" } } }
                         }
                     }
                     @if !v.chores.is_empty() && !v.logs.is_empty() {
@@ -387,7 +387,7 @@ pub fn render(v: &View) -> Markup {
                                     li.row {
                                         span.tile.sm style={ "--c:" (c.color) } { (icon(&c.icon)) }
                                         span.row-main { span.row-title { (c.name) } }
-                                        span.tally { @for (i, n) in &mine { span class={ "tally-n u" (i % 4) } { (n) } } }
+                                        span.tally { @for (i, n) in &mine { span class={ "tally-n u" (i) } { (n) } } }
                                     }
                                 }
                             }
@@ -400,7 +400,7 @@ pub fn render(v: &View) -> Markup {
                 div.card-head { div { h2 { "Calendario" } p { "Toca un día para ver qué se hizo o planificar algo" } } }
                 (calendar(v))
                 div.cal-legend {
-                    @for (i, u) in v.users.iter().enumerate() { span { span class={ "cal-key u" (i % 4) } {} (u.name) } }
+                    @for (i, u) in v.users.iter().enumerate() { span { span class={ "cal-key u" (i) } {} (u.name) } }
                     span { span.cal-key.plan {} "Planificada" }
                 }
             }

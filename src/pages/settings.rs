@@ -18,7 +18,7 @@ pub fn render(v: &View) -> Markup {
                     div.profile {
                         @if let Some(u) = v.users.iter().find(|u| u.id == v.me.id) {
                             @if u.photo > 0 { img.avatar.big src={ "/avatars/" (u.id) "?v=" (u.photo) } alt={ "Foto de " (u.name) }; }
-                            @else { span.avatar.big.p0 { (initial(&u.name)) } }
+                            @else { span class={ "avatar big p" (v.users.iter().position(|x| x.id == u.id).unwrap_or(0)) } { (initial(&u.name)) } }
                         }
                         div.profile-actions {
                             form.photo-form method="post" action="/me/avatar" enctype="multipart/form-data" {
@@ -35,6 +35,30 @@ pub fn render(v: &View) -> Markup {
                         (v.ctx())
                         input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary));
                         button.btn.outline { "Guardar" }
+                    }
+                }
+                (item("Contraseña", "La que usas para entrar en Nido.", html! {
+                    a.btn.outline.sm href="#password" { (icon("key-round")) "Cambiar" }
+                }))
+            }
+            div.modal #password role="dialog" aria-modal="true" aria-labelledby="password-t" {
+                a.scrim href="#_" aria-label="Cerrar" tabindex="-1" {}
+                div.dialog {
+                    div.dialog-top {
+                        h2 #password-t { "Cambiar contraseña" }
+                        a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
+                    }
+                    form.form method="post" action="/me/password" accept-charset="utf-8" {
+                        (v.ctx())
+                        input type="text" name="username" value=(v.me.name) autocomplete="username" hidden;
+                        div.field { label for="pc" { "Contraseña actual" } input #pc.input type="password" name="current" required autocomplete="current-password"; }
+                        div.field { label for="pn" { "Nueva" } input #pn.input type="password" name="new" required minlength="4" autocomplete="new-password"; }
+                        div.field {
+                            label for="pr" { "Repítela" }
+                            input #pr.input type="password" name="repeat" required minlength="4" autocomplete="new-password";
+                            p.hint { "Se cerrará la sesión en tus otros dispositivos." }
+                        }
+                        button.btn.primary.wide { "Cambiar contraseña" }
                     }
                 }
             }
@@ -145,6 +169,7 @@ pub fn render_house(v: &View) -> Markup {
                     }))
                 }
             }))
+            (sec("people", "Personas", html! { "Quién vive en casa y su color." }, people(v)))
             @if let Some(tg) = &v.tg {
                 (sec("bot-set", "Avisos por Telegram", html! { "Un bot para toda la casa. Cada uno se vincula en Mis ajustes." }, house_bot(v, tg)))
             }
@@ -152,6 +177,68 @@ pub fn render_house(v: &View) -> Markup {
                 (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir de la Pi." }, backups(v, b)))
             }
         }))
+    }
+}
+
+fn swatches(current: &str) -> Markup {
+    html! {
+        div.swatches role="radiogroup" aria-label="Color" {
+            @for c in PALETTE {
+                label.swatch { input type="radio" name="color" value=(c) checked[c == current] aria-label={ "Color " (c) }; span style={ "--c:" (c) } {} }
+            }
+        }
+    }
+}
+
+/// Ajustes de la casa → Personas: everyone with their colour, and a way to add someone.
+fn people(v: &View) -> Markup {
+    let next = PALETTE[v.users.len() % PALETTE.len()];
+    html! {
+        div.card.set-card {
+            @for u in &v.users {
+                div.set-item {
+                    div.member {
+                        (v.avatar(u.id))
+                        b { (u.name) @if u.id == v.me.id { span.muted { " (tú)" } } }
+                    }
+                    details.menu.backup-time {
+                        summary.btn.ghost.sm aria-label={ "Color de " (u.name) } { span.color-dot style={ "--c:" (u.color) } {} "Color" }
+                        div.pop {
+                            p.pop-title { "Color de " (u.name) }
+                            form.auto-submit method="post" action={ "/users/" (u.id) "/color" } {
+                                (v.ctx())
+                                (swatches(&u.color))
+                                button.btn.primary.wide.auto-go { "Guardar" }
+                            }
+                        }
+                    }
+                }
+            }
+            div.set-item {
+                div.set-item-txt { b { "Añadir persona" } small { "Entrará con su nombre y contraseña." } }
+                a.btn.outline.sm href="#add-member" { (icon("plus")) "Añadir" }
+            }
+        }
+        div.modal #add-member role="dialog" aria-modal="true" aria-labelledby="add-member-t" {
+            a.scrim href="#_" aria-label="Cerrar" tabindex="-1" {}
+            div.dialog {
+                div.dialog-top {
+                    h2 #add-member-t { "Añadir persona" }
+                    a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
+                }
+                form.form method="post" action="/house/members" accept-charset="utf-8" {
+                    (v.ctx())
+                    div.field { label for="mn" { "Nombre" } input #mn.input type="text" name="name" required maxlength="40" autocomplete="off"; }
+                    div.field {
+                        label for="mp" { "Contraseña" }
+                        input #mp.input type="password" name="password" required minlength="4" autocomplete="new-password";
+                        p.hint { "Mínimo 4 caracteres. Díselo a esa persona." }
+                    }
+                    div.field { label { "Color" } (swatches(next)) }
+                    button.btn.primary.wide { (icon("plus")) "Añadir" }
+                }
+            }
+        }
     }
 }
 

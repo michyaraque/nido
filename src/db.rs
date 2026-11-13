@@ -23,6 +23,7 @@ pub fn migrate(c: &Connection) {
     add_column(c, "payments", "whole", "INTEGER NOT NULL DEFAULT 0");
     add_column(c, "users", "tg_chat", "INTEGER");
     add_column(c, "users", "tg_code", "TEXT");
+    add_column(c, "users", "color", "TEXT");
 }
 
 fn add_column(c: &Connection, table: &str, column: &str, decl: &str) {
