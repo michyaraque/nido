@@ -173,7 +173,12 @@ mod tests {
         assert_eq!(classify("PIXELLAB.AI").name, Some("PixelLab"));
         assert_eq!(classify("Sulake Oy Habbo").name, Some("Habbo"));
         assert_eq!(classify("TIKTOK SHOP ES").name, Some("TikTok Shop"));
-        assert_eq!(classify("AUTOSERVICIOS FAMILIA BEMBIBRE").name, Some("Familia"));
+        assert_eq!(classify("AUTOSERVICIOS FAMILIA").name, Some("Familia"));
+        assert_eq!(classify("Supermercado Familia").logo, Some("familia"));
+        assert_eq!(classify("EROSKI CITY").name, Some("Eroski"));
+        assert_eq!(classify("Bonárea").logo, Some("bonarea"));
+        assert_eq!(classify("BONAREA AGRUPA 1234").cat.id, "super");
+        assert_eq!(classify("Bon Area Guissona").name, Some("bonÀrea"));
         assert_eq!(classify("Familia").cat.id, "super");
         assert_ne!(classify("Ayuda para la familia").name, Some("Familia"));
         assert_eq!(classify("Café").cat.id, "cafe");
