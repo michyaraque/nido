@@ -57,6 +57,15 @@
   .tabbar a .i{width:20px;height:20px}
   .tabbar a.on{background:var(--ink);color:var(--surface)}
   .fab{display:grid;place-items:center;position:fixed;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:50;width:62px;height:62px;border-radius:18px;background:var(--accent);color:#fff;box-shadow:0 8px 24px -6px color-mix(in srgb,var(--accent) 60%,transparent)}
-  .fab .i{width:26px;height:26px}
+  .fab .i{width:26px;height:26px;transition:transform .25s var(--ease-out)}
+  .fab{transition:transform .18s var(--ease-out),filter .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  .fab::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+  .fab:hover{filter:brightness(1.08)}
+  .fab:active{transform:scale(.9)}
+  .fab:active .i,.fab.tap .i{transform:rotate(90deg)}
+  .fab.tap::after{animation:fab-ring .5s ease-out}
+  .fab:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:3px}
 }
 @media (max-width:380px){.stats{grid-template-columns:1fr}}
+@keyframes fab-ring{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 50%,transparent)}to{box-shadow:0 0 0 20px transparent}}
+@media (prefers-reduced-motion:reduce){.fab,.fab .i{transition:none}.fab:active{transform:none}.fab:active .i,.fab.tap .i{transform:none}.fab.tap::after{animation:none}}

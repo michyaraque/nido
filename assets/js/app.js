@@ -497,3 +497,25 @@ conceptPop.addEventListener("click", (e) => {
   if (opt) pickConcept(opt);
 });
 
+/* ---------- the + button ----------
+   A ring and a quarter turn when tapped; on the same page, it also puts the cursor in the
+   first field of what it opens (the expense form, the shopping or chore window). */
+
+document.addEventListener("click", (e) => {
+  const fab = e.target.closest(".fab");
+  if (!fab) return;
+  fab.classList.remove("tap");
+  void fab.offsetWidth; // restart the animation on repeated taps
+  fab.classList.add("tap");
+  setTimeout(() => fab.classList.remove("tap"), 500);
+  const url = new URL(fab.href, location.href);
+  // What it opens is already on this page: don't reload, just go there and focus it.
+  const target = url.hash && document.querySelector(url.hash);
+  if (!target) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (target.matches("details")) target.open = true; // e.g. "Nueva tarea"
+  if (location.hash !== url.hash) location.hash = url.hash;
+  else target.scrollIntoView({ behavior: "smooth", block: "start" });
+  setTimeout(() => target.querySelector("input:not([type=hidden]):not([type=file]),textarea")?.focus(), 60);
+}, true); // capture: runs before in-place navigation
