@@ -211,8 +211,8 @@ document.addEventListener("change", (e) => {
   if (el.closest("form.auto-submit")) el.form.requestSubmit();
   if (el.matches(".photo-form input[type=file]") && el.files?.length) el.form.requestSubmit();
   if (el.matches("form.scan input[type=file]") && el.files?.length) {
-    el.form.classList.add("busy");
-    el.form.querySelector(".drop-txt b").textContent = "Subiendo el ticket…";
+    document.querySelector(".scan-btn")?.classList.add("busy");
+    toast("Subiendo el ticket…");
     el.form.requestSubmit();
   }
 });

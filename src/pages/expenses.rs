@@ -114,21 +114,9 @@ pub fn render(v: &View) -> Markup {
         (v.head("Gastos del día a día", html! { (v.shown.len()) " movimiento" @if v.shown.len() != 1 { "s" } (whose) " en " (month_lc) " · " (eur(spent)) }))
         div.split.rev {
             div.stack {
-                section.card #scan {
-                    div.card-head { span.stat-ico { (icon("scan-line")) } div { h2 { "Escanear ticket" } p { "Haz una foto al ticket y rellenamos comercio, fecha e importe por ti." } } }
-                    form.scan method="post" action="/tickets" enctype="multipart/form-data" {
-                        label.drop {
-                            input type="file" name="photo" accept="image/*" required;
-                            span.drop-ico { (icon("camera")) }
-                            span.drop-txt { b { "Hacer foto o elegir imagen" } small { "JPG, PNG o WebP" } }
-                        }
-                        button.btn.primary.wide.scan-go { (icon("scan-line")) "Leer ticket" }
-                    }
-                    @if !ocr::installed() {
-                        p.hint.top { "El lector automático no está instalado en este servidor: se guardará la foto y podrás escribir los datos a mano." }
-                    }
-                    @if !v.tickets.is_empty() {
-                        p.label-sm { "Por revisar" }
+                @if !v.tickets.is_empty() {
+                    section.card {
+                        div.card-head { span.stat-ico { (icon("receipt")) } div { h2 { "Tickets por revisar" } p { "Ábrelos para comprobar lo leído y guardarlos como gasto." } } }
                         ul.rows.compact {
                             @for t in &v.tickets {
                                 li.row {
@@ -151,10 +139,21 @@ pub fn render(v: &View) -> Markup {
                     }
                 }
                 section.card #new {
-                    div.card-head { div { h2 { "Registrar gasto" } p { "El icono y la categoría se ponen solos si reconocemos el comercio." } } }
+                    div.card-head { div { h2 { "Registrar gasto" } p { "Escríbelo, o pulsa " (icon("scan-line")) " para hacer una foto al ticket y lo rellenamos por ti." } } }
+                    // The photo goes in a form of its own (forms cannot nest); the button in Concepto opens it through its label.
+                    form.scan method="post" action="/tickets" enctype="multipart/form-data" {
+                        input #scan-photo type="file" name="photo" accept="image/*" required;
+                    }
                     form.form method="post" action="/expenses" accept-charset="utf-8" {
                         (v.ctx())
-                        div.field { label for="d" { "Concepto" } input #d.input type="text" name="description" placeholder="Mercadona, cena, farmacia…" required maxlength="100"; }
+                        div.field {
+                            label for="d" { "Concepto" }
+                            div.input-action {
+                                input #d.input type="text" name="description" placeholder="Mercadona, cena, farmacia…" required maxlength="100";
+                                label.scan-btn for="scan-photo" title="Escanear un ticket" aria-label="Escanear un ticket con una foto" { (icon("scan-line")) }
+                            }
+                            @if !ocr::installed() { p.hint { "El lector de tickets no está instalado: se guardará la foto y escribirás los datos a mano." } }
+                        }
                         div.two {
                             div.field { label for="a" { "Importe" } input #a.input type="text" name="amount" placeholder="0,00 €" inputmode="decimal" required; }
                             div.field { label for="f" { "Fecha" } input #f.input type="date" name="date" value=(default_date) min={ (v.m) "-01" } max={ (v.m) "-" (format!("{:02}", v.ndays)) }; }

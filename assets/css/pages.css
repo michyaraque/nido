@@ -23,15 +23,7 @@
 .back{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;color:var(--mute);margin-bottom:8px}
 .back:hover{color:var(--ink)}
 .back .i{width:16px;height:16px}
-.drop{position:relative;display:flex;align-items:center;gap:14px;padding:16px;border:1.5px dashed var(--line-strong);border-radius:14px;background:var(--canvas);cursor:pointer;transition:border-color .15s,background .15s}
-.drop:hover,.drop:focus-within{border-color:var(--accent);background:var(--accent-soft)}
-.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.drop-ico{width:44px;height:44px;flex:none;border-radius:12px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--accent);box-shadow:var(--shadow-card)}
-.drop-txt b{display:block;font-size:14px;font-weight:600}
-.drop-txt small{font-size:12px;color:var(--mute)}
-.scan{display:grid;gap:12px}
 .js .scan-go{display:none}
-.scan.busy .drop{pointer-events:none;opacity:.6}
 .chev-r{color:var(--faint)}
 a.row-main:hover .row-title{color:var(--accent)}
 .btn.top{margin-top:10px}
@@ -256,3 +248,15 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
 .del-copy[open]>summary .i:last-child{display:block}
 .copies li:has(.del-copy[open]) .dl{display:none}
 @media (max-width:560px){.copies .dl-txt{display:none}.copies .dl{width:40px;padding:0;justify-content:center}}
+
+.scan{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.input-action{display:flex;gap:8px;align-items:stretch}
+.input-action .input{flex:1;min-width:0}
+.scan-btn{flex:none;width:48px;border-radius:12px;display:grid;place-items:center;cursor:pointer;color:var(--accent);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);transition:background .15s,transform .1s}
+.scan-btn:hover{background:color-mix(in srgb,var(--accent) 18%,var(--surface))}
+.scan-btn:active{transform:scale(.94)}
+.scan-btn .i{width:20px;height:20px}
+.scan-btn.busy{pointer-events:none}
+.scan-btn.busy .i{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.card-head p .i{display:inline-block;width:15px;height:15px;vertical-align:-3px;color:var(--accent)}
