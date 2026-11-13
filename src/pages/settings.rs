@@ -40,7 +40,7 @@ pub fn render(v: &View) -> Markup {
             }
         }))
         @if let Some(tg) = &v.tg {
-            (sec("avisos", "Tus avisos", html! { "En Telegram: cuando te planifican una tarea, lo pendiente cada día y un resumen los domingos." }, telegram(v, tg)))
+            (sec("avisos", "Tus avisos", html! { "Lo que te toca, por Telegram." }, telegram(v, tg)))
         }
         (sec("device", "Este dispositivo", html! { "Atajos y uso sin conexión. Se configura en cada móvil." }, html! {
             div.card.set-card {
@@ -146,7 +146,7 @@ pub fn render_house(v: &View) -> Markup {
                 }
             }))
             @if let Some(tg) = &v.tg {
-                (sec("bot-set", "Avisos por Telegram", html! { "El bot de la casa envía los avisos. Se conecta una vez; después cada persona se vincula en Mis ajustes." }, house_bot(v, tg)))
+                (sec("bot-set", "Avisos por Telegram", html! { "Un bot para toda la casa. Cada uno se vincula en Mis ajustes." }, house_bot(v, tg)))
             }
             @if let Some(b) = &v.backups {
                 (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir de la Pi." }, backups(v, b)))
@@ -156,52 +156,80 @@ pub fn render_house(v: &View) -> Markup {
 }
 
 fn house_bot(v: &View, tg: &crate::notify::Panel) -> Markup {
+    let step = |n: u8, title: Markup, hint: Markup| html! {
+        li { span.tg-n { (n) } div { b { (title) } small { (hint) } } }
+    };
     html! {
         div.card #bot {
         @match &tg.bot {
             None => {
-                details.steps {
-                    summary { (icon("chevron-right")) "Crear el bot de la casa (una vez, 2 minutos)" }
-                    ol {
-                        li { "En Telegram, abre " a href="https://t.me/BotFather" target="_blank" rel="noopener" { "@BotFather" } " y escribe " code { "/newbot" } "." }
-                        li { "Ponle un nombre, por ejemplo " b { "Nido de casa" } ", y un usuario que acabe en " code { "bot" } "." }
-                        li { "Copia el " b { "token" } " que te da y pégalo aquí." }
-                    }
+                div.backup-empty {
+                    span.backup-empty-ico { (icon("send")) }
+                    h3 { "Conecta el bot" }
+                    p { "Tareas, pendientes y resumen semanal." }
                 }
-                form.form.top method="post" action="/telegram/bot" accept-charset="utf-8" {
+                ol.tg-steps {
+                    (step(1, html! { "Crea el bot" }, html! { "En " a href="https://t.me/BotFather" target="_blank" rel="noopener" { "@BotFather" } ", escribe " code { "/newbot" } }))
+                    (step(2, html! { "Ponle nombre" }, html! { "El usuario acaba en " code { "bot" } }))
+                    (step(3, html! { "Pega el token" }, html! { "Te lo da @BotFather al final" }))
+                }
+                form.form method="post" action="/telegram/bot" accept-charset="utf-8" {
                     (v.ctx())
-                    div.field {
-                        label for="tgt" { "Token del bot" }
-                        input #tgt.input.mono type="text" name="token" placeholder="123456789:AAH…" required autocomplete="off" spellcheck="false";
-                        p.hint { "Se guarda solo en Nido. Después, cada persona se vincula en Mis ajustes → Tus avisos." }
+                    div.inline-field.grow {
+                        input #tgt.input.mono type="text" name="token" placeholder="123456789:AAH…" aria-label="Token del bot" required autocomplete="off" spellcheck="false";
+                        button.btn.primary { (icon("send")) "Conectar" }
                     }
-                    button.btn.primary { (icon("send")) "Conectar bot" }
                 }
             }
             Some(bot) => {
-                p.hint { "Conectado: " b { "@" (bot) } ". Cada persona se vincula en Mis ajustes → Tus avisos." }
-                form.form.top method="post" action="/telegram/time" {
-                    (v.ctx())
-                    div.field {
-                        label for="tga" { "Hora del recordatorio diario" }
-                        div.inline-field {
-                            input #tga.input type="time" name="at" value=(tg.at) required;
-                            button.btn.outline { "Guardar" }
+                div.backup-status.tg-status {
+                    (bot_avatar(tg, false))
+                    div {
+                        b { (tg.title.as_deref().unwrap_or(bot.as_str())) }
+                        span { "@" (bot) " · " span.ok-txt { "Conectado" } }
+                    }
+                    div.tg-actions {
+                        a.btn.ghost.sm href={ "https://t.me/" (bot) } target="_blank" rel="noopener" { (icon("external-link")) "Abrir" }
+                        details.menu.backup-time {
+                            summary.btn.ghost.sm { (icon("clock")) (tg.at) }
+                            div.pop {
+                                form method="post" action="/telegram/time" {
+                                    (v.ctx())
+                                    div.field { label for="tga" { "Recordatorio diario a las" } input #tga.input type="time" name="at" value=(tg.at) required; }
+                                    p.hint { "Solo si hay pendientes" }
+                                    button.btn.primary.wide { "Guardar" }
+                                }
+                            }
                         }
-                        p.hint { "Si queda algo pendiente. Los domingos, también el resumen de la semana." }
+                        details.menu.backup-time {
+                            summary.icon-btn aria-label="Más opciones del bot" { (icon("ellipsis")) }
+                            div.pop {
+                                form method="post" action="/telegram/bot" accept-charset="utf-8" {
+                                    (v.ctx())
+                                    div.field { label for="tgt" { "Cambiar el token" } input #tgt.input.mono type="text" name="token" placeholder="Nuevo token de @BotFather" required autocomplete="off" spellcheck="false"; }
+                                    button.btn.outline.wide { "Cambiar" }
+                                }
+                                hr;
+                                a.btn.danger.wide href="#remove-bot" { (icon("x")) "Quitar el bot" }
+                            }
+                        }
                     }
                 }
-                form.form.top method="post" action="/telegram/bot" accept-charset="utf-8" {
-                    (v.ctx())
-                    div.field {
-                        label for="tgt" { "Cambiar el token" }
-                        div.inline-field.grow {
-                            input #tgt.input.mono type="text" name="token" placeholder="Nuevo token de @BotFather" required autocomplete="off" spellcheck="false";
-                            button.btn.outline { "Cambiar" }
+                p.tg-schedule { (icon("calendar-clock")) span { "A las " b { (tg.at) } " si hay pendientes · resumen los domingos" } }
+                ul.rows.dests {
+                    @for (u, linked) in &tg.linked {
+                        li.row {
+                            (v.avatar(*u))
+                            div.row-main {
+                                span.row-title { (v.name_of(*u)) @if *u == v.me.id { span.muted { " (tú)" } } }
+                                span.row-sub {
+                                    @if *linked { span.dest-state.ok { (icon("check")) "Recibe avisos" } }
+                                    @else { span.dest-state { "Sin vincular" } }
+                                }
+                            }
                         }
                     }
                 }
-                a.btn.danger.sm.top href="#remove-bot" { "Quitar el bot" }
                 div.modal #remove-bot role="dialog" aria-modal="true" aria-labelledby="remove-bot-t" {
                     a.scrim href="#_" aria-label="Cancelar" tabindex="-1" {}
                     div.dialog {
@@ -220,31 +248,55 @@ fn house_bot(v: &View, tg: &crate::notify::Panel) -> Markup {
     }
 }
 
+/// The bot's photo (or a Telegram-blue fallback), shared by both settings tabs.
+fn bot_avatar(tg: &crate::notify::Panel, big: bool) -> Markup {
+    html! {
+        @if tg.photo > 0 { img.tg-avatar.big[big] src={ "/telegram/photo?v=" (tg.photo) } alt="" width="44" height="44"; }
+        @else { span.tg-avatar.big[big] { (icon("send")) } }
+    }
+}
+
+/// "Tus avisos" in Mis ajustes: only about me; who else is linked lives in La casa.
 fn telegram(v: &View, tg: &crate::notify::Panel) -> Markup {
     let me_linked = tg.linked.iter().any(|(u, l)| *u == v.me.id && *l);
     html! {
         div.card #telegram {
             @match &tg.bot {
-                None => p.hint { "Primero hay que conectar el bot de la casa, en " a href=(v.link("household")) { "Ajustes → La casa" } },
+                None => {
+                    div.backup-empty {
+                        span.backup-empty-ico { (icon("bell-ring")) }
+                        h3 { "Aún no hay bot" }
+                        p { "Se conecta una vez para toda la casa." }
+                        a.btn.outline href={ (v.link("household")) "#bot-set" } { (icon("send")) "Conectar bot" }
+                    }
+                }
+                Some(bot) if !me_linked => {
+                    div.backup-empty {
+                        (bot_avatar(tg, true))
+                        h3 { "Avisos en Telegram" }
+                        p { "Tus tareas del día. Márcalas hechas desde el chat." }
+                        a.btn.primary href={ "https://t.me/" (bot) "?start=" (tg.code) } target="_blank" rel="noopener" { (icon("external-link")) "Vincular" }
+                        small.tg-hint { "En el chat, pulsa " b { "Iniciar" } }
+                    }
+                }
                 Some(bot) => {
-                    ul.rows.compact {
-                        @for (u, linked) in &tg.linked {
-                            li.row {
-                                (v.avatar(*u))
-                                span.row-main { span.row-title { (v.name_of(*u)) @if *u == v.me.id { span.muted { " (tú)" } } } }
-                                @if *linked { (pill("ok", Some("check"), "Recibe avisos")) } @else { (pill("", None, "Sin vincular")) }
+                    div.backup-status.tg-status {
+                        (bot_avatar(tg, false))
+                        div {
+                            b { "Avisos activados" }
+                            span { "@" (bot) " · " (tg.at) }
+                        }
+                        div.tg-actions {
+                            form.inline method="post" action="/telegram/test" { (v.ctx()) button.btn.ghost.sm { (icon("send")) "Enviar prueba" } }
+                            details.menu.backup-time {
+                                summary.icon-btn aria-label="Más opciones de tus avisos" { (icon("ellipsis")) }
+                                div.pop {
+                                    a.btn.outline.wide href={ "https://t.me/" (bot) } target="_blank" rel="noopener" { (icon("external-link")) "Abrir el chat" }
+                                    form method="post" action="/telegram/unlink" { (v.ctx()) button.btn.danger.wide { (icon("x")) "Dejar de recibir" } }
+                                }
                             }
                         }
                     }
-                    div.actions.top {
-                        @if me_linked {
-                            form.inline method="post" action="/telegram/test" { (v.ctx()) button.btn.outline.sm { (icon("send")) "Enviar prueba" } }
-                            form.inline method="post" action="/telegram/unlink" { (v.ctx()) button.btn.outline.sm { "Dejar de recibir" } }
-                        } @else {
-                            a.btn.primary href={ "https://t.me/" (bot) "?start=" (tg.code) } target="_blank" rel="noopener" { (icon("external-link")) "Vincular mi Telegram" }
-                        }
-                    }
-                    @if !me_linked { p.hint { "Se abrirá el chat con @" (bot) ": pulsa " b { "Iniciar" } " y vuelve aquí" } }
                 }
             }
         }

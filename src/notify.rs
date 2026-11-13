@@ -44,6 +44,59 @@ fn api(token: &str, method: &str, form: &[(&str, &str)], wait: u64) -> Result<Va
     }
 }
 
+/// Downloads a file from Telegram's file storage (token through stdin, like `api`).
+fn download(token: &str, file_path: &str) -> Result<Vec<u8>, String> {
+    let cfg = format!("url = \"https://api.telegram.org/file/bot{token}/{file_path}\"\nsilent\nfail\nmax-time = 30\n");
+    let mut child = Command::new("curl").args(["-K", "-"]).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())
+        .spawn().map_err(|e| format!("curl: {e}"))?;
+    child.stdin.take().ok_or("curl")?.write_all(cfg.as_bytes()).map_err(|e| e.to_string())?;
+    let out = child.wait_with_output().map_err(|e| e.to_string())?;
+    if out.status.success() && !out.stdout.is_empty() { Ok(out.stdout) } else { Err("no se pudo descargar".into()) }
+}
+
+fn bot_photo_path() -> std::path::PathBuf {
+    data_dir().join("avatars").join("bot.jpg")
+}
+
+/// Stores the bot's display name and profile photo, shown in Ajustes → La casa.
+pub fn refresh_profile(db: &Db, token: &str) -> Result<(), String> {
+    let me = api(token, "getMe", &[], 0)?;
+    let id = me["id"].as_i64().ok_or("getMe")?.to_string();
+    let title = me["first_name"].as_str().unwrap_or_default().to_string();
+    let photos = api(token, "getUserProfilePhotos", &[("user_id", &id), ("limit", "1")], 0)?;
+    let sizes = photos["photos"][0].as_array().cloned().unwrap_or_default();
+    let pick = sizes.iter().find(|s| s["width"].as_i64().unwrap_or(0) >= 160).or(sizes.last());
+    let jpeg = match pick.and_then(|s| s["file_id"].as_str()) {
+        Some(file_id) => {
+            let f = api(token, "getFile", &[("file_id", file_id)], 0)?;
+            let bytes = download(token, f["file_path"].as_str().ok_or("getFile")?)?;
+            Some(crate::profile::square_jpeg(&bytes)?)
+        }
+        None => None,
+    };
+    let p = bot_photo_path();
+    match &jpeg {
+        Some(j) => {
+            std::fs::create_dir_all(p.parent().unwrap()).map_err(|e| e.to_string())?;
+            std::fs::write(&p, j).map_err(|e| e.to_string())?;
+        }
+        None => { let _ = std::fs::remove_file(&p); }
+    }
+    let c = lock(db);
+    let version = if jpeg.is_some() { setting(&c, "tg_photo").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0) + 1 } else { 0 };
+    set_setting(&c, "tg_title", &title).map_err(|e| e.to_string())?;
+    set_setting(&c, "tg_photo", &version.to_string()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub async fn bot_photo(State(db): State<Db>, h: HeaderMap) -> R {
+    require_user!(lock(&db), h);
+    match std::fs::read(bot_photo_path()) {
+        Ok(b) => Ok(([(header::CONTENT_TYPE, "image/jpeg"), (header::CACHE_CONTROL, "private, max-age=31536000, immutable")], b).into_response()),
+        Err(_) => Ok(StatusCode::NOT_FOUND.into_response()),
+    }
+}
+
 pub fn bot_name(token: &str) -> Result<String, String> {
     api(token, "getMe", &[], 0)?["username"].as_str().map(str::to_string).ok_or_else(|| "token no válido".into())
 }
@@ -359,11 +412,17 @@ fn on_message(db: &Db, token: &str, m: &Value) {
 pub fn start(db: Db) {
     std::thread::spawn(move || {
         let mut offset = 0i64;
+        let mut profiled = String::new();
         loop {
             let Some(token) = setting(&lock(&db), "tg_token") else {
                 std::thread::sleep(std::time::Duration::from_secs(20));
                 continue;
             };
+            // Once per start (and per token): picks up a new bot name or photo.
+            if profiled != token {
+                let _ = refresh_profile(&db, &token);
+                profiled = token.clone();
+            }
             let off = offset.to_string();
             let updates = api(&token, "getUpdates", &[
                 ("offset", &off),
@@ -390,6 +449,8 @@ pub fn start(db: Db) {
 
 pub struct Panel {
     pub bot: Option<String>,
+    pub title: Option<String>,
+    pub photo: i64,
     pub at: String,
     pub linked: Vec<(i64, bool)>,
     pub code: String,
@@ -405,7 +466,8 @@ pub fn panel(c: &Connection, me: i64) -> rusqlite::Result<Panel> {
             code
         }
     };
-    Ok(Panel { bot: setting(c, "tg_bot"), at: reminder_time(c), linked, code })
+    let photo = setting(c, "tg_photo").and_then(|v| v.parse().ok()).unwrap_or(0);
+    Ok(Panel { bot: setting(c, "tg_bot"), title: setting(c, "tg_title").filter(|t| !t.is_empty()), photo, at: reminder_time(c), linked, code })
 }
 
 #[derive(Deserialize)]
@@ -431,9 +493,14 @@ pub async fn connect_bot(State(db): State<Db>, h: HeaderMap, F(f): F<BotF>) -> R
         Ok(name) => name,
         Err(_) => return bad("Telegram no reconoce ese token. Cópialo otra vez desde @BotFather."),
     };
+    {
+        let c = lock(&db);
+        set_setting(&c, "tg_token", &token)?;
+        set_setting(&c, "tg_bot", &name)?;
+    }
+    let (db2, t2) = (db.clone(), token.clone());
+    let _ = tokio::task::spawn_blocking(move || refresh_profile(&db2, &t2)).await;
     let c = lock(&db);
-    set_setting(&c, "tg_token", &token)?;
-    set_setting(&c, "tg_bot", &name)?;
     to_settings(&c, &f, "tg_connected")
 }
 
@@ -441,6 +508,7 @@ pub async fn remove_bot(State(db): State<Db>, h: HeaderMap, F(f): F<BotF>) -> R 
     let c = lock(&db);
     require_user!(c, h);
     c.execute("DELETE FROM settings WHERE key LIKE 'tg_%'", [])?;
+    let _ = std::fs::remove_file(bot_photo_path());
     c.execute("UPDATE users SET tg_chat=NULL, tg_code=NULL", [])?;
     to_settings(&c, &f, "tg_removed")
 }

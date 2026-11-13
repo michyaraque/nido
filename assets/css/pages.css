@@ -283,3 +283,25 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
 .toggle input:focus-visible+span{outline:2px solid var(--ink);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.toggle span,.toggle span::after{transition:none}}
 @media (max-width:767px){.set-card{padding:0 16px}.set-item{flex-wrap:wrap}}
+
+/* Telegram bot card (Ajustes de la casa), same language as the backups card */
+.tg-steps{list-style:none;padding:0;margin:14px 0 16px;display:grid;gap:12px}
+.tg-steps li{display:flex;gap:12px;align-items:flex-start}
+.tg-steps li>div{display:grid;gap:2px;min-width:0}
+.tg-steps b{font-size:14px;font-weight:600}
+.tg-steps small{font-size:13px;color:var(--mute);line-height:1.45}
+.tg-steps a{color:var(--accent);font-weight:500}
+.tg-n{width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:600;background:var(--canvas);border:1px solid var(--line);color:var(--ink-2)}
+.tg-status{flex-wrap:nowrap}
+.tg-avatar{width:44px;height:44px;flex:none;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#229ed9;color:#fff;box-shadow:0 0 0 2px var(--surface)}
+.tg-avatar .i{width:20px;height:20px}
+.backup-status>div.tg-actions{display:flex;align-items:center;gap:4px;flex:none;min-width:auto}
+.tg-schedule{display:flex;align-items:center;gap:8px;margin:4px 2px 6px;font-size:13px;color:var(--mute)}
+.tg-schedule .i{width:15px;height:15px;flex:none}
+.tg-schedule b{color:var(--ink);font-weight:600}
+@media (max-width:767px){.tg-status{flex-wrap:wrap}.tg-actions{width:100%;justify-content:flex-end}}
+.tg-avatar.big{width:64px;height:64px;margin-bottom:6px;box-shadow:0 0 0 3px var(--surface),var(--shadow-card)}
+.tg-avatar.big .i{width:28px;height:28px}
+.tg-hint{font-size:12px;color:var(--mute);margin-top:2px}
+.tg-hint b{color:var(--ink-2)}
+.backup-status span.ok-txt{color:var(--ok);font-weight:500}

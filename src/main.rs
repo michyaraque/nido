@@ -168,6 +168,7 @@ async fn main() {
         .route("/backups/targets/{id}/files/{name}/delete", post(backup::delete_copy))
         .route("/telegram/bot", post(notify::connect_bot))
         .route("/telegram/remove", post(notify::remove_bot))
+        .route("/telegram/photo", get(notify::bot_photo))
         .route("/telegram/time", post(notify::save_time))
         .route("/telegram/test", post(notify::test))
         .route("/telegram/unlink", post(notify::unlink))

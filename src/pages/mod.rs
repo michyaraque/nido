@@ -430,7 +430,7 @@ impl View {
         html! {
             div.page-head {
                 div { h1 { (title) } p { (sub) } }
-                @if self.t != "shopping" && self.t != "settings" { (self.month_nav()) }
+                @if !matches!(self.t, "shopping" | "settings" | "household") { (self.month_nav()) }
             }
         }
     }

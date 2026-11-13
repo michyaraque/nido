@@ -5,11 +5,11 @@ use std::{io::Cursor, path::PathBuf};
 
 const SIDE: u32 = 256;
 
-fn path(id: i64) -> PathBuf {
+pub fn path(id: i64) -> PathBuf {
     data_dir().join("avatars").join(format!("{id}.jpg"))
 }
 
-fn square_jpeg(photo: &[u8]) -> Result<Vec<u8>, String> {
+pub fn square_jpeg(photo: &[u8]) -> Result<Vec<u8>, String> {
     let mut decoder = ImageReader::new(Cursor::new(photo))
         .with_guessed_format()
         .map_err(|e| e.to_string())?
