@@ -81,43 +81,49 @@ pub fn row(v: &View, b: &Bill) -> Markup {
                     }
                 }
             }
-            details.menu {
-                summary.icon-btn aria-label={ "Opciones de " (b.name) } { (icon("ellipsis")) }
-                div.pop {
-                    form method="post" action={ "/bills/" (b.id) "/amount" } accept-charset="utf-8" {
-                        (v.ctx())
-                        div.field {
-                            label { "Importe solo de " (month_lc) }
-                            input.input type="text" name="amount" inputmode="decimal" value=(eur_input(b.amount)) required;
-                            p.hint { "Para cuentas que cambian, como la luz. Los demás meses no se tocan." }
-                        }
-                        button.btn.primary.wide { "Guardar importe de " (month_lc) }
+            a.icon-btn href={ "#bill-" (b.id) } aria-label={ "Editar " (b.name) } { (icon("ellipsis")) }
+            // Editing lives in a window, not a dropdown: it is too long to hang off the row.
+            div.modal id={ "bill-" (b.id) } role="dialog" aria-modal="true" aria-labelledby={ "bill-t-" (b.id) } {
+                a.scrim href="#_" aria-label="Cerrar" tabindex="-1" {}
+                div.dialog.dialog-wide.bill-edit {
+                    div.dialog-top {
+                        h2 id={ "bill-t-" (b.id) } { "Editar «" (b.name) "»" }
+                        a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
                     }
-                    hr;
-                    form method="post" action={ "/bills/" (b.id) } accept-charset="utf-8" {
-                        (v.ctx())
-                        p.pop-title { "Cambiar desde " (month_lc) " en adelante" }
-                        div.field { label { "Nombre" } input.input type="text" name="name" value=(b.name) required maxlength="100"; }
-                        div.two {
-                            div.field { label { "Importe" } input.input type="text" name="amount" inputmode="decimal" value=(eur_input(b.base)) required; }
-                            div.field { label { "Día del mes" } input.input type="number" name="due_day" min="1" max="31" value=(b.due_day) required; }
-                        }
-                        (v.who_pays(&View::mode(Some(b))))
-                        button.btn.outline.wide { "Guardar cambios" }
-                    }
-                    @if b.owner.is_none() && b.covered_by.is_none() && v.users.len() > 1 {
-                        hr;
-                        form method="post" action={ "/bills/" (b.id) "/whole" } {
+                        form method="post" action={ "/bills/" (b.id) "/amount" } accept-charset="utf-8" {
                             (v.ctx())
-                            @if b.whole && b.payer == Some(v.me.id) {
-                                button.btn.outline.wide { "Volver a repartirla este mes" }
-                            } @else {
-                                button.btn.outline.wide { (icon("hand-coins")) "La he pagado entera este mes" }
-                                p.hint { "Este mes no se reparte ni genera deuda: cuenta solo para ti" }
+                            div.field {
+                                label { "Importe solo de " (month_lc) }
+                                input.input type="text" name="amount" inputmode="decimal" value=(eur_input(b.amount)) required;
+                                p.hint { "Para cuentas que cambian, como la luz. Los demás meses no se tocan." }
+                            }
+                            button.btn.primary.wide { "Guardar importe de " (month_lc) }
+                        }
+                        hr;
+                        form method="post" action={ "/bills/" (b.id) } accept-charset="utf-8" {
+                            (v.ctx())
+                            p.pop-title { "Cambiar desde " (month_lc) " en adelante" }
+                            div.field { label { "Nombre" } input.input type="text" name="name" value=(b.name) required maxlength="100"; }
+                            div.two {
+                                div.field { label { "Importe" } input.input type="text" name="amount" inputmode="decimal" value=(eur_input(b.base)) required; }
+                                div.field { label { "Día del mes" } input.input type="number" name="due_day" min="1" max="31" value=(b.due_day) required; }
+                            }
+                            (v.who_pays(&View::mode(Some(b))))
+                            button.btn.outline.wide { "Guardar cambios" }
+                        }
+                        @if b.owner.is_none() && b.covered_by.is_none() && v.users.len() > 1 {
+                            hr;
+                            form method="post" action={ "/bills/" (b.id) "/whole" } {
+                                (v.ctx())
+                                @if b.whole && b.payer == Some(v.me.id) {
+                                    button.btn.outline.wide { "Volver a repartirla este mes" }
+                                } @else {
+                                    button.btn.outline.wide { (icon("hand-coins")) "La he pagado entera este mes" }
+                                    p.hint { "Este mes no se reparte ni genera deuda: cuenta solo para ti" }
+                                }
                             }
                         }
-                    }
-                    a.btn.danger.wide href={ "#end-" (b.id) } { (icon("x")) "Quitar desde " (month_lc) }
+                        a.btn.danger.wide href={ "#end-" (b.id) } { (icon("x")) "Quitar desde " (month_lc) }
                 }
             }
             // Confirmation dialog, opened by #end-<id> (CSS :target): never the browser's confirm().

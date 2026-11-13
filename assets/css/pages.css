@@ -369,3 +369,8 @@ form:has(input[name=received]:checked) .received-on{display:grid}
 .fin:has(#tr:checked) .when-track,.fin:has(#cy:checked) .when-carry{display:grid}
 .fin-foot{display:flex;justify-content:flex-end;padding:16px 0 20px;border-top:1px solid var(--line)}
 @media (max-width:767px){.fin-fields{grid-template-columns:minmax(0,1fr)}.fin-foot .btn{width:100%}}
+
+/* Editar cuenta (window opened from the row's ⋯) */
+.bill-edit{display:grid;gap:16px}
+.bill-edit form{display:grid;gap:12px}
+.bill-edit hr{border:0;border-top:1px solid var(--line)}

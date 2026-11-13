@@ -23,7 +23,10 @@ pub fn render(v: &View) -> Markup {
         }
         div.split {
             section.card {
-                div.card-head { div { h2 { "Cuentas comunes" } p { "Marca cada una cuando la pagues. Se apunta quién la pagó." } } }
+                div.card-head {
+                    div { h2 { "Cuentas comunes" } p { "Marca cada una cuando la pagues. Se apunta quién la pagó." } }
+                    a.btn.outline.sm href=(new_bill) { (icon("plus")) "Nueva" }
+                }
                 @if shared == 0 {
                     (empty("house", "Todavía no hay cuentas comunes", "Añade el alquiler, la luz o internet y se repartirán solas.", Some((&new_bill, "Añadir cuenta"))))
                 }
