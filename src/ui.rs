@@ -105,6 +105,20 @@ pub fn stat(ic: &str, label: &str, value: Markup, foot: Markup) -> Markup {
     }
 }
 
+/// Framed card: mono label strip on top, white body, mono footnote + optional link below.
+pub fn panel(ic: &str, label: Markup, action: Markup, body: Markup, note: Markup, link: Option<(&str, &str)>) -> Markup {
+    html! {
+        section.panel {
+            div.panel-top { span.panel-label { (icon(ic)) (label) } (action) }
+            div.panel-body { (body) }
+            div.panel-foot {
+                span.panel-note { (note) }
+                @if let Some((href, text)) = link { a.panel-link href=(href) { (text) (icon("arrow-right")) } }
+            }
+        }
+    }
+}
+
 pub fn brand() -> Markup {
     html! { span.mark { (icon("house")) } span.brand-txt { b { "Nido" } small { "Lo de casa, en orden" } } }
 }

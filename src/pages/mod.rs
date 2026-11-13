@@ -443,21 +443,43 @@ impl View {
         }
     }
 
+    /// Count shown next to a sidebar entry: what still needs doing there.
+    fn badge(&self, id: &str) -> (usize, &'static str) {
+        match id {
+            "home" => (self.bills.iter().filter(|b| b.payer.is_none()).count(), "warn"),
+            "shopping" => (self.shopping.iter().filter(|i| !i.done).count(), ""),
+            "tasks" => (tasks::due(self).len(), "bad"),
+            _ => (0, ""),
+        }
+    }
+    fn side_link(&self, id: &str, label: &str, ic: &str) -> Markup {
+        let on = id == self.t || (id == "settings" && self.t == "household");
+        let (n, tone) = self.badge(id);
+        html! {
+            a.on[on] href=(self.link(id)) aria-current=[on.then_some("page")] {
+                (icon(ic)) span.side-txt { (label) }
+                @if n > 0 { span class={ "count " (tone) } aria-label={ (n) " pendientes" } { (n) } }
+            }
+        }
+    }
+
     fn shell(&self, content: Markup, flash_msg: Option<&str>) -> Markup {
         html! {
             a.skip href="#main" { "Saltar al contenido" }
             div.app {
                 aside.side {
-                    div.brand { (brand()) }
-                    nav.side-nav aria-label="Secciones" {
-                        @for (id, label, ic) in TABS {
-                            @let on = id == self.t || (id == "settings" && self.t == "household");
-                            a.on[on] href=(self.link(id)) aria-current=[on.then_some("page")] { (icon(ic)) (label) }
+                    div.brand.side-brand { (brand()) }
+                    // ponytail: groups by TABS index; keep in sync if TABS changes order
+                    @for (title, tabs) in [("Este mes", &TABS[..3]), ("En casa", &TABS[3..5])] {
+                        nav.side-nav aria-label=(title) {
+                            span.side-label { (title) }
+                            @for &(id, label, ic) in tabs { (self.side_link(id, label, ic)) }
                         }
                     }
+                    nav.side-nav.side-bottom aria-label="Ajustes" { @let (id, label, ic) = TABS[5]; (self.side_link(id, label, ic)) }
                     div.side-user {
-                        (self.avatars())
-                        span.side-name { (self.me.name) }
+                        (self.avatar(self.me.id))
+                        span.side-who { b { (self.me.name) } small { (self.users.len()) " en casa" } }
                         form.inline method="post" action="/logout" { button.icon-btn aria-label="Cerrar sesión" title="Cerrar sesión" { (icon("log-out")) } }
                     }
                 }

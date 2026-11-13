@@ -69,6 +69,31 @@ fn urgency(c: &Chore) -> (u8, i64) {
     }
 }
 
+/// Chores due today or overdue (or never done yet), most overdue first.
+pub fn due(v: &View) -> Vec<&Chore> {
+    let mut d: Vec<&Chore> = v.chores.iter()
+        .filter(|c| matches!((c.days_since, c.every_days), (Some(d), Some(e)) if d >= e) || (c.days_since.is_none() && c.every_days.is_some()))
+        .collect();
+    d.sort_by_key(|c| c.every_days.unwrap_or(0) - c.days_since.unwrap_or(i64::MAX / 2));
+    d
+}
+
+/// Compact row for the Resumen widget: check it off, nothing else.
+pub fn due_row(v: &View, c: &Chore) -> Markup {
+    let (tone, text) = status(c);
+    html! {
+        li.row.chore-row style={ "--c:" (c.color) } {
+            form.inline method="post" action={ "/chores/" (c.id) "/log" } {
+                (v.ctx())
+                button.check aria-label={ "Hecha hoy: " (c.name) } title="Márcala cuando la hagas" { (icon("check")) }
+            }
+            span.tile.sm { (icon(&c.icon)) }
+            div.row-main { span.row-title { (c.name) } }
+            (pill(tone, None, &text))
+        }
+    }
+}
+
 fn chore_row(v: &View, c: &Chore) -> Markup {
     let (tone, text) = status(c);
     let done = c.days_since == Some(0);
