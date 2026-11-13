@@ -66,6 +66,16 @@ pub fn render(v: &View) -> Markup {
                     }
                 }
                 @if v.me.salary > 0 {
+                    div.set-item {
+                        div.set-item-txt { label for="pd" { b { "Día de cobro" } } small { "Opcional. Es la fecha que se apunta al marcarlo como cobrado." } }
+                        form.inline-field method="post" action="/me/pay-day" {
+                            (v.ctx())
+                            input #pd.input.day-in type="number" name="pay_day" min="1" max="31" inputmode="numeric" placeholder="—" value=[v.pay_day];
+                            button.btn.outline { "Guardar" }
+                        }
+                    }
+                }
+                @if v.me.salary > 0 {
                     (item("Confirmar cada mes que lo cobro", "Si se retrasa, no contará en tu saldo hasta que lo marques.", html! {
                         form.auto-submit method="post" action="/me/track-pay" {
                             (v.ctx())

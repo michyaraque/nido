@@ -18,9 +18,20 @@ fn weekday(date: &str) -> usize {
 /// Ingresos del mes: the payslip and one-off incomes, each ticked when it arrives.
 fn income_panel(v: &View) -> Markup {
     let past = v.is_past();
+    // Default "cobrado el" for this month: today, or the month's last day when looking back.
+    let default_day = if v.is_past() { format!("{}-{:02}", v.m, v.ndays) } else { v.today.clone() };
+    let day_form = |action: String, got: &str| html! {
+        form method="post" action=(action) {
+            (v.ctx())
+            div.field { label { "Fecha de cobro" } input.input type="date" name="day" value=(got) max=(v.today) required; }
+            button.btn.outline.wide { "Guardar fecha" }
+        }
+    };
     let row = |action: String, got: Option<&str>, ic: &str, title: &str, amount: i64, menu: Markup| {
         let (tone, label) = match got {
-            Some(d) => ("ok", format!("Cobrado · día {}", d[8..].trim_start_matches('0'))),
+            // Ticked within its own month: "día 3"; ticked later: the full date.
+            Some(d) if d.starts_with(v.m.as_str()) => ("ok", format!("Cobrado · día {}", d[8..].trim_start_matches('0'))),
+            Some(d) => ("ok", format!("Cobrado el {}/{}", d[8..].trim_start_matches('0'), &d[5..7])),
             None if past => ("bad", "Sin cobrar".to_string()),
             None => ("warn", "Pendiente".to_string()),
         };
@@ -47,13 +58,21 @@ fn income_panel(v: &View) -> Markup {
         }
         ul.rows {
             @if v.tracks_salary(&v.m) {
-                (row(format!("/incomes/salary/{}", v.m), v.salary_day(&v.m), "banknote", "Ingreso fijo", v.me.salary, html! {}))
+                (row(format!("/incomes/salary/{}", v.m), v.salary_day(&v.m), "banknote", "Ingreso fijo", v.me.salary, html! {
+                    @if let Some(d) = v.salary_day(&v.m) {
+                        details.menu {
+                            summary.icon-btn aria-label="Opciones del ingreso fijo" { (icon("ellipsis")) }
+                            div.pop { (day_form(format!("/incomes/salary/{}/day", v.m), d)) }
+                        }
+                    }
+                }))
             }
             @for i in v.month_incomes() {
                 (row(format!("/incomes/{}/toggle", i.id), i.received.as_deref(), "coins", &i.concept, i.amount, html! {
                     details.menu {
                         summary.icon-btn aria-label={ "Opciones de " (i.concept) } { (icon("ellipsis")) }
                         div.pop {
+                            @if let Some(d) = i.received.as_deref() { (day_form(format!("/incomes/{}/day", i.id), d)) hr; }
                             form method="post" action={ "/incomes/" (i.id) "/delete" } { (v.ctx()) button.btn.danger.wide { (icon("trash-2")) "Borrar ingreso" } }
                         }
                     }
@@ -72,6 +91,7 @@ fn income_panel(v: &View) -> Markup {
                     div.field { label for="ic" { "Concepto" } input #ic.input type="text" name="concept" placeholder="Factura, clases, venta…" required maxlength="60"; }
                     div.field { label for="ia" { "Importe neto" } input #ia.input type="text" name="amount" placeholder="0,00 €" inputmode="decimal" required; p.hint { "Lo que te queda a ti, sin impuestos." } }
                     label.switch { input type="checkbox" name="received" checked; span { "Ya lo he cobrado" small { "Si no, queda pendiente hasta que lo marques." } } }
+                    div.field.received-on { label for="io" { "Fecha de cobro" } input #io.input type="date" name="received_on" value=(default_day) max=(v.today); }
                     button.btn.primary.wide { (icon("plus")) "Apuntar en " (v.month_lc()) }
                 }
             }
