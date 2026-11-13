@@ -501,23 +501,30 @@ impl View {
     fn pending(&self) -> i64 {
         self.bills.iter().filter(|b| b.payer.is_none()).map(|b| b.amount).sum()
     }
-    fn net(&self) -> i64 {
-        // Only bills that are split create debts; those paid in full by someone do not.
+    /// Each person's balance with the house this month: > 0 the others owe them.
+    /// Only split bills create debts; those paid in full by someone do not.
+    fn balances(&self) -> Vec<(i64, i64)> {
         let split = |b: &&Bill| b.owner.is_none() && self.carrier(b).is_none();
         let paid_shared: i64 = self.bills.iter().filter(split).filter(|b| b.payer.is_some()).map(|b| b.amount).sum();
-        let paid_by_me: i64 = self.bills.iter().filter(split).filter(|b| b.payer == Some(self.me.id)).map(|b| b.amount).sum();
-        let received: i64 = self.settles.iter().filter(|s| s.to == self.me.id).map(|s| s.amount).sum();
-        let sent: i64 = self.settles.iter().filter(|s| s.from == self.me.id).map(|s| s.amount).sum();
-        paid_by_me - self.part(paid_shared, self.me.id) - received + sent
+        self.users
+            .iter()
+            .map(|u| {
+                let paid: i64 = self.bills.iter().filter(split).filter(|b| b.payer == Some(u.id)).map(|b| b.amount).sum();
+                let received: i64 = self.settles.iter().filter(|s| s.to == u.id).map(|s| s.amount).sum();
+                let sent: i64 = self.settles.iter().filter(|s| s.from == u.id).map(|s| s.amount).sum();
+                (u.id, paid - self.part(paid_shared, u.id) - received + sent)
+            })
+            .collect()
+    }
+    /// Fewest payments that settle everyone: (from, to, amount).
+    fn transfers(&self) -> Vec<(i64, i64, i64)> {
+        settle_up(self.balances())
     }
     fn pct_of_income(&self, v: i64) -> i64 {
         let income = self.income();
         if income > 0 { v * 100 / income } else { 0 }
     }
 
-    fn other(&self) -> Option<&U> {
-        self.users.iter().find(|u| u.id != self.me.id)
-    }
     fn name_of(&self, id: i64) -> &str {
         self.users.iter().find(|u| u.id == id).map(|u| u.name.as_str()).unwrap_or("?")
     }
@@ -632,6 +639,22 @@ impl View {
             }
             @if let Some(msg) = flash_msg { div.toast role="status" aria-live="polite" { (icon("circle-check")) (msg) } }
         }
+    }
+}
+
+/// Greedy matching of debtors to creditors, biggest first. Rounding leftovers (a few cents) are dropped.
+pub fn settle_up(mut bal: Vec<(i64, i64)>) -> Vec<(i64, i64, i64)> {
+    let mut out = Vec::new();
+    loop {
+        bal.sort_by_key(|b| b.1);
+        let (d, c) = (0, bal.len().saturating_sub(1));
+        if bal.len() < 2 || bal[d].1 >= -2 || bal[c].1 <= 2 {
+            return out;
+        }
+        let amount = (-bal[d].1).min(bal[c].1);
+        out.push((bal[d].0, bal[c].0, amount));
+        bal[d].1 += amount;
+        bal[c].1 -= amount;
     }
 }
 
@@ -762,5 +785,26 @@ mod split_tests {
         assert_eq!((part_of(&c, 1), part_of(&c, 2)), (70000, 30000));
         set("avg3"); // Ana 3.000/month, Leo 1.000 + 2.000 = 3.000/month
         assert_eq!((part_of(&c, 1), part_of(&c, 2)), (50000, 50000));
+    }
+}
+
+#[cfg(test)]
+mod settle_tests {
+    use super::*;
+
+    #[test]
+    fn settle_up_three_people() {
+        // Ana paid 300 for the three of them; Leo and Eva owe her 100 each.
+        assert_eq!(settle_up(vec![(1, 20000), (2, -10000), (3, -10000)]), vec![(2, 1, 10000), (3, 1, 10000)]);
+        // Chain: Leo owes 50, Eva owes 30, Ana is owed 80 → two payments to Ana.
+        let mut t = settle_up(vec![(1, 8000), (2, -5000), (3, -3000)]);
+        t.sort();
+        assert_eq!(t, vec![(2, 1, 5000), (3, 1, 3000)]);
+        // Two creditors, one debtor.
+        let mut t = settle_up(vec![(1, 6000), (2, 4000), (3, -10000)]);
+        t.sort();
+        assert_eq!(t, vec![(3, 1, 6000), (3, 2, 4000)]);
+        // Rounding dust is not a debt.
+        assert!(settle_up(vec![(1, 1), (2, -1)]).is_empty());
     }
 }

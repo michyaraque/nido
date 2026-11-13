@@ -345,3 +345,7 @@ form:has(input[name=mode][value=custom]:checked) .split-custom{display:grid}
 .split-who{display:inline-flex;align-items:center;gap:6px}
 .split-who .avatar{width:22px;height:22px;font-size:10px;border-width:0}
 @media (max-width:767px){.split-pick{grid-template-columns:minmax(0,1fr)}}
+.owe .inline{display:block;width:100%}
+.owe-who.sm{gap:4px}
+.owe-who.sm .avatar{width:26px;height:26px;font-size:11px}
+.owe-who.sm .owe-arrow .i{width:14px;height:14px}

@@ -2,7 +2,7 @@ use super::*;
 
 pub fn render(v: &View) -> Markup {
     let shared = v.shared();
-    let net = v.net();
+    let transfers = v.transfers();
     let month_lc = v.month_lc();
     let new_bill = "#new-bill".to_string();
     html! {
@@ -33,26 +33,29 @@ pub fn render(v: &View) -> Markup {
             section.card {
                 div.card-head { div { h2 { "Quién debe a quién" } p { "Según lo que ha pagado cada uno de la casa este mes" } } }
                 @if v.users.len() < 2 {
-                    (empty("users", "Estás tú solo en casa", "Para repartir las cuentas, crea un usuario para cada persona en la Raspberry con sudo nido-user Nombre.", None))
-                } @else if let (true, Some(o)) = (net != 0, v.other()) {
+                    (empty("users", "Estás tú solo en casa", "Añade a alguien en Ajustes → La casa para repartir las cuentas.", Some((&format!("{}#people", v.link("household")), "Añadir persona"))))
+                } @else if transfers.is_empty() {
+                    (empty("circle-check", "Estáis en paz", "Nadie debe nada por las cuentas de la casa de este mes.", None))
+                } @else if let [(from, to, amount)] = transfers.as_slice() {
                     div.owe {
-                        div.owe-who {
-                            (v.avatar(if net > 0 { o.id } else { v.me.id }))
-                            span.owe-arrow { (icon("arrow-right")) }
-                            (v.avatar(if net > 0 { v.me.id } else { o.id }))
-                        }
-                        p.owe-txt { @if net > 0 { (o.name) " te tiene que devolver" } @else { "Le tienes que devolver a " (o.name) } }
-                        (money(net.abs()))
-                        form method="post" action="/settlements" {
-                            (v.ctx())
-                            input type="hidden" name="other_id" value=(o.id);
-                            input type="hidden" name="amount" value=(net);
-                            button.btn.primary.wide { (icon("hand-coins")) "Marcar como devuelto" }
-                        }
-                        p.hint.center { "Quedará apuntado y el saldo volverá a cero" }
+                        div.owe-who { (v.avatar(*from)) span.owe-arrow { (icon("arrow-right")) } (v.avatar(*to)) }
+                        p.owe-txt { (owe_text(v, *from, *to)) }
+                        (money(*amount))
+                        (settle_form(v, *from, *to, *amount, true))
+                        @if *from == v.me.id || *to == v.me.id { p.hint.center { "Quedará apuntado y el saldo volverá a cero" } }
                     }
                 } @else {
-                    (empty("circle-check", "Estáis en paz", "Nadie debe nada por las cuentas de la casa de este mes.", None))
+                    ul.rows.owes {
+                        @for (from, to, amount) in &transfers {
+                            li.row {
+                                div.owe-who.sm { (v.avatar(*from)) span.owe-arrow { (icon("arrow-right")) } (v.avatar(*to)) }
+                                div.row-main { span.row-title { (owe_text(v, *from, *to)) } }
+                                span.amt { (eur(*amount)) }
+                                (settle_form(v, *from, *to, *amount, false))
+                            }
+                        }
+                    }
+                    p.hint { "Cada uno marca lo suyo cuando lo devuelva." }
                 }
                 @if !v.settles.is_empty() {
                     p.label-sm { "Devoluciones de " (month_lc) }
@@ -69,6 +72,32 @@ pub fn render(v: &View) -> Markup {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+fn owe_text(v: &View, from: i64, to: i64) -> String {
+    if from == v.me.id {
+        format!("Le debes a {}", v.name_of(to))
+    } else if to == v.me.id {
+        format!("{} te debe", v.name_of(from))
+    } else {
+        format!("{} le debe a {}", v.name_of(from), v.name_of(to))
+    }
+}
+
+/// "Devuelto" button, only on debts that involve me (each person settles their own).
+fn settle_form(v: &View, from: i64, to: i64, amount: i64, wide: bool) -> Markup {
+    let (other, signed) = if to == v.me.id { (from, amount) } else { (to, -amount) };
+    html! {
+        @if from == v.me.id || to == v.me.id {
+            form.inline method="post" action="/settlements" {
+                (v.ctx())
+                input type="hidden" name="other_id" value=(other);
+                input type="hidden" name="amount" value=(signed);
+                @if wide { button.btn.primary.wide { (icon("hand-coins")) "Marcar como devuelto" } }
+                @else { button.btn.outline.sm { (icon("check")) "Devuelto" } }
             }
         }
     }
