@@ -50,7 +50,7 @@ fn expense_menu(v: &View, e: &Exp) -> Markup {
                 p.pop-title { "Editar gasto" }
                 form method="post" action={ "/expenses/" (e.id) } accept-charset="utf-8" {
                     (v.ctx())
-                    div.field { label { "Concepto" } input.input type="text" name="description" value=(e.description) required maxlength="100"; }
+                    div.field { label { "Concepto" } input.input type="text" name="description" value=(e.description) data-concepts="concepts" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="concept-pop" autocomplete="off" required maxlength="100"; }
                     div.two {
                         div.field { label { "Importe" } input.input type="text" name="amount" inputmode="decimal" value=(eur_input(e.amount)) required; }
                         div.field { label { "Fecha" } input.input type="date" name="date" value=(e.date); }
@@ -111,6 +111,7 @@ pub fn render(v: &View) -> Markup {
 
     html! {
         (select_style())
+        (v.concept_list())
         (v.head("Gastos del día a día", html! { (v.shown.len()) " movimiento" @if v.shown.len() != 1 { "s" } (whose) " en " (month_lc) " · " (eur(spent)) }))
         div.split.rev {
             div.stack {
@@ -149,7 +150,7 @@ pub fn render(v: &View) -> Markup {
                         div.field {
                             label for="d" { "Concepto" }
                             div.input-action {
-                                input #d.input type="text" name="description" placeholder="Mercadona, cena, farmacia…" required maxlength="100";
+                                input #d.input type="text" name="description" placeholder="Mercadona, cena, farmacia…" data-concepts="concepts" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="concept-pop" autocomplete="off" required maxlength="100";
                                 label.scan-btn for="scan-photo" title="Escanear un ticket" aria-label="Escanear un ticket con una foto" { (icon("scan-line")) }
                             }
                             @if !ocr::installed() { p.hint { "El lector de tickets no está instalado: se guardará la foto y escribirás los datos a mano" } }

@@ -132,7 +132,7 @@ fn render(v: &View, t: &Ticket) -> Markup {
                             section.card {
                                 div.card-head { span.stat-ico { (icon("scan-line")) } div { h2 { "Datos del ticket" } p { "Se guardará como un gasto del día a día" } } }
                                 div.form {
-                                    div.field { label for="tm" { "Comercio" } input #tm.input type="text" name="description" value=[t.merchant.as_deref()] placeholder="Dónde fue la compra" required maxlength="100"; }
+                                    div.field { label for="tm" { "Comercio" } input #tm.input type="text" name="description" value=[t.merchant.as_deref()] placeholder="Dónde fue la compra" data-concepts="concepts" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="concept-pop" autocomplete="off" required maxlength="100"; (v.concept_list()) }
                                     div.two {
                                         div.field { label for="tt" { "Importe total" } input #tt.input type="text" name="amount" inputmode="decimal" value=[t.total.map(eur_input)] placeholder="0,00 €" required; }
                                         div.field { label for="td" { "Fecha" } input #td.input type="date" name="date" value=(t.date.clone().unwrap_or_else(|| v.today.clone())); }

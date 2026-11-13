@@ -143,6 +143,7 @@ pub struct View {
     pub settles: Vec<Settle>,
     pub shopping: Vec<Item>,
     pub suggestions: Vec<String>,
+    pub concepts: Vec<String>, // my most used expense descriptions, for the "Concepto" field
     pub tickets: Vec<PendingTicket>,
     pub tg: Option<notify::Panel>,
     pub backups: Option<backup::Panel>,
@@ -239,6 +240,13 @@ impl View {
         let shopping = c
             .prepare("SELECT id,name,done,added_by FROM shopping WHERE cleared=0 ORDER BY done, id DESC")?
             .query_map([], |r| Ok(Item { id: r.get(0)?, name: r.get(1)?, done: r.get(2)?, added_by: r.get(3)? }))?
+            .collect::<Result<_, _>>()?;
+        let concepts = c
+            .prepare(
+                "SELECT trim(description) FROM expenses WHERE user_id=?1
+                 GROUP BY lower(trim(description)) ORDER BY count(*) DESC, max(id) DESC LIMIT 80",
+            )?
+            .query_map([me.id], |r| r.get(0))?
             .collect::<Result<_, _>>()?;
         let suggestions = c
             .prepare(
@@ -374,6 +382,7 @@ impl View {
             settles,
             shopping,
             suggestions,
+            concepts,
             tickets,
             m,
             t,
@@ -556,6 +565,21 @@ impl View {
     }
     fn link(&self, tab: &str) -> String {
         format!("/?month={}&tab={tab}", self.m)
+    }
+    /// Past expense descriptions as ready-made options (logo, name, category). app.js filters them
+    /// under the focused field marked `data-concepts="concepts"`.
+    fn concept_list(&self) -> Markup {
+        html! {
+            template #concepts {
+                @for c in &self.concepts {
+                    @let l = look(c, None);
+                    button.opt type="button" role="option" data-v=(c) {
+                        (badge(&l, c))
+                        span.opt-txt { (c) small { (l.cat.label) } }
+                    }
+                }
+            }
+        }
     }
     fn ctx(&self) -> Markup {
         html! { input type="hidden" name="month" value=(self.m); input type="hidden" name="tab" value=(self.t); }

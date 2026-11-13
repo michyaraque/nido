@@ -415,3 +415,85 @@ function ready() {
   if (reading) refreshTimer = setTimeout(() => visit(location.href, {}, { keepScroll: true }), reading.dataset.refresh * 1000);
 }
 ready();
+
+/* ---------- concept suggestions ----------
+   An input with data-concepts="<template id>" gets a list of past concepts (logo, name, category)
+   right below it, filtered as you type. One shared list, moved to whichever field has focus. */
+
+const conceptPop = Object.assign(document.createElement("div"), { id: "concept-pop", className: "select-pop concept-pop" });
+conceptPop.setAttribute("role", "listbox");
+let conceptInput = null;
+let conceptTpl = null; // template the options were built from (rebuilt only when it changes)
+let conceptActive = -1;
+const plain = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const shownConcepts = () => [...conceptPop.children].filter((o) => !o.hidden);
+
+// Builds the options once; typing only shows/hides them, so logos never reload and nothing jumps.
+function showConcepts(input) {
+  const tpl = document.getElementById(input.dataset.concepts);
+  if (!tpl) return hideConcepts();
+  if (conceptTpl !== tpl) {
+    conceptPop.replaceChildren(...[...tpl.content.children].map((o) => o.cloneNode(true)));
+    conceptTpl = tpl;
+  }
+  const q = plain(input.value);
+  let shown = 0;
+  for (const o of conceptPop.children) {
+    const v = plain(o.dataset.v);
+    o.hidden = !(shown < 8 && v.includes(q) && v !== q);
+    if (!o.hidden) shown++;
+    o.classList.remove("active");
+  }
+  conceptActive = -1;
+  if (!shown) return hideConcepts();
+  if (conceptInput !== input || !conceptPop.isConnected) (input.closest(".input-action") || input).after(conceptPop);
+  conceptInput = input;
+  input.setAttribute("aria-expanded", "true");
+}
+
+function hideConcepts() {
+  conceptPop.remove();
+  conceptInput?.setAttribute("aria-expanded", "false");
+  conceptInput = null;
+}
+
+function pickConcept(opt) {
+  const input = conceptInput;
+  input.value = opt.dataset.v;
+  hideConcepts();
+  input.focus();
+}
+
+document.addEventListener("input", (e) => {
+  if (e.target.matches("input[data-concepts]")) showConcepts(e.target);
+});
+document.addEventListener("focusin", (e) => {
+  if (e.target.matches("input[data-concepts]")) showConcepts(e.target);
+  else if (conceptInput && !conceptPop.contains(e.target)) hideConcepts();
+});
+document.addEventListener("pointerdown", (e) => {
+  if (conceptInput && e.target !== conceptInput && !conceptPop.contains(e.target)) hideConcepts();
+});
+document.addEventListener("keydown", (e) => {
+  if (!conceptInput || e.target !== conceptInput) return;
+  const items = shownConcepts();
+  if (!items.length) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    conceptActive = (conceptActive + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items.forEach((o, i) => o.classList.toggle("active", i === conceptActive));
+    items[conceptActive].scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter" && conceptActive >= 0) {
+    e.preventDefault();
+    pickConcept(items[conceptActive]);
+  } else if (e.key === "Escape") {
+    e.stopPropagation();
+    hideConcepts();
+  }
+});
+conceptPop.addEventListener("mousedown", (e) => e.preventDefault()); // keep the caret in the field
+conceptPop.addEventListener("click", (e) => {
+  const opt = e.target.closest("[data-v]");
+  if (opt) pickConcept(opt);
+});
+

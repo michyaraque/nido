@@ -90,7 +90,15 @@ fn income_panel(v: &View) -> Markup {
                 }
                 form.form method="post" action="/incomes" accept-charset="utf-8" {
                     (v.ctx())
-                    div.field { label for="ic" { "Concepto" } input #ic.input type="text" name="concept" placeholder="Factura, clases, venta…" required maxlength="60"; }
+                    div.field { label for="ic" { "Concepto" } input #ic.input type="text" name="concept" placeholder="Factura, clases, venta…" data-concepts="income-concepts" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="concept-pop" autocomplete="off" required maxlength="60";
+                        template #income-concepts {
+                            @for c in v.incomes.iter().map(|i| i.concept.as_str()).collect::<std::collections::BTreeSet<_>>() {
+                                button.opt type="button" role="option" data-v=(c) {
+                                    span.tile style="--c:#17803d" { (icon("coins")) }
+                                    span.opt-txt { (c) small { "Ingreso" } }
+                                }
+                            }
+                        } }
                     div.field { label for="ia" { "Importe neto" } input #ia.input type="text" name="amount" placeholder="0,00 €" inputmode="decimal" required; p.hint { "Lo que te queda a ti, sin impuestos." } }
                     label.switch { input type="checkbox" name="received" checked; span { "Ya lo he cobrado" small { "Si no, queda pendiente hasta que lo marques." } } }
                     div.field.received-on { label for="io" { "Fecha de cobro" } input #io.input type="date" name="received_on" value=(default_day) max=(v.today); }
