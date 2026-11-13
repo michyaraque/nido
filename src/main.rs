@@ -15,6 +15,7 @@ mod money;
 mod nav;
 mod backup;
 mod notify;
+mod incomes;
 mod ocr;
 mod receipt;
 mod tickets;
@@ -37,6 +38,7 @@ use axum::{
 use pages::*;
 use profile::*;
 use dates::*;
+use incomes::*;
 use db::*;
 use errors::*;
 use maud::{html, Markup, PreEscaped, DOCTYPE};
@@ -137,6 +139,11 @@ async fn main() {
         .route("/settlements/{id}/delete", post(delete_settlement))
         .route("/me/salary", post(set_salary))
         .route("/me/password", post(change_password))
+        .route("/me/track-pay", post(set_track_pay))
+        .route("/incomes", post(add_income))
+        .route("/incomes/{id}/toggle", post(toggle_income))
+        .route("/incomes/{id}/delete", post(delete_income))
+        .route("/incomes/salary/{m}", post(toggle_salary))
         .route("/shopping", post(add_items))
         .route("/shopping/clear", post(clear_items))
         .route("/shopping/{id}/toggle", post(toggle_item))

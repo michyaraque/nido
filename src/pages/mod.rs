@@ -98,8 +98,27 @@ const TABS: [(&str, &str, &str); 6] = [
     ("settings", "Ajustes", "sliders-horizontal"),
 ];
 
+pub struct Income {
+    pub id: i64,
+    pub month: String,
+    pub concept: String,
+    pub amount: i64,
+    pub received: Option<String>,
+}
+
+/// Something owed to me: label, amount, and the form that ticks it as received.
+pub struct Owed {
+    pub label: String,
+    pub amount: i64,
+    pub action: String,
+}
+
 pub struct View {
     pub me: User,
+    pub incomes: Vec<Income>,
+    pub salaries: Vec<(String, String, i64)>, // (month, day received, amount)
+    pub pay_since: String,
+    pub track_pay: bool,
     pub users: Vec<U>,
     pub bills: Vec<Bill>,
     pub exps: Vec<Exp>,
@@ -254,6 +273,19 @@ impl View {
             .query_row("SELECT value='1' FROM settings WHERE key='share_expenses'", [], |r| r.get(0))
             .optional()?
             .unwrap_or(false);
+        let incomes = c
+            .prepare("SELECT id,month,concept,amount,received FROM incomes WHERE user_id=?1 ORDER BY month, id")?
+            .query_map([me.id], |r| Ok(Income { id: r.get(0)?, month: r.get(1)?, concept: r.get(2)?, amount: r.get(3)?, received: r.get(4)? }))?
+            .collect::<Result<_, _>>()?;
+        let salaries = c
+            .prepare("SELECT month,day,amount FROM salary_received WHERE user_id=?1")?
+            .query_map([me.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<Result<_, _>>()?;
+        let (pay_since, track_pay): (String, bool) = c.query_row(
+            "SELECT COALESCE(pay_since, strftime('%Y-%m','now','localtime')), track_pay FROM users WHERE id=?1",
+            [me.id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
         let theme: Option<String> = c.query_row("SELECT value FROM settings WHERE key='theme'", [], |r| r.get(0)).optional()?;
         let theme = theme_id(theme.as_deref().unwrap_or(""));
         let who = match who {
@@ -270,6 +302,10 @@ impl View {
         let tg = if t == "settings" || t == "household" { Some(notify::panel(c, me.id)?) } else { None };
         let backups = if t == "household" { Some(backup::panel(c)?) } else { None };
         Ok(View {
+            incomes,
+            salaries,
+            pay_since,
+            track_pay,
             tg,
             backups,
             today,
@@ -382,11 +418,55 @@ impl View {
             }
         }
     }
+    /// Whether the fixed income of `m` must be ticked by hand. Otherwise it counts as received.
+    fn tracks_salary(&self, m: &str) -> bool {
+        self.me.salary > 0 && self.track_pay && m >= self.pay_since.as_str()
+    }
+    fn salary_day(&self, m: &str) -> Option<&str> {
+        self.salaries.iter().find(|s| s.0 == m).map(|s| s.1.as_str())
+    }
+    /// Money that actually came in during month `m` (cash basis: a late payslip counts when it arrives).
+    fn income_in(&self, m: &str) -> i64 {
+        let assumed = if self.me.salary > 0 && !self.tracks_salary(m) { self.me.salary } else { 0 };
+        let salaries: i64 = self.salaries.iter().filter(|s| s.1.starts_with(m)).map(|s| s.2).sum();
+        let extras: i64 = self.incomes.iter().filter(|i| i.received.as_deref().is_some_and(|d| d.starts_with(m))).map(|i| i.amount).sum();
+        assumed + salaries + extras
+    }
+    fn income(&self) -> i64 {
+        self.income_in(&self.m)
+    }
+    /// What this month should bring: the payslip plus this month's one-off incomes.
+    fn expected(&self) -> i64 {
+        let salary = if self.me.salary > 0 { self.me.salary } else { 0 };
+        salary + self.incomes.iter().filter(|i| i.month == self.m).map(|i| i.amount).sum::<i64>()
+    }
+    fn month_incomes(&self) -> impl Iterator<Item = &Income> {
+        self.incomes.iter().filter(|i| i.month == self.m)
+    }
+    /// Pending from past months: unconfirmed fixed income (only if the person tracks it) and one-off incomes.
+    fn owed(&self) -> Vec<Owed> {
+        let now = &self.today[..7];
+        let mut out = Vec::new();
+        if self.me.salary > 0 && self.track_pay {
+            let mut m = self.pay_since.clone();
+            while m.as_str() < now {
+                if self.salary_day(&m).is_none() {
+                    let name = MONTHS[m[5..].parse::<usize>().unwrap_or(1) - 1].to_lowercase();
+                    out.push(Owed { label: format!("Ingreso fijo de {name}"), amount: self.me.salary, action: format!("/incomes/salary/{m}") });
+                }
+                m = shift(&m, 1);
+            }
+        }
+        for i in self.incomes.iter().filter(|i| i.received.is_none() && i.month.as_str() < now) {
+            out.push(Owed { label: i.concept.clone(), amount: i.amount, action: format!("/incomes/{}/toggle", i.id) });
+        }
+        out
+    }
     fn left(&self) -> i64 {
-        self.me.salary - self.my_house() - self.personal() - self.spent()
+        self.income() - self.my_house() - self.personal() - self.spent()
     }
     fn available(&self) -> i64 {
-        self.me.salary - self.my_house() - self.personal()
+        self.income() - self.my_house() - self.personal()
     }
     fn bills_total(&self) -> i64 {
         self.bills.iter().map(|b| b.amount).sum()
@@ -403,8 +483,9 @@ impl View {
         let sent: i64 = self.settles.iter().filter(|s| s.from == self.me.id).map(|s| s.amount).sum();
         paid_by_me - self.part(paid_shared, self.me.salary) - received + sent
     }
-    fn pct_of_salary(&self, v: i64) -> i64 {
-        if self.me.salary > 0 { v * 100 / self.me.salary } else { 0 }
+    fn pct_of_income(&self, v: i64) -> i64 {
+        let income = self.income();
+        if income > 0 { v * 100 / income } else { 0 }
     }
 
     fn other(&self) -> Option<&U> {
@@ -556,4 +637,42 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
     let body = v.shell(content, q.ok.as_deref().and_then(flash));
     // ponytail: only the app shell is themed; login and sheets stay on the default
     Ok(page(&format!("{} {} · Nido", v.month_name(), v.year()), &format!("theme-{}", v.theme), body))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Payslip tracked since two months ago: last month's arrived late (today), the one before never did.
+    #[test]
+    fn owed_and_cash_basis() {
+        let c = Connection::open_in_memory().unwrap();
+        migrate(&c);
+        let now = today(&c).unwrap()[..7].to_string();
+        let (m2, m1) = (shift(&now, -2), shift(&now, -1));
+        c.execute("INSERT INTO users(id,name,pass,token,salary,pay_since,track_pay) VALUES(1,'Ana','x','t',180000,?1,1)", [&m2]).unwrap();
+        c.execute("INSERT INTO salary_received(user_id,month,day,amount) VALUES(1,?1,date('now','localtime'),180000)", [&m1]).unwrap();
+        c.execute("INSERT INTO incomes(user_id,month,concept,amount,received) VALUES(1,?1,'Factura',50000,NULL)", [&m1]).unwrap();
+        c.execute("INSERT INTO incomes(user_id,month,concept,amount,received) VALUES(1,?1,'Clases',20000,date('now','localtime'))", [&now]).unwrap();
+        let me = User { id: 1, name: "Ana".into(), salary: 180000, token: "t".into() };
+        let v = View::load(&c, me, now.clone(), "home", "h".into(), None, None).unwrap();
+
+        let owed: Vec<_> = v.owed().into_iter().map(|o| (o.label, o.amount)).collect();
+        let first = MONTHS[m2[5..].parse::<usize>().unwrap() - 1].to_lowercase();
+        assert_eq!(owed, vec![(format!("Ingreso fijo de {first}"), 180000), ("Factura".into(), 50000)]);
+        // The late payslip counts this month (when it arrived), plus today's one-off income.
+        assert_eq!(v.income(), 180000 + 20000);
+        // This month's own payslip is not ticked yet, so it is not cash but it is expected.
+        assert_eq!(v.salary_day(&now), None);
+        assert_eq!(v.expected(), 180000 + 20000);
+        // Before pay_since the fixed income is assumed received (history keeps working).
+        assert_eq!(v.income_in(&shift(&m2, -1)), 180000);
+
+        // Opting out: nothing is pending and the fixed income always counts.
+        c.execute("UPDATE users SET track_pay=0", []).unwrap();
+        let me = User { id: 1, name: "Ana".into(), salary: 180000, token: "t".into() };
+        let v = View::load(&c, me, now.clone(), "home", "h".into(), None, None).unwrap();
+        assert_eq!(v.owed().iter().filter(|o| o.label.starts_with("Ingreso fijo")).count(), 0);
+        assert_eq!(v.income(), 180000 + 180000 + 20000);
+    }
 }

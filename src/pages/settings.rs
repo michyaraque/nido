@@ -12,7 +12,7 @@ fn sections(v: &View) -> Markup {
 pub fn render(v: &View) -> Markup {
     let has_photo = v.users.iter().any(|u| u.id == v.me.id && u.photo > 0);
     let main = html! {
-        (sec("profile", "Tu perfil", html! { "Cómo te ven los demás y con qué sueldo calculamos tus cuentas." }, html! {
+        (sec("profile", "Tu perfil", html! { "Cómo te ven los demás y cómo entras." }, html! {
             div.card.set-card {
                 (item("Foto", "Aparece en el calendario, en las cuentas y junto a lo que apuntas.", html! {
                     div.profile {
@@ -29,14 +29,6 @@ pub fn render(v: &View) -> Markup {
                         }
                     }
                 }))
-                div.set-item #salary {
-                    div.set-item-txt { label for="s" { b { "Sueldo neto mensual" } } small { "Con él calculamos tu parte de la casa y lo que te sobra." } }
-                    form.inline-field method="post" action="/me/salary" accept-charset="utf-8" {
-                        (v.ctx())
-                        input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary));
-                        button.btn.outline { "Guardar" }
-                    }
-                }
                 (item("Contraseña", "La que usas para entrar en Nido.", html! {
                     a.btn.outline.sm href="#password" { (icon("key-round")) "Cambiar" }
                 }))
@@ -60,6 +52,27 @@ pub fn render(v: &View) -> Markup {
                         }
                         button.btn.primary.wide { "Cambiar contraseña" }
                     }
+                }
+            }
+        }))
+        (sec("money", "Tus finanzas", html! { "Con esto calculamos tu saldo y tu parte de la casa." }, html! {
+            div.card.set-card {
+                div.set-item #salary {
+                    div.set-item-txt { label for="s" { b { "Ingreso fijo mensual" } } small { "Nómina, pensión… neto. 0 si no tienes." } }
+                    form.inline-field method="post" action="/me/salary" accept-charset="utf-8" {
+                        (v.ctx())
+                        input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary));
+                        button.btn.outline { "Guardar" }
+                    }
+                }
+                @if v.me.salary > 0 {
+                    (item("Confirmar cada mes que lo cobro", "Si se retrasa, no contará en tu saldo hasta que lo marques.", html! {
+                        form.auto-submit method="post" action="/me/track-pay" {
+                            (v.ctx())
+                            label.toggle { input type="checkbox" name="track" checked[v.track_pay] aria-label="Confirmar cada mes que lo cobro"; span {} }
+                            button.btn.outline.sm.auto-go { "Guardar" }
+                        }
+                    }))
                 }
             }
         }))

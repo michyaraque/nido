@@ -133,3 +133,22 @@ CREATE TABLE IF NOT EXISTS backup_targets (
   last_error TEXT,
   last_size  INTEGER
 );
+
+-- Payslip of `month` ticked as received on `day` (the amount it was then).
+CREATE TABLE IF NOT EXISTS salary_received (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  month   TEXT NOT NULL,
+  day     TEXT NOT NULL,
+  amount  INTEGER NOT NULL,
+  PRIMARY KEY (user_id, month)
+);
+
+-- One-off incomes; `received` is the day it arrived, NULL while pending.
+CREATE TABLE IF NOT EXISTS incomes (
+  id       INTEGER PRIMARY KEY,
+  user_id  INTEGER NOT NULL REFERENCES users(id),
+  month    TEXT NOT NULL,
+  concept  TEXT NOT NULL,
+  amount   INTEGER NOT NULL,
+  received TEXT
+);
