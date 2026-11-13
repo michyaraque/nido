@@ -9,6 +9,7 @@ struct Ticket {
     total: Option<i64>,
     items: Vec<(String, i64)>,
     error: Option<String>,
+    created: String, // part of the photo URL: ids get reused after a delete, the URL must not
 }
 
 pub async fn ticket_page(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>) -> R {
@@ -16,7 +17,7 @@ pub async fn ticket_page(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>
     let me = require_user!(c, h);
     let t: Option<Ticket> = c
         .query_row(
-            "SELECT id,status,merchant,date,total,items,error,user_id FROM tickets WHERE id=?1",
+            "SELECT id,status,merchant,date,total,items,error,user_id,created FROM tickets WHERE id=?1",
             params![id],
             |r| {
                 Ok(Ticket {
@@ -28,6 +29,7 @@ pub async fn ticket_page(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>
                     items: r.get::<_, Option<String>>(5)?.and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default(),
                     error: r.get(6)?,
                     user: r.get(7)?,
+                    created: r.get(8)?,
                 })
             },
         )
@@ -82,7 +84,7 @@ fn render(v: &View, t: &Ticket) -> Markup {
                 (expenses::select_style())
                 div.ticket {
                     figure.card.ticket-photo {
-                        img src={ "/tickets/" (t.id) "/photo" } alt="Foto del ticket" loading="lazy";
+                        img src={ "/tickets/" (t.id) "/photo?v=" (t.created.chars().filter(char::is_ascii_digit).collect::<String>()) } alt="Foto del ticket" loading="lazy";
                     }
                     @if t.status == "done" || !mine {
                         div.stack {
