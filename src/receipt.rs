@@ -206,6 +206,6 @@ mod tests {
         assert_eq!(item_name("(SURT 3;"), None);
         assert_eq!(item_name("(Fami) x"), None);
         assert_eq!(item_name("1E BOLSA PLASTICO").as_deref(), Some("BOLSA PLASTICO"));
-        assert_eq!(parse(&lines("24300 BEMBIBRE León)\nTelf:987512847\nFACTURA SIMPLIFICADA")).merchant, None);
+        assert_eq!(parse(&lines("28001 MADRID Madrid)\nTelf:910000000\nFACTURA SIMPLIFICADA")).merchant, None);
     }
 }
