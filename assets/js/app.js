@@ -31,7 +31,14 @@ async function visit(url, init = {}, { keepScroll = false, push = true, y = null
   try {
     let res = !init.method && (await early.get(url));
     early.delete(url);
-    if (!res || !res.ok) res = await fetch(url, { ...init, credentials: "same-origin" });
+    if (!res || !res.ok) {
+      try {
+        res = await fetch(url, { ...init, credentials: "same-origin" });
+      } catch {
+        if (init.method === "POST") return OFFLINE; // only a real network failure means "away from home"
+        throw new Error("network");
+      }
+    }
     if (!res.ok) {
       toast((await res.text()).slice(0, 200) || "No se ha podido completar. Inténtalo de nuevo.", true);
       document.querySelectorAll("button[disabled]").forEach((b) => (b.disabled = false));
@@ -62,17 +69,18 @@ async function visit(url, init = {}, { keepScroll = false, push = true, y = null
     };
     if (document.startViewTransition && !calm.matches) await document.startViewTransition(swap).updateCallbackDone;
     else swap();
+    shown = location.pathname + location.search;
     ready();
-  } catch {
-    if (init.method === "POST") return OFFLINE;
-    location.href = url;
+  } catch (err) {
+    console.error(err);
+    location.href = init.method === "POST" ? location.href : url;
   } finally {
     loading(false);
   }
 }
 
 const internal = (a) =>
-  a.origin === location.origin && !a.target && !a.hasAttribute("download") &&
+  a.origin === location.origin && !a.target && !a.hasAttribute("download") && !a.hasAttribute("data-sheet") &&
   !(a.pathname === location.pathname && a.search === location.search && a.hash);
 
 const linkOf = (e) => {
@@ -101,6 +109,12 @@ document.addEventListener("submit", async (e) => {
   const form = e.target;
   if (e.defaultPrevented || form.method.toLowerCase() !== "post") return;
   e.preventDefault();
+  const inSheet = form.closest(".modal.open");
+  if (inSheet) {
+    form.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    fillSheet(inSheet, fetch(form.action, { method: "POST", body: new URLSearchParams(new FormData(form)), credentials: "same-origin" }));
+    return;
+  }
   const data = new FormData(form, e.submitter);
   const multipart = form.enctype === "multipart/form-data";
   form.querySelectorAll("button").forEach((b) => (b.disabled = true));
@@ -112,7 +126,12 @@ document.addEventListener("submit", async (e) => {
   if (done === OFFLINE) later(form, data, multipart);
 });
 
-addEventListener("popstate", (e) => visit(location.href, {}, { push: false, y: e.state?.y ?? 0 }));
+// Opening or closing a dialog only changes the "#…": that is not a page to load again.
+let shown = location.pathname + location.search;
+addEventListener("popstate", (e) => {
+  if (location.pathname + location.search === shown) return;
+  visit(location.href, {}, { push: false, y: e.state?.y ?? 0 });
+});
 history.scrollRestoration = "manual";
 
 /* ---------- menus and dialogs ---------- */
@@ -123,9 +142,64 @@ document.addEventListener("click", (e) => {
   for (const d of openPopovers()) if (!d.contains(e.target)) d.open = false;
 });
 
+// A menu opens downwards, or upwards when there is no room below and there is above: the page never grows.
+document.addEventListener("toggle", (e) => {
+  const d = e.target;
+  const pop = d.matches?.("details.menu") && d.open && d.querySelector(".pop");
+  if (!pop || getComputedStyle(pop).position === "fixed") return;
+  pop.classList.remove("up");
+  const box = pop.getBoundingClientRect(), top = d.querySelector("summary").getBoundingClientRect().top;
+  if (box.bottom > innerHeight - 8 && top - box.height - 8 > 0) pop.classList.add("up");
+}, true);
+
+/// A window over the page for content fetched from the server (`a[data-sheet]`), like the list of copies.
+function sheet(url) {
+  const m = document.createElement("div");
+  m.className = "modal open";
+  m.setAttribute("role", "dialog");
+  m.setAttribute("aria-modal", "true");
+  m.innerHTML = '<div class="scrim" data-close></div><div class="dialog dialog-wide"><div class="sheet-loading">Buscando las copias…</div></div>';
+  document.body.append(m);
+  fillSheet(m, fetch(url, { credentials: "same-origin" }));
+}
+
+/// Puts the server's #sheet-content into the window; a form inside it (deleting a copy) refreshes only the window.
+function fillSheet(m, request) {
+  const box = m.querySelector(".dialog");
+  request
+    .then(async (r) => {
+      const html = await r.text();
+      if (!r.ok) return toast(html.slice(0, 200) || "No se ha podido completar.", true);
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const c = doc.getElementById("sheet-content");
+      if (!m.isConnected) return;
+      if (c) box.replaceChildren(document.importNode(c, true));
+      else box.textContent = "No se ha podido cargar. Inténtalo de nuevo.";
+      const ok = new URL(r.url).searchParams.get("ok");
+      if (ok === "backup_copy_deleted") toast("Copia borrada");
+    })
+    .catch(() => (box.textContent = "Sin conexión con casa: no se pueden ver las copias ahora."));
+}
+
+document.addEventListener("click", (e) => {
+  const open = e.target.closest("a[data-sheet]");
+  if (open && !e.button && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    open.closest("details")?.removeAttribute("open");
+    sheet(open.href);
+    return;
+  }
+  const close = e.target.closest(".modal.open [data-close]");
+  if (close) {
+    e.preventDefault();
+    close.closest(".modal").remove();
+  }
+});
+
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   for (const d of openPopovers()) d.open = false;
+  document.querySelector(".modal.open")?.remove();
   if (document.querySelector(".modal:target")) location.hash = "_";
 });
 
@@ -290,7 +364,7 @@ async function status() {
   document.body.prepend(bar);
 }
 
-let warmed = false;
+let warmed = false, retryTimer;
 async function sync() {
   try {
     offline = !(await fetch("/ping", { cache: "no-store" })).ok;
@@ -299,7 +373,11 @@ async function sync() {
   }
   document.documentElement.classList.toggle("offline", offline);
   status();
-  if (offline) return;
+  clearTimeout(retryTimer);
+  if (offline) {
+    retryTimer = setTimeout(sync, 10000);
+    return;
+  }
   await send();
   if (!warmed && navigator.serviceWorker?.controller) {
     warmed = true;
@@ -313,11 +391,26 @@ document.addEventListener("visibilitychange", () => document.visibilityState ===
 
 /* ---------- after every page (first load or in-place update) ---------- */
 
-let refreshTimer;
+let refreshTimer, wasCopying = false;
 function ready() {
   updateSum();
+  const target = location.hash.length > 1 ? document.getElementById(location.hash.slice(1)) : null;
+  if (target?.matches(".modal") && !target.matches(":target")) {
+    const hash = location.hash;
+    history.replaceState(history.state, "", location.pathname + location.search);
+    location.hash = hash;
+  }
+  for (let d = target?.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
+  if (target?.closest("details")) target.scrollIntoView({ block: "center" });
   sync();
   clearTimeout(refreshTimer);
+  // A backup in progress: say how it went once the page shows it finished.
+  const copying = !!document.querySelector("#backups [data-refresh]");
+  if (wasCopying && !copying && document.querySelector("#backups")) {
+    const failed = document.querySelector(".backup-status.bad");
+    toast(failed ? "La copia ha fallado: mira el destino en rojo" : "Copia terminada", !!failed);
+  }
+  wasCopying = copying;
   const reading = document.querySelector("[data-refresh]");
   if (reading) refreshTimer = setTimeout(() => visit(location.href, {}, { keepScroll: true }), reading.dataset.refresh * 1000);
 }
