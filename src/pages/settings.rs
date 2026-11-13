@@ -122,16 +122,7 @@ pub fn render_house(v: &View) -> Markup {
             div.stack {
                 section.card #new-bill {
                     div.card-head { span.stat-ico { (icon("calendar-plus")) } div { h2 { "Nueva cuenta mensual" } p { "Un pago que se repite cada mes, como el alquiler o la luz. Aparecerá desde " (month_lc) "." } } }
-                    form.form method="post" action="/bills" accept-charset="utf-8" {
-                        (v.ctx())
-                        div.field { label for="bn" { "Nombre" } input #bn.input type="text" name="name" placeholder="Alquiler, Iberdrola, Netflix…" required maxlength="100"; }
-                        div.two {
-                            div.field { label for="ba" { "Importe" } input #ba.input type="text" name="amount" placeholder="0,00 €" inputmode="decimal" required; }
-                            div.field { label for="bd" { "Día del mes" } input #bd.input type="number" name="due_day" placeholder="1" min="1" max="31" required; }
-                        }
-                        (v.who_pays("split"))
-                        button.btn.primary { (icon("plus")) "Añadir cuenta" }
-                    }
+                    (bills::form(v))
                 }
             }
         }

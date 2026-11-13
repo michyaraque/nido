@@ -10,7 +10,7 @@ pub fn render(v: &View) -> Markup {
     let paid_n = v.bills.iter().filter(|b| b.payer.is_some()).count();
     let denom = v.me.salary.max(my_house + personal + spent).max(1) as f64;
     let w = |x: i64| format!("width:{:.2}%", x.max(0) as f64 * 100.0 / denom);
-    let new_bill = format!("{}#new-bill", v.link("settings"));
+    let new_bill = "#new-bill".to_string();
     html! {
         (v.head("Resumen", html! { "Así va " (v.month_lc()) " de " (v.year()) " para ti" }))
         div.stats {
@@ -42,6 +42,7 @@ pub fn render(v: &View) -> Markup {
                     (empty("calendar-plus", "Sin cuentas este mes", "Añade el alquiler, la luz o tus suscripciones para no olvidar ningún pago.", Some((&new_bill, "Añadir cuenta"))))
                 }
                 ul.rows { @for b in &v.bills { (bills::row(v, b)) } }
+                (bills::new_modal(v))
             }
             section.card {
                 div.card-head { div { h2 { "Reparto de tu sueldo" } p { "En qué se va tu sueldo neto de " (eur(v.me.salary)) } } }

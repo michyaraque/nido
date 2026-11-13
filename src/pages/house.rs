@@ -4,7 +4,7 @@ pub fn render(v: &View) -> Markup {
     let shared = v.shared();
     let net = v.net();
     let month_lc = v.month_lc();
-    let new_bill = format!("{}#new-bill", v.link("settings"));
+    let new_bill = "#new-bill".to_string();
     html! {
         (v.head("La casa", html! { "Cuentas comunes de " (month_lc) ", repartidas según el sueldo de cada uno" }))
         div.stats {
@@ -25,6 +25,7 @@ pub fn render(v: &View) -> Markup {
                     (empty("house", "Todavía no hay cuentas comunes", "Añade el alquiler, la luz o internet y se repartirán solas.", Some((&new_bill, "Añadir cuenta"))))
                 }
                 ul.rows { @for b in v.bills.iter().filter(|b| b.owner.is_none()) { (bills::row(v, b)) } }
+                (bills::new_modal(v))
             }
             section.card {
                 div.card-head { div { h2 { "Quién debe a quién" } p { "Según lo que ha pagado cada uno de la casa este mes" } } }

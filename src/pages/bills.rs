@@ -1,5 +1,38 @@
 use super::*;
 
+/// The "Nueva cuenta" form, shared by the Ajustes card and the #new-bill window.
+pub fn form(v: &View) -> Markup {
+    html! {
+        form.form method="post" action="/bills" accept-charset="utf-8" {
+            (v.ctx())
+            div.field { label for="bn" { "Nombre" } input #bn.input type="text" name="name" placeholder="Alquiler, Iberdrola, Netflix…" required maxlength="100"; }
+            div.two {
+                div.field { label for="ba" { "Importe" } input #ba.input type="text" name="amount" placeholder="0,00 €" inputmode="decimal" required; }
+                div.field { label for="bd" { "Día del mes" } input #bd.input type="number" name="due_day" placeholder="1" min="1" max="31" required; }
+            }
+            (v.who_pays("split"))
+            button.btn.primary { (icon("plus")) "Añadir cuenta" }
+        }
+    }
+}
+
+/// Opened by href="#new-bill" (CSS :target), like the backup windows.
+pub fn new_modal(v: &View) -> Markup {
+    html! {
+        div.modal #new-bill role="dialog" aria-modal="true" aria-labelledby="new-bill-t" {
+            a.scrim href="#_" aria-label="Cerrar" tabindex="-1" {}
+            div.dialog.dialog-wide {
+                div.dialog-top {
+                    h2 #new-bill-t { "Nueva cuenta mensual" }
+                    a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
+                }
+                p.hint { "Un pago que se repite cada mes, como el alquiler o la luz. Aparecerá desde " (v.month_lc()) "." }
+                (form(v))
+            }
+        }
+    }
+}
+
 fn due(v: &View, b: &Bill) -> (&'static str, String) {
     if b.payer.is_some() {
         return ("ok", format!("Pagada · día {}", b.due_day));
