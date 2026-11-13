@@ -92,45 +92,6 @@ pub async fn toggle_salary(State(db): State<Db>, h: HeaderMap, Path(m): Path<Str
 }
 
 #[derive(Deserialize)]
-pub struct TrackF {
-    track: Option<String>,
-    month: String,
-    tab: Option<String>,
-}
-
-/// Personal choice: confirm the fixed income every month (late or missing shows as pending),
-/// or assume it arrives. Turning it on starts counting from this month.
-pub async fn set_track_pay(State(db): State<Db>, h: HeaderMap, F(f): F<TrackF>) -> R {
-    let c = lock(&db);
-    let me = require_user!(c, h);
-    if f.track.is_some() {
-        c.execute("UPDATE users SET track_pay=1, pay_since=strftime('%Y-%m','now','localtime') WHERE id=?1 AND track_pay=0", [me.id])?;
-    } else {
-        c.execute("UPDATE users SET track_pay=0 WHERE id=?1", [me.id])?;
-    }
-    back(&month(&c, Some(&f.month))?, f.tab.as_deref(), "track_pay")
-}
-
-#[derive(Deserialize)]
-pub struct SinceF {
-    since: String,
-    month: String,
-    tab: Option<String>,
-}
-
-/// From which month the fixed income is confirmed by hand; unticked months since then are pending.
-pub async fn set_pay_since(State(db): State<Db>, h: HeaderMap, F(f): F<SinceF>) -> R {
-    let c = lock(&db);
-    let me = require_user!(c, h);
-    let now = today(&c)?[..7].to_string();
-    if !valid_month(&f.since) || f.since > now {
-        return bad("Elige un mes que no sea futuro.");
-    }
-    c.execute("UPDATE users SET pay_since=?2 WHERE id=?1", params![me.id, f.since])?;
-    back(&month(&c, Some(&f.month))?, f.tab.as_deref(), "track_pay")
-}
-
-#[derive(Deserialize)]
 pub struct DayF {
     day: String,
     month: String,
@@ -159,25 +120,48 @@ pub async fn set_salary_day(State(db): State<Db>, h: HeaderMap, Path(m): Path<St
 }
 
 #[derive(Deserialize)]
-pub struct PayDayF {
+pub struct FinanceF {
+    salary: String,
     pay_day: String,
+    track: Option<String>,
+    pay_since: Option<String>,
+    carry: Option<String>,
+    carry_since: Option<String>,
+    carry_start: Option<String>,
     month: String,
     tab: Option<String>,
 }
 
-/// Usual day the fixed income arrives (empty = not set).
-pub async fn set_pay_day(State(db): State<Db>, h: HeaderMap, F(f): F<PayDayF>) -> R {
+/// Mis ajustes → Tus finanzas, saved in one go. Options under a switch only apply when it is on.
+pub async fn save_finance(State(db): State<Db>, h: HeaderMap, F(f): F<FinanceF>) -> R {
     let c = lock(&db);
     let me = require_user!(c, h);
-    let day = match f.pay_day.trim() {
+    let now = today(&c)?[..7].to_string();
+    let past_month = |m: Option<&str>| m.map(str::trim).filter(|m| valid_month(m) && *m <= now.as_str()).map(str::to_string);
+    let Some(salary) = parse_cents(&f.salary).filter(|s| *s >= 0) else { return bad("Ingreso fijo no válido") };
+    let pay_day = match f.pay_day.trim() {
         "" => None,
         d => match d.parse::<i64>() {
             Ok(n @ 1..=31) => Some(n),
-            _ => return bad("Pon un día entre 1 y 31, o déjalo vacío."),
+            _ => return bad("El día de cobro va del 1 al 31, o vacío."),
         },
     };
-    c.execute("UPDATE users SET pay_day=?2 WHERE id=?1", params![me.id, day])?;
-    back(&month(&c, Some(&f.month))?, f.tab.as_deref(), "track_pay")
+    c.execute("UPDATE users SET salary=?2, pay_day=?3, track_pay=?4 WHERE id=?1", params![me.id, salary, pay_day, f.track.is_some()])?;
+    if f.track.is_some() {
+        let Some(since) = past_month(f.pay_since.as_deref()) else { return bad("«Confirmar desde» tiene que ser un mes que no sea futuro.") };
+        c.execute("UPDATE users SET pay_since=?2 WHERE id=?1", params![me.id, since])?;
+    }
+    c.execute("UPDATE users SET carry=?2 WHERE id=?1", params![me.id, f.carry.is_some()])?;
+    if f.carry.is_some() {
+        let Some(since) = past_month(f.carry_since.as_deref()) else { return bad("«Desde» tiene que ser un mes que no sea futuro.") };
+        let start = match f.carry_start.as_deref().map(str::trim).unwrap_or("") {
+            "" => Some(0),
+            v => parse_cents(v),
+        };
+        let Some(start) = start else { return bad("Saldo inicial no válido") };
+        c.execute("UPDATE users SET carry_since=?2, carry_start=?3 WHERE id=?1", params![me.id, since, start])?;
+    }
+    back(&month(&c, Some(&f.month))?, f.tab.as_deref(), "finance_saved")
 }
 
 #[cfg(test)]
@@ -206,3 +190,4 @@ mod tests {
         assert!(!valid_day(&c, &format!("{}-01", shift(now, 1))).unwrap());
     }
 }
+

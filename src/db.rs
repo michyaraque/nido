@@ -27,7 +27,10 @@ pub fn migrate(c: &Connection) {
     add_column(c, "users", "pay_since", "TEXT"); // month the person started confirming their fixed income
     add_column(c, "users", "track_pay", "INTEGER NOT NULL DEFAULT 0");
     add_column(c, "users", "share", "INTEGER NOT NULL DEFAULT 0");
-    add_column(c, "users", "pay_day", "INTEGER"); // usual day the fixed income arrives (optional) // % of shared bills, for the "custom" split
+    add_column(c, "users", "pay_day", "INTEGER"); // usual day the fixed income arrives (optional)
+    add_column(c, "users", "carry", "INTEGER NOT NULL DEFAULT 0"); // add up what is left from month to month
+    add_column(c, "users", "carry_since", "TEXT");
+    add_column(c, "users", "carry_start", "INTEGER NOT NULL DEFAULT 0"); // cents I had when carrying started // % of shared bills, for the "custom" split
 }
 
 fn add_column(c: &Connection, table: &str, column: &str, decl: &str) {

@@ -55,47 +55,7 @@ pub fn render(v: &View) -> Markup {
                 }
             }
         }))
-        (sec("money", "Tus finanzas", html! { "Con esto calculamos tu saldo y tu parte de la casa." }, html! {
-            div.card.set-card {
-                div.set-item #salary {
-                    div.set-item-txt { label for="s" { b { "Ingreso fijo mensual" } } small { "Nómina, pensión… neto. 0 si no tienes." } }
-                    form.inline-field method="post" action="/me/salary" accept-charset="utf-8" {
-                        (v.ctx())
-                        input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary));
-                        button.btn.outline { "Guardar" }
-                    }
-                }
-                @if v.me.salary > 0 {
-                    div.set-item {
-                        div.set-item-txt { label for="pd" { b { "Día de cobro" } } small { "Opcional. Es la fecha que se apunta al marcarlo como cobrado." } }
-                        form.inline-field method="post" action="/me/pay-day" {
-                            (v.ctx())
-                            input #pd.input.day-in type="number" name="pay_day" min="1" max="31" inputmode="numeric" placeholder="—" value=[v.pay_day];
-                            button.btn.outline { "Guardar" }
-                        }
-                    }
-                }
-                @if v.me.salary > 0 {
-                    (item("Confirmar cada mes que lo cobro", "Si se retrasa, no contará en tu saldo hasta que lo marques.", html! {
-                        form.auto-submit method="post" action="/me/track-pay" {
-                            (v.ctx())
-                            label.toggle { input type="checkbox" name="track" checked[v.track_pay] aria-label="Confirmar cada mes que lo cobro"; span {} }
-                            button.btn.outline.sm.auto-go { "Guardar" }
-                        }
-                    }))
-                    @if v.track_pay {
-                        div.set-item {
-                            div.set-item-txt { label for="ps" { b { "Desde" } } small { "Los meses sin marcar desde entonces salen como pendientes." } }
-                            form.inline-field method="post" action="/me/pay-since" {
-                                (v.ctx())
-                                input #ps.input type="month" name="since" value=(v.pay_since) max=(&v.today[..7]) required;
-                                button.btn.outline { "Guardar" }
-                            }
-                        }
-                    }
-                }
-            }
-        }))
+        (sec("money", "Tus finanzas", html! { "Con esto calculamos tu saldo y tu parte de la casa." }, finance(v)))
         @if let Some(tg) = &v.tg {
             (sec("avisos", "Tus avisos", html! { "Lo que te toca, por Telegram." }, telegram(v, tg)))
         }
@@ -148,6 +108,63 @@ pub fn render(v: &View) -> Markup {
     };
     html! {
         (layout(v, html! { "Tu perfil, tus avisos y este dispositivo" }, main))
+    }
+}
+
+/// Tus finanzas: one form, two groups; options under a switch show as soon as it is turned on.
+fn finance(v: &View) -> Markup {
+    let now = &v.today[..7];
+    let switch = |id: &str, name: &str, on: bool, title: &str, hint: &str| html! {
+        div.fin-switch {
+            div.set-item-txt { label for=(id) { b { (title) } } small { (hint) } }
+            label.toggle { input id=(id) type="checkbox" name=(name) checked[on]; span {} }
+        }
+    };
+    html! {
+        form.card.set-card.fin method="post" action="/me/finance" accept-charset="utf-8" {
+            (v.ctx())
+            div.fin-group #salary {
+                h3.fin-title { "Ingreso fijo" }
+                div.fin-fields {
+                    div.field {
+                        label for="s" { "Importe mensual" }
+                        div.affix { input #s.input type="text" name="salary" inputmode="decimal" value=(eur_input(v.me.salary)); span { "€" } }
+                        p.hint { "Nómina, pensión… neto. 0 si no tienes." }
+                    }
+                    div.field {
+                        label for="pd" { "Día de cobro" }
+                        input #pd.input.day-in type="number" name="pay_day" min="1" max="31" inputmode="numeric" placeholder="—" value=[v.pay_day];
+                        p.hint { "Opcional" }
+                    }
+                }
+                (switch("tr", "track", v.track_pay, "Confirmar cada mes que lo cobro", "Si se retrasa, no cuenta en tu saldo hasta que lo marques."))
+                div.fin-sub.when-track {
+                    div.field {
+                        label for="ps" { "Confirmar desde" }
+                        input #ps.input type="month" name="pay_since" value=(if v.track_pay { v.pay_since.as_str() } else { now }) max=(now);
+                        p.hint { "Los meses sin marcar desde entonces salen como pendientes." }
+                    }
+                }
+            }
+            div.fin-group {
+                h3.fin-title { "Saldo" }
+                (switch("cy", "carry", v.carry, "Sumar lo que sobra de cada mes", "Lo que te quede (o falte) pasa al mes siguiente."))
+                div.fin-sub.when-carry {
+                    div.fin-fields {
+                        div.field {
+                            label for="cs" { "Desde" }
+                            input #cs.input type="month" name="carry_since" value=(if v.carry { v.carry_since.as_str() } else { v.first_month.as_str() }) max=(now);
+                        }
+                        div.field {
+                            label for="cst" { "Saldo inicial" }
+                            div.affix { input #cst.input type="text" name="carry_start" inputmode="decimal" placeholder="0,00" value=(eur_input(v.carry_start)); span { "€" } }
+                        }
+                    }
+                    p.hint { "Lo que tenías al empezar ese mes. Negativo si estabas en descubierto." }
+                }
+            }
+            div.fin-foot { button.btn.primary { "Guardar cambios" } }
+        }
     }
 }
 

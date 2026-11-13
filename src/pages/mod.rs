@@ -24,10 +24,9 @@ pub struct U {
 
 /// Income of month `m` for one person. A ticked income counts in the month it belongs to,
 /// whenever it was ticked (marking July's payslip in November still fills July).
-/// `tracks_from`: month from which the fixed income must be ticked by hand; before it, or if
-/// the person doesn't track it, the fixed income counts as received in its own month.
-pub fn cash_in(m: &str, salary: i64, tracks_from: Option<&str>, salaries: &[(String, String, i64)], received: &[(String, i64)]) -> i64 {
-    let tracked = tracks_from.is_some_and(|p| m >= p);
+/// `tracked`: the person confirms their fixed income by hand, so it only counts when ticked.
+/// Otherwise it counts as received every month.
+pub fn cash_in(m: &str, salary: i64, tracked: bool, salaries: &[(String, String, i64)], received: &[(String, i64)]) -> i64 {
     let assumed = if salary > 0 && !tracked { salary } else { 0 };
     let ticked: i64 = salaries.iter().filter(|s| s.0 == m).map(|s| s.2).sum();
     let extras: i64 = received.iter().filter(|r| r.0 == m).map(|r| r.1).sum();
@@ -133,6 +132,11 @@ pub struct View {
     pub pay_since: String,
     pub track_pay: bool,
     pub pay_day: Option<i64>,
+    pub carry: bool,
+    pub carry_since: String,
+    pub carry_start: i64,
+    pub first_month: String, // first month with anything recorded by me
+    pub carried: i64, // what was left (or missing) in the months before m; set by `dashboard`
     pub users: Vec<U>,
     pub bills: Vec<Bill>,
     pub exps: Vec<Exp>,
@@ -304,10 +308,19 @@ impl View {
             .prepare("SELECT month,day,amount FROM salary_received WHERE user_id=?1")?
             .query_map([me.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
             .collect::<Result<_, _>>()?;
-        let (pay_since, track_pay, pay_day): (String, bool, Option<i64>) = c.query_row(
-            "SELECT COALESCE(pay_since, strftime('%Y-%m','now','localtime')), track_pay, pay_day FROM users WHERE id=?1",
+        let (pay_since, track_pay, pay_day, carry, carry_since, carry_start): (String, bool, Option<i64>, bool, String, i64) = c.query_row(
+            "SELECT COALESCE(pay_since, strftime('%Y-%m','now','localtime')), track_pay, pay_day, carry,
+                    COALESCE(carry_since, strftime('%Y-%m','now','localtime')), carry_start FROM users WHERE id=?1",
             [me.id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+        )?;
+        let first_month: String = c.query_row(
+            "SELECT COALESCE(MIN(m), strftime('%Y-%m','now','localtime')) FROM (
+               SELECT month AS m FROM expenses WHERE user_id=?1
+               UNION ALL SELECT month FROM incomes WHERE user_id=?1
+               UNION ALL SELECT month FROM salary_received WHERE user_id=?1)",
+            [me.id],
+            |r| r.get(0),
         )?;
         let theme: Option<String> = c.query_row("SELECT value FROM settings WHERE key='theme'", [], |r| r.get(0)).optional()?;
         let theme = theme_id(theme.as_deref().unwrap_or(""));
@@ -333,6 +346,11 @@ impl View {
             pay_since,
             track_pay,
             pay_day,
+            carry,
+            carry_since,
+            carry_start,
+            first_month,
+            carried: 0,
             tg,
             backups,
             today,
@@ -449,9 +467,10 @@ impl View {
             }
         }
     }
-    /// Whether the fixed income of `m` must be ticked by hand. Otherwise it counts as received.
-    fn tracks_salary(&self, m: &str) -> bool {
-        self.me.salary > 0 && self.track_pay && m >= self.pay_since.as_str()
+    /// Whether the fixed income of `m` must be ticked by hand (any month: nothing is assumed).
+    /// Only months from `pay_since` on count as pending when unticked.
+    fn tracks_salary(&self, _m: &str) -> bool {
+        self.me.salary > 0 && self.track_pay
     }
     fn salary_day(&self, m: &str) -> Option<&str> {
         self.salaries.iter().find(|s| s.0 == m).map(|s| s.1.as_str())
@@ -459,8 +478,7 @@ impl View {
     /// Money that actually came in during month `m` (cash basis: a late payslip counts when it arrives).
     fn income_in(&self, m: &str) -> i64 {
         let received: Vec<(String, i64)> = self.incomes.iter().filter(|i| i.received.is_some()).map(|i| (i.month.clone(), i.amount)).collect();
-        let tracks_from = self.track_pay.then_some(self.pay_since.as_str());
-        cash_in(m, self.me.salary, tracks_from, &self.salaries, &received)
+        cash_in(m, self.me.salary, self.track_pay, &self.salaries, &received)
     }
     fn income(&self) -> i64 {
         self.income_in(&self.m)
@@ -492,6 +510,10 @@ impl View {
             out.push(Owed { label: i.concept.clone(), amount: i.amount, action: format!("/incomes/{}/toggle", i.id) });
         }
         out
+    }
+    /// What I have: this month's leftover plus, if I carry it, what was left in earlier months.
+    fn balance(&self) -> i64 {
+        self.carried + self.left()
     }
     fn left(&self) -> i64 {
         self.income() - self.my_house() - self.personal() - self.spent()
@@ -646,6 +668,24 @@ impl View {
     }
 }
 
+/// Sum of what was left each month from `carry_since` up to the month before the one on screen
+/// (at most 36 months back). Each month is computed exactly as its own Resumen does.
+/// The starting balance counts from `carry_since` on.
+fn carried(c: &Connection, v: &View) -> rusqlite::Result<i64> {
+    if !v.carry || v.m < v.carry_since {
+        return Ok(0);
+    }
+    let start = std::cmp::max(v.carry_since.clone(), shift(&v.m, -36));
+    let mut m = start;
+    let mut total = v.carry_start;
+    while m < v.m {
+        let me = User { id: v.me.id, name: v.me.name.clone(), salary: v.me.salary, token: v.me.token.clone() };
+        total += View::load(c, me, m.clone(), "home", String::new(), None, None)?.left();
+        m = shift(&m, 1);
+    }
+    Ok(total)
+}
+
 /// Greedy matching of debtors to creditors, biggest first. Rounding leftovers (a few cents) are dropped.
 pub fn settle_up(mut bal: Vec<(i64, i64)>) -> Vec<(i64, i64, i64)> {
     let mut out = Vec::new();
@@ -678,11 +718,10 @@ fn weights(c: &Connection, split: &str, users: &[U], m: &str) -> rusqlite::Resul
                 .collect::<Result<_, _>>()?;
             let mut out = Vec::new();
             for u in users {
-                let (track, since): (bool, Option<String>) = c.query_row("SELECT track_pay, pay_since FROM users WHERE id=?1", [u.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+                let track: bool = c.query_row("SELECT track_pay FROM users WHERE id=?1", [u.id], |r| r.get(0))?;
                 let mine_s: Vec<(String, String, i64)> = salaries.iter().filter(|s| s.0 == u.id).map(|s| (s.1.clone(), s.2.clone(), s.3)).collect();
                 let mine_r: Vec<(String, i64)> = received.iter().filter(|r| r.0 == u.id).map(|r| (r.1.clone(), r.2)).collect();
-                let from = if track { since.as_deref() } else { None };
-                let total: i64 = (1..=3).map(|k| cash_in(&shift(m, -k), u.salary, from, &mine_s, &mine_r)).sum();
+                let total: i64 = (1..=3).map(|k| cash_in(&shift(m, -k), u.salary, track, &mine_s, &mine_r)).sum();
                 out.push((u.id, total / 3));
             }
             out
@@ -705,7 +744,10 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
     let me = require_user!(c, h);
     let m = month(&c, q.month.as_deref())?;
     let host = h.get(header::HOST).and_then(|v| v.to_str().ok()).unwrap_or("nido.local").to_string();
-    let v = View::load(&c, me, m, tab(q.tab.as_deref()), host, q.day.as_deref(), q.who.as_deref())?;
+    let mut v = View::load(&c, me, m, tab(q.tab.as_deref()), host, q.day.as_deref(), q.who.as_deref())?;
+    if v.t == "home" {
+        v.carried = carried(&c, &v)?;
+    }
     drop(c);
 
     let content = match v.t {
@@ -754,8 +796,8 @@ mod tests {
         let back = View::load(&c, me, m1.clone(), "home", "h".into(), None, None).unwrap();
         let owed: Vec<_> = back.owed().into_iter().map(|o| o.label).collect();
         assert_eq!(owed, vec![format!("Ingreso fijo de {first}")]);
-        // Before pay_since the fixed income is assumed received (history keeps working).
-        assert_eq!(v.income_in(&shift(&m2, -1)), 180000);
+        // Confirming by hand means nothing is assumed, not even before pay_since.
+        assert_eq!(v.income_in(&shift(&m2, -1)), 0);
 
         // Opting out: nothing is pending and the fixed income always counts.
         c.execute("UPDATE users SET track_pay=0", []).unwrap();
@@ -816,5 +858,41 @@ mod settle_tests {
         assert_eq!(t, vec![(3, 1, 6000), (3, 2, 4000)]);
         // Rounding dust is not a debt.
         assert!(settle_up(vec![(1, 1), (2, -1)]).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod carry_tests {
+    use super::*;
+
+    /// Fixed 1.000/month, carried from two months ago: 1.000 - 300 spent, then 1.000 - 1.200 spent.
+    #[test]
+    fn carries_leftovers() {
+        let c = Connection::open_in_memory().unwrap();
+        migrate(&c);
+        let now = today(&c).unwrap()[..7].to_string();
+        let (m2, m1) = (shift(&now, -2), shift(&now, -1));
+        c.execute("INSERT INTO users(id,name,pass,token,salary,carry,carry_since) VALUES(1,'Ana','x','t',100000,1,?1)", [&m2]).unwrap();
+        c.execute("INSERT INTO expenses(user_id,month,description,amount,created) VALUES(1,?1,'a',30000,?1 || '-10 12:00:00')", [&m2]).unwrap();
+        c.execute("INSERT INTO expenses(user_id,month,description,amount,created) VALUES(1,?1,'b',120000,?1 || '-10 12:00:00')", [&m1]).unwrap();
+        let load = |m: &str| {
+            let me = User { id: 1, name: "Ana".into(), salary: 100000, token: "t".into() };
+            let mut v = View::load(&c, me, m.to_string(), "home", "h".into(), None, None).unwrap();
+            v.carried = carried(&c, &v).unwrap();
+            v
+        };
+        assert_eq!(load(&m2).carried, 0);
+        assert_eq!(load(&m1).carried, 70000);
+        let v = load(&now);
+        assert_eq!(v.carried, 70000 - 20000);
+        assert_eq!(v.balance(), 50000 + 100000);
+        // A starting balance of 54,81 € joins from the first carried month on, not before.
+        c.execute("UPDATE users SET carry_start=5481", []).unwrap();
+        assert_eq!(load(&shift(&m2, -1)).carried, 0);
+        assert_eq!(load(&m2).carried, 5481);
+        assert_eq!(load(&now).carried, 5481 + 50000);
+        // Turned off: every month starts from zero again.
+        c.execute("UPDATE users SET carry=0", []).unwrap();
+        assert_eq!(load(&now).carried, 0);
     }
 }

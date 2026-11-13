@@ -32,6 +32,8 @@ fn income_panel(v: &View) -> Markup {
             // Ticked within its own month: "día 3"; ticked later: the full date.
             Some(d) if d.starts_with(v.m.as_str()) => ("ok", format!("Cobrado · día {}", d[8..].trim_start_matches('0'))),
             Some(d) => ("ok", format!("Cobrado el {}/{}", d[8..].trim_start_matches('0'), &d[5..7])),
+            // Before "Confirmar desde" an unticked month is simply unrecorded, not owed.
+            None if v.m < v.pay_since => ("", "Sin marcar".to_string()),
             None if past => ("bad", "Sin cobrar".to_string()),
             None => ("warn", "Pendiente".to_string()),
         };
@@ -123,7 +125,12 @@ fn owed_banner(v: &View, owed: &[Owed]) -> Markup {
 
 pub fn render(v: &View) -> Markup {
     let (left, spent, available, pending, total) = (v.left(), v.spent(), v.available(), v.pending(), v.bills_total());
+    // What I really have to spend: this month plus what was carried (if I carry it).
+    let (balance, can_spend) = (v.balance(), v.carried + available - spent);
+    // Money available this month before day-to-day spending: carried + received - bills.
+    let pool = v.carried + available;
     let (my_house, personal, days_left) = (v.my_house(), v.personal(), v.days_left());
+    let outflow = my_house + personal + spent;
     let (income, expected, owed) = (v.income(), v.expected(), v.owed());
     let unpaid: Vec<&Bill> = v.bills.iter().filter(|b| b.payer.is_none()).collect();
     let next = unpaid.iter().min_by_key(|b| b.due_day);
@@ -139,7 +146,7 @@ pub fn render(v: &View) -> Markup {
                 p {
                     @if v.is_now() {
                         (DAYS[weekday(&v.today)]) ", " (v.today_day()) " de " (v.month_lc()) ". "
-                        @if income > 0 { "Te quedan " b { (eur(left)) } " este mes" }
+                        @if income > 0 || v.carried != 0 { "Te quedan " b { (eur(balance)) } " este mes" }
                         @else if v.tracks_salary(&v.m) { "Aún no has cobrado este mes" }
                         @else { "Apunta tus ingresos para ver cuánto te queda" }
                         @match unpaid.len() {
@@ -162,7 +169,10 @@ pub fn render(v: &View) -> Markup {
         div.stats {
             (panel("wallet", html! { "Saldo previsto" }, html! {},
                 html! {
-                    (money(left))
+                    (money(balance))
+                    @if v.carried != 0 {
+                        span.panel-hint { "Incluye " (if v.carried > 0 { "+" } else { "" }) (eur(v.carried)) " que traías" }
+                    }
                     @if income > 0 {
                         @if left >= 0 { (pill("ok", Some("trending-up"), &format!("{} % de lo cobrado libre", v.pct_of_income(left)))) }
                         @else { (pill("bad", Some("trending-down"), "Más gasto que lo cobrado")) }
@@ -171,9 +181,11 @@ pub fn render(v: &View) -> Markup {
                 html! { "Cobrado · " (eur(income)) @if expected > income { " de " (eur(expected)) } }, None))
             (panel("calendar-clock", html! { "Puedes gastar al día" }, html! {},
                 html! {
-                    @if days_left > 0 && left > 0 { (money(left / days_left)) } @else { span.money.muted { "—" } }
-                    div.meter { span style={ "width:" (format!("{:.1}", pct(spent, available))) "%" } {} }
-                    span.panel-hint { "Has usado el " (format!("{:.0}", pct(spent, available))) " % de lo disponible" }
+                    @if days_left > 0 && can_spend > 0 { (money(can_spend / days_left)) } @else { span.money.muted { "—" } }
+                    div.meter { span style={ "width:" (format!("{:.1}", if pool > 0 { pct(spent, pool) } else if spent > 0 { 100.0 } else { 0.0 })) "%" } {} }
+                    @if pool > 0 { span.panel-hint { "Has usado el " (format!("{:.0}", pct(spent, pool))) " % de lo disponible" } }
+                    @else if spent > 0 { span.panel-hint { "Gastos del mes: " (eur(spent)) " sin ingresos" } }
+                    @else { span.panel-hint { "Nada disponible este mes" } }
                 },
                 html! { @if days_left > 0 { "Quedan " (days_left) " días" } @else { "Mes cerrado" } }, None))
             (panel("receipt", html! { "Cuentas por pagar" }, html! {},
@@ -214,9 +226,10 @@ pub fn render(v: &View) -> Markup {
                 },
                 html! { @if due.len() > 5 { "Y " (due.len() - 5) " más" } @else { (v.chores.len()) " tareas en casa" } },
                 Some((&v.link("tasks"), "Tareas"))))
-            (panel("banknote", html! { "Reparto de lo cobrado" }, html! {},
+            (panel("banknote", html! { @if income > 0 { "Reparto de lo cobrado" } @else { "En qué se ha ido" } }, html! {},
                 html! {
-                    @if income > 0 {
+                    @if income == 0 && outflow > 0 { p.panel-hint { "Sin ingresos marcados este mes." } }
+                    @if income > 0 || outflow > 0 {
                         div.bar role="img" aria-label="Reparto de lo cobrado" {
                             span.c-casa style=(w(my_house)) {}
                             span.c-pers style=(w(personal)) {}
@@ -230,7 +243,7 @@ pub fn render(v: &View) -> Markup {
                             li.total { span.dot.c-sobra {} span.l { "Te sobra" } span.amt class=(if left >= 0 { "ok-txt" } else { "bad-txt" }) { (eur(left)) } span.pc { @if left >= 0 { (v.pct_of_income(left)) " %" } } }
                         }
                     } @else {
-                        (empty("banknote", "Aún no has cobrado", "Cuando marques un ingreso como cobrado, verás en qué se va.", Some(("#income", "Ver ingresos"))))
+                        (empty("banknote", "Nada este mes", "Ni ingresos ni gastos apuntados en este mes.", None))
                     }
                 },
                 html! { "Cobrado en " (v.month_lc()) " · " (eur(income)) }, Some((&salary_link, "Ingreso fijo"))))

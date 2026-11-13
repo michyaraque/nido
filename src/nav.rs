@@ -51,7 +51,7 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "income_saved" => "Ingreso actualizado",
         "income_deleted" => "Ingreso borrado",
         "salary_got" => "Marcado como cobrado",
-        "track_pay" => "Guardado",
+        "finance_saved" => "Finanzas guardadas",
         "tg_connected" => "Bot de Telegram conectado",
         "backup_pass" => "Contraseña de las copias guardada",
         "backup_time" => "Hora de las copias guardada",

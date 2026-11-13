@@ -208,22 +208,6 @@ pub async fn delete_expense(State(db): State<Db>, h: HeaderMap, Path(id): Path<i
 }
 
 #[derive(Deserialize)]
-pub struct SalaryF {
-    salary: String,
-    month: String,
-    tab: Option<String>,
-}
-
-pub async fn set_salary(State(db): State<Db>, h: HeaderMap, F(f): F<SalaryF>) -> R {
-    let c = lock(&db);
-    let me = require_user!(c, h);
-    let m = month(&c, Some(&f.month))?;
-    let Some(s) = parse_cents(&f.salary).filter(|s| *s >= 0) else { return bad("Sueldo no válido") };
-    c.execute("UPDATE users SET salary=?1 WHERE id=?2", params![s, me.id])?;
-    back(&m, f.tab.as_deref(), "salary")
-}
-
-#[derive(Deserialize)]
 pub struct SettleF {
     other_id: i64,
     amount: i64, // cents, signed from my point of view: > 0 the other pays me
