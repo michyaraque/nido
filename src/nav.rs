@@ -36,7 +36,7 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "chore_added" => "Tarea creada",
         "chore_updated" => "Tarea actualizada",
         "chore_archived" => "Tarea quitada",
-        "chore_logged" => "¡Hecho! Apuntado para hoy",
+        "chore_logged" => "Apuntado para hoy",
         "chore_logged_day" => "Apuntado en el calendario",
         "log_deleted" => "Borrado del calendario",
         "plan_added" => "Tarea planificada",

@@ -25,17 +25,17 @@ pub fn render(v: &View) -> Markup {
     let pending: Vec<&Item> = v.shopping.iter().filter(|i| !i.done).collect();
     let done: Vec<&Item> = v.shopping.iter().filter(|i| i.done).collect();
     html! {
-        (v.head("Lista de la compra", html! { "Compartida: lo que añade uno, lo ven los demás al momento." }))
+        (v.head("Lista de la compra", html! { "Compartida: lo que añade uno, lo ven los demás al momento" }))
         div.split {
             section.card #add-item {
-                div.card-head { div { h2 { "Por comprar" } p { (pending.len()) " producto" @if pending.len() != 1 { "s" } " en la lista." } } }
+                div.card-head { div { h2 { "Por comprar" } p { (pending.len()) " producto" @if pending.len() != 1 { "s" } " en la lista" } } }
                 form.add-row method="post" action="/shopping" accept-charset="utf-8" {
                     (v.ctx())
                     label.sr for="ni" { "Productos" }
                     input #ni.input type="text" name="names" placeholder="Leche, pan, huevos…" required maxlength="300" autocomplete="off";
                     button.btn.primary { (icon("plus")) "Añadir" }
                 }
-                p.hint.top { "Separa varios productos con comas." }
+                p.hint.top { "Separa varios productos con comas" }
                 @if pending.is_empty() {
                     (empty("shopping-basket", "La lista está vacía", "Apunta lo que falta en casa y aparecerá aquí para todos.", None))
                 }
@@ -59,7 +59,7 @@ pub fn render(v: &View) -> Markup {
                 }
                 section.card {
                     div.card-head {
-                        div { h2 { "En el carro" } p { "Lo que ya habéis cogido." } }
+                        div { h2 { "En el carro" } p { "Lo que ya habéis cogido" } }
                         @if !done.is_empty() {
                             form method="post" action="/shopping/clear" {
                                 (v.ctx())
@@ -68,7 +68,7 @@ pub fn render(v: &View) -> Markup {
                         }
                     }
                     @if done.is_empty() {
-                        p.hint { "Marca los productos según los vayas cogiendo." }
+                        p.hint { "Marca los productos según los vayas cogiendo" }
                     }
                     ul.rows { @for it in &done { (item_row(v, it)) } }
                 }

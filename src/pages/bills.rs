@@ -80,7 +80,7 @@ pub fn row(v: &View, b: &Bill) -> Markup {
                                 button.btn.outline.wide { "Volver a repartirla este mes" }
                             } @else {
                                 button.btn.outline.wide { (icon("hand-coins")) "La he pagado entera este mes" }
-                                p.hint { "Este mes no se reparte ni genera deuda: cuenta solo para ti." }
+                                p.hint { "Este mes no se reparte ni genera deuda: cuenta solo para ti" }
                             }
                         }
                     }

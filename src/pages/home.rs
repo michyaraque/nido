@@ -12,7 +12,7 @@ pub fn render(v: &View) -> Markup {
     let w = |x: i64| format!("width:{:.2}%", x.max(0) as f64 * 100.0 / denom);
     let new_bill = format!("{}#new-bill", v.link("settings"));
     html! {
-        (v.head(&format!("Hola, {}", v.me.name), html! { "Así va " (v.month_lc()) " de " (v.year()) "." }))
+        (v.head("Resumen", html! { "Así va " (v.month_lc()) " de " (v.year()) " para ti" }))
         div.stats {
             (stat("wallet", "Saldo previsto", money(left), html! {
                 @if v.me.salary > 0 {
@@ -35,7 +35,7 @@ pub fn render(v: &View) -> Markup {
         div.split {
             section.card {
                 div.card-head {
-                    div { h2 { "Cuentas del mes" } p { "Marca cada una cuando la pagues." } }
+                    div { h2 { "Cuentas del mes" } p { "Marca cada una cuando la pagues" } }
                     a.btn.outline.sm href=(new_bill) { (icon("plus")) "Nueva" }
                 }
                 @if v.bills.is_empty() {
@@ -44,7 +44,7 @@ pub fn render(v: &View) -> Markup {
                 ul.rows { @for b in &v.bills { (bills::row(v, b)) } }
             }
             section.card {
-                div.card-head { div { h2 { "Reparto de tu sueldo" } p { "En qué se va tu sueldo neto de " (eur(v.me.salary)) "." } } }
+                div.card-head { div { h2 { "Reparto de tu sueldo" } p { "En qué se va tu sueldo neto de " (eur(v.me.salary)) } } }
                 @if v.me.salary > 0 {
                     div.bar role="img" aria-label="Reparto del sueldo" {
                         span.c-casa style=(w(my_house)) {}

@@ -3,7 +3,7 @@
 .cats .amt{text-align:right;font-variant-numeric:tabular-nums}
 .cats .cats-total{border-top:1px solid var(--line);padding-top:12px;margin-top:2px;font-weight:600}
 .cats .cats-total .cat-l{grid-column:1/4;color:var(--ink);font-weight:600}
-.cats .cats-total .amt{font-size:15px;font-weight:700}
+.cats .cats-total .amt{font-size:15px;font-weight:600}
 .cat-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
 .track{height:6px;border-radius:99px;background:var(--canvas);overflow:hidden}
 .track span{display:block;height:100%;border-radius:99px}
@@ -14,11 +14,10 @@
 .owe-arrow{color:var(--mute)}
 .owe-txt{color:var(--ink-2);font-size:14px}
 
-.login-body{display:grid;place-items:center;padding:24px 16px;position:relative;overflow:hidden;background-image:radial-gradient(rgb(12 12 16/.1) 1px,transparent 1px);background-size:20px 20px}
-.glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(40% 35% at 12% 30%,rgb(255 0 113/.09),transparent 70%),radial-gradient(35% 40% at 20% 75%,rgb(124 58 237/.08),transparent 70%),radial-gradient(40% 40% at 85% 15%,rgb(47 107 255/.08),transparent 70%)}
+.login-body{display:grid;place-items:center;padding:24px 16px;position:relative;overflow:hidden}
 .login{position:relative;width:100%;max-width:380px;display:grid;gap:20px}
 .login-card{display:grid;gap:14px;padding:28px}
-.login-card h1{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.03em}
+.login-card h1{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.01em}
 
 .back{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;color:var(--mute);margin-bottom:8px}
 .back:hover{color:var(--ink)}

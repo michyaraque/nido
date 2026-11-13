@@ -116,7 +116,7 @@ pub fn render(v: &View) -> Markup {
             div.stack {
                 @if !v.tickets.is_empty() {
                     section.card {
-                        div.card-head { span.stat-ico { (icon("receipt")) } div { h2 { "Tickets por revisar" } p { "Ábrelos para comprobar lo leído y guardarlos como gasto." } } }
+                        div.card-head { span.stat-ico { (icon("receipt")) } div { h2 { "Tickets por revisar" } p { "Ábrelos para comprobar lo leído y guardarlos como gasto" } } }
                         ul.rows.compact {
                             @for t in &v.tickets {
                                 li.row {
@@ -139,7 +139,7 @@ pub fn render(v: &View) -> Markup {
                     }
                 }
                 section.card #new {
-                    div.card-head { div { h2 { "Registrar gasto" } p { "Escríbelo, o pulsa " (icon("scan-line")) " para hacer una foto al ticket y lo rellenamos por ti." } } }
+                    div.card-head { div { h2 { "Registrar gasto" } p { "Escríbelo, o pulsa " (icon("scan-line")) " para hacer una foto al ticket y lo rellenamos por ti" } } }
                     // The photo goes in a form of its own (forms cannot nest); the button in Concepto opens it through its label.
                     form.scan method="post" action="/tickets" enctype="multipart/form-data" {
                         input #scan-photo type="file" name="photo" accept="image/*" required;
@@ -152,7 +152,7 @@ pub fn render(v: &View) -> Markup {
                                 input #d.input type="text" name="description" placeholder="Mercadona, cena, farmacia…" required maxlength="100";
                                 label.scan-btn for="scan-photo" title="Escanear un ticket" aria-label="Escanear un ticket con una foto" { (icon("scan-line")) }
                             }
-                            @if !ocr::installed() { p.hint { "El lector de tickets no está instalado: se guardará la foto y escribirás los datos a mano." } }
+                            @if !ocr::installed() { p.hint { "El lector de tickets no está instalado: se guardará la foto y escribirás los datos a mano" } }
                         }
                         div.two {
                             div.field { label for="a" { "Importe" } input #a.input type="text" name="amount" placeholder="0,00 €" inputmode="decimal" required; }
@@ -165,7 +165,7 @@ pub fn render(v: &View) -> Markup {
                 }
                 @if !by_cat.is_empty() {
                     section.card {
-                        div.card-head { div { h2 { "Por categoría" } p { "Dónde se ha ido tu dinero en " (month_lc) "." } } }
+                        div.card-head { div { h2 { "Por categoría" } p { "Dónde se ha ido tu dinero en " (month_lc) } } }
                         ul.cats {
                             @for (cat, x) in by_cat.iter().take(8) {
                                 li {

@@ -6,7 +6,7 @@ pub fn render(v: &View) -> Markup {
     let month_lc = v.month_lc();
     let new_bill = format!("{}#new-bill", v.link("settings"));
     html! {
-        (v.head("La casa", html! { "Cuentas comunes de " (month_lc) ", repartidas según el sueldo de cada uno." }))
+        (v.head("La casa", html! { "Cuentas comunes de " (month_lc) ", repartidas según el sueldo de cada uno" }))
         div.stats {
             (stat("house", "Total de la casa", money(shared), html! { (v.bills.iter().filter(|b| b.owner.is_none()).count()) " cuentas comunes" }))
             @for (i, u) in v.users.iter().enumerate() {
@@ -27,7 +27,7 @@ pub fn render(v: &View) -> Markup {
                 ul.rows { @for b in v.bills.iter().filter(|b| b.owner.is_none()) { (bills::row(v, b)) } }
             }
             section.card {
-                div.card-head { div { h2 { "Quién debe a quién" } p { "Según lo que ha pagado cada uno de la casa este mes." } } }
+                div.card-head { div { h2 { "Quién debe a quién" } p { "Según lo que ha pagado cada uno de la casa este mes" } } }
                 @if v.users.len() < 2 {
                     (empty("users", "Estás tú solo en casa", "Para repartir las cuentas, crea un usuario para cada persona en la Raspberry con sudo nido-user Nombre.", None))
                 } @else if let (true, Some(o)) = (net != 0, v.other()) {
@@ -45,7 +45,7 @@ pub fn render(v: &View) -> Markup {
                             input type="hidden" name="amount" value=(net);
                             button.btn.primary.wide { (icon("hand-coins")) "Marcar como devuelto" }
                         }
-                        p.hint.center { "Quedará apuntado y el saldo volverá a cero." }
+                        p.hint.center { "Quedará apuntado y el saldo volverá a cero" }
                     }
                 } @else {
                     (empty("circle-check", "Estáis en paz", "Nadie debe nada por las cuentas de la casa de este mes.", None))

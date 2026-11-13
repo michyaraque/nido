@@ -37,7 +37,7 @@ fn render(v: &View, t: &backup::Target, found: Result<Vec<backup::Copy>, String>
                     Ok(list) if list.is_empty() => div.sheet-empty {
                         span.backup-empty-ico { (icon("archive")) }
                         b { "Todavía no hay copias aquí" }
-                        p { "La primera se hará a la hora programada, o ya mismo con «Copiar ahora»." }
+                        p { "La primera se hará a la hora programada, o ya mismo con «Copiar ahora»" }
                     },
                     Ok(list) => {
                         ul.rows.copies {
@@ -61,7 +61,7 @@ fn render(v: &View, t: &backup::Target, found: Result<Vec<backup::Copy>, String>
                                 }
                             }
                         }
-                        p.hint.top { "Para recuperar una copia, descárgala y en la Pi ejecuta " code { "sudo nido-restore" } " con el archivo." }
+                        p.hint.top { "Para recuperar una copia, descárgala y en la Pi ejecuta " code { "sudo nido-restore" } " con el archivo" }
                     }
                 }
             }

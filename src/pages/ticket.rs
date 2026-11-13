@@ -62,10 +62,10 @@ fn render(v: &View, t: &Ticket) -> Markup {
                 a.back href=(back_link) { (icon("chevron-left")) "Gastos" }
                 @if mine && t.status != "done" {
                     h1 { "Revisar ticket" }
-                    p { "Comprueba lo que hemos leído y corrígelo si hace falta antes de guardarlo." }
+                    p { "Comprueba lo que hemos leído y corrígelo si hace falta antes de guardarlo" }
                 } @else {
                     h1 { "Ticket" }
-                    p { "Subido por " (if mine { "ti" } else { v.name_of(t.user) }) "." }
+                    p { "Subido por " (if mine { "ti" } else { v.name_of(t.user) }) }
                 }
             }
         }
@@ -105,7 +105,7 @@ fn render(v: &View, t: &Ticket) -> Markup {
                                 @let sum: i64 = t.items.iter().map(|(_, p)| p).sum();
                                 section.card {
                                     div.card-head {
-                                        div { h2 { "Productos" } p { (t.items.len()) " producto" @if t.items.len() != 1 { "s" } " en este ticket." } }
+                                        div { h2 { "Productos" } p { (t.items.len()) " producto" @if t.items.len() != 1 { "s" } " en este ticket" } }
                                         @if Some(sum) == t.total { (pill("ok", Some("check"), "Cuadra con el total")) }
                                         @else { (pill("warn", Some("circle-alert"), &format!("Suman {}", eur(sum)))) }
                                     }
@@ -128,7 +128,7 @@ fn render(v: &View, t: &Ticket) -> Markup {
                                 p.alert role="alert" { (icon("circle-alert")) "No hemos podido leer el ticket: " (err) " Puedes rellenar los datos a mano." }
                             }
                             section.card {
-                                div.card-head { span.stat-ico { (icon("scan-line")) } div { h2 { "Datos del ticket" } p { "Se guardará como un gasto del día a día." } } }
+                                div.card-head { span.stat-ico { (icon("scan-line")) } div { h2 { "Datos del ticket" } p { "Se guardará como un gasto del día a día" } } }
                                 div.form {
                                     div.field { label for="tm" { "Comercio" } input #tm.input type="text" name="description" value=[t.merchant.as_deref()] placeholder="Dónde fue la compra" required maxlength="100"; }
                                     div.two {
@@ -141,7 +141,7 @@ fn render(v: &View, t: &Ticket) -> Markup {
                             }
                             section.card {
                                 div.card-head {
-                                    div { h2 { "Productos" } p { "Corrige un nombre o un precio, quita lo que sobre o añade lo que falte." } }
+                                    div { h2 { "Productos" } p { "Corrige un nombre o un precio, quita lo que sobre o añade lo que falte" } }
                                     span.items-sum.pill data-total-of="tt" {}
                                 }
                                 ul.rows.items {

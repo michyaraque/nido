@@ -365,7 +365,7 @@ impl View {
                     }
                     label.chip-radio { input type="radio" name="mode" value="personal" checked[current == "personal"]; span { "Solo mía" } }
                 }
-                p.hint { "«Entera»: es de la casa y la ve todo el mundo, pero no se reparte ni genera deuda." }
+                p.hint { "«Entera»: es de la casa y la ve todo el mundo, pero no se reparte ni genera deuda" }
             }
         }
     }

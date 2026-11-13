@@ -3,7 +3,7 @@
 .brand{display:flex;align-items:center;gap:10px;padding:0 6px}
 .brand.center{justify-content:center}
 .mark{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--surface);display:grid;place-items:center;box-shadow:var(--shadow-card)}
-.brand-txt b{display:block;font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.brand-txt b{display:block;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:0;line-height:1.1}
 .brand-txt small{color:var(--mute);font-size:12px}
 .side-nav{display:grid;gap:2px}
 .side-nav a{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:12px;color:var(--ink-2);font-size:14px;font-weight:500;transition:background .15s,color .15s}
@@ -17,7 +17,7 @@
 .mtop,.tabbar,.fab{display:none}
 
 .page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px}
-.page-head h1{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1.15}
+.page-head h1{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
 .page-head p{color:var(--mute);font-size:14px;margin-top:4px}
 
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px}

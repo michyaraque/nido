@@ -60,12 +60,11 @@ pub async fn login_page(Query(q): Query<LoginQ>) -> Response {
         "Entrar · Nido",
         "login-body",
         html! {
-            div.glow {}
             main.login {
                 div.brand.center { (brand()) }
                 form.card.login-card method="post" action="/login" accept-charset="utf-8" {
                     h1 { "Entra en Nido" }
-                    p.muted { "Usa tu nombre y tu contraseña." }
+                    p.muted { "Usa tu nombre y tu contraseña" }
                     @if q.error.is_some() { p.alert role="alert" { (icon("info")) "El nombre o la contraseña no coinciden. Revísalos e inténtalo de nuevo." } }
                     div.field { label for="name" { "Nombre" } input #name.input type="text" name="name" autocomplete="username" autocapitalize="none" required autofocus; }
                     div.field { label for="password" { "Contraseña" } input #password.input type="password" name="password" autocomplete="current-password" required; }

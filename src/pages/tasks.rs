@@ -217,7 +217,7 @@ fn day_panel(v: &View, day: &str) -> Markup {
                     p { (logs.len()) " hecha" (plural(logs.len())) @if !planned.is_empty() { " · " (planned.len()) " planificada" (plural(planned.len())) } }
                 }
             }
-            @if logs.is_empty() && planned.is_empty() { p.hint { "Nada apuntado este día." } }
+            @if logs.is_empty() && planned.is_empty() { p.hint { "Nada apuntado este día" } }
             ul.rows.compact {
                 @for l in &logs {
                     li.row {
@@ -270,7 +270,7 @@ fn day_panel(v: &View, day: &str) -> Markup {
                                             button.btn.outline { (icon("users")) "Cualquiera" }
                                         }
                                     }
-                                    p.hint { "«Cualquiera» la deja libre para que la coja quien pueda." }
+                                    p.hint { "«Cualquiera» la deja libre para que la coja quien pueda" }
                                 }
                             }
                         }
@@ -338,7 +338,7 @@ pub fn render(v: &View) -> Markup {
                 }
             }
                 section.card {
-                    div.card-head { span.stat-ico { (icon("trophy")) } div { h2 { "Este mes" } p { (v.logs.len()) " tareas hechas en " (v.month_lc()) "." } } }
+                    div.card-head { span.stat-ico { (icon("trophy")) } div { h2 { "Este mes" } p { (v.logs.len()) " tareas hechas en " (v.month_lc()) } } }
                     @if !v.logs.is_empty() {
                         div.bar.shares {
                             @for (i, u) in v.users.iter().enumerate() {
@@ -372,7 +372,7 @@ pub fn render(v: &View) -> Markup {
         }
         div.split.even {
             section.card {
-                div.card-head { div { h2 { "Calendario" } p { "Toca un día para ver qué se hizo o planificar algo." } } }
+                div.card-head { div { h2 { "Calendario" } p { "Toca un día para ver qué se hizo o planificar algo" } } }
                 (calendar(v))
                 div.cal-legend {
                     @for (i, u) in v.users.iter().enumerate() { span { span class={ "cal-key u" (i % 4) } {} (u.name) } }

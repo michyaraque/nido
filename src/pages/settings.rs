@@ -11,12 +11,12 @@ fn sections(v: &View) -> Markup {
 
 pub fn render(v: &View) -> Markup {
     html! {
-        (v.head("Ajustes", html! { "Tu perfil, tus avisos y este dispositivo." }))
+        (v.head("Ajustes", html! { "Tu perfil, tus avisos y este dispositivo" }))
         (sections(v))
         div.settings {
             div.stack {
                 section.card #profile {
-                    div.card-head { span.stat-ico { (icon("users")) } div { h2 { "Tu perfil" } p { "Tu foto aparece en el calendario, en las cuentas y junto a lo que apuntas." } } }
+                    div.card-head { span.stat-ico { (icon("users")) } div { h2 { "Tu perfil" } p { "Tu foto aparece en el calendario, en las cuentas y junto a lo que apuntas" } } }
                     div.profile {
                         @if let Some(u) = v.users.iter().find(|u| u.id == v.me.id) {
                             @if u.photo > 0 {
@@ -210,10 +210,10 @@ fn telegram(v: &View, tg: &crate::notify::Panel) -> Markup {
         section.card #telegram {
             div.card-head {
                 span.stat-ico { (icon("bell-ring")) }
-                div { h2 { "Tus avisos" } p { "En Telegram: cuando te planifican una tarea, lo pendiente cada día y un resumen los domingos, con un botón para marcar cada tarea como hecha." } }
+                div { h2 { "Tus avisos" } p { "En Telegram: cuando te planifican una tarea, lo pendiente cada día y un resumen los domingos, con un botón para marcar cada tarea como hecha" } }
             }
             @match &tg.bot {
-                None => p.hint { "Primero hay que conectar el bot de la casa, en " a href=(v.link("household")) { "Ajustes → La casa" } "." },
+                None => p.hint { "Primero hay que conectar el bot de la casa, en " a href=(v.link("household")) { "Ajustes → La casa" } },
                 Some(bot) => {
                     ul.rows.compact {
                         @for (u, linked) in &tg.linked {
@@ -232,7 +232,7 @@ fn telegram(v: &View, tg: &crate::notify::Panel) -> Markup {
                             a.btn.primary href={ "https://t.me/" (bot) "?start=" (tg.code) } target="_blank" rel="noopener" { (icon("external-link")) "Vincular mi Telegram" }
                         }
                     }
-                    @if !me_linked { p.hint { "Se abrirá el chat con @" (bot) ": pulsa " b { "Iniciar" } " y vuelve aquí." } }
+                    @if !me_linked { p.hint { "Se abrirá el chat con @" (bot) ": pulsa " b { "Iniciar" } " y vuelve aquí" } }
                 }
             }
         }
@@ -265,7 +265,7 @@ fn backups(v: &View, b: &crate::backup::Panel) -> Markup {
         section.card #backups {
             div.card-head.backup-head {
                 span.stat-ico { (icon("database-backup")) }
-                div { h2 { "Copias de seguridad" } p { "Cifradas con vuestra contraseña antes de salir de la Pi." } }
+                div { h2 { "Copias de seguridad" } p { "Cifradas con vuestra contraseña antes de salir de la Pi" } }
             }
             @if !b.has_pass {
                 div.backup-start {
@@ -304,7 +304,7 @@ fn backups(v: &View, b: &crate::backup::Panel) -> Markup {
                             form method="post" action="/backups/time" {
                                 (v.ctx())
                                 div.field { label for="bat" { "Cada día a las" } input #bat.input type="time" name="at" value=(b.at) required; }
-                                p.hint { "Mejor de noche, cuando nadie usa Nido." }
+                                p.hint { "Mejor de noche, cuando nadie usa Nido" }
                                 button.btn.primary.wide { "Guardar" }
                             }
                         }
@@ -341,7 +341,7 @@ fn backups(v: &View, b: &crate::backup::Panel) -> Markup {
                                     form method="post" action={ "/backups/targets/" (t.id) } accept-charset="utf-8" {
                                         (v.ctx())
                                         div.field { label { "Nombre" } input.input type="text" name="name" value=(t.name) required maxlength="60"; }
-                                        div.field { label { "Copias que guardar" } input.input type="number" name="keep" value=(t.keep) min="1" max="365" required; p.hint { "Al pasar de este número se borra la más antigua." } }
+                                        div.field { label { "Copias que guardar" } input.input type="number" name="keep" value=(t.keep) min="1" max="365" required; p.hint { "Al pasar de este número se borra la más antigua" } }
                                         button.btn.primary.wide { "Guardar" }
                                     }
                                     a.btn.danger.wide href={ "#rm-backup-" (t.id) } { (icon("x")) "Quitar destino" }
@@ -454,7 +454,7 @@ fn add_destination(v: &View, b: &crate::backup::Panel) -> Markup {
                         (v.ctx()) input type="hidden" name="kind" value="local";
                         (field("Nombre", "name", "NAS del salón", "text"))
                         (field("Carpeta", "path", "/mnt/nas/nido", "text"))
-                        p.hint { "Una carpeta ya montada dentro de /media o /mnt en la que Nido pueda escribir." }
+                        p.hint { "Una carpeta ya montada dentro de /media o /mnt en la que Nido pueda escribir" }
                         div.pane-foot { (keep) button.btn.primary { (icon("check")) "Añadir" } }
                     }
                 }
