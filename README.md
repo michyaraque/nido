@@ -61,7 +61,7 @@ El instalador elige la versión correcta solo. Consejos:
 | **Gastos** | Gastos del día a día con el logo y la categoría de más de 200 comercios españoles, comentario opcional, filtros por persona y gasto por categoría. Escaneo de tickets. |
 | **Compra** | Lista compartida con iconos por producto y sugerencias con lo que más compráis. |
 | **Tareas** | Tareas de casa con icono, color y frecuencia, ordenadas por urgencia. Calendario para planificarlas para alguien o libres («La cojo»), y marcador del mes. |
-| **Ajustes** | *Mis ajustes*: foto, sueldo, avisos de Telegram, Atajo de iPhone y uso sin conexión. *La casa*: quién ve qué, el bot de Telegram y las cuentas mensuales. |
+| **Ajustes** | *Mis ajustes*: foto, sueldo, avisos de Telegram, Atajo de iPhone y uso sin conexión. *La casa*: quién ve qué, el bot de Telegram, las copias de seguridad y las cuentas mensuales. |
 
 **Además:**
 - **App en el móvil (PWA):** se instala desde el navegador. Las páginas cambian sin recargarse, y sin JavaScript todo sigue funcionando.
@@ -72,7 +72,8 @@ El instalador elige la versión correcta solo. Consejos:
   - lo pendiente cada día a la hora que elijáis, con un botón «Hecha» en el propio mensaje;
   - un resumen de la semana los domingos.
 - **Atajo de iPhone:** cada pago con Apple Pay se apunta solo.
-- **Privado:** nada sale de casa salvo los avisos de Telegram, si los activáis. Sin cuentas en la nube, sin anuncios y sin analítica.
+- **Copias de seguridad cifradas:** cada día, a un disco USB, a la nube (S3: Cloudflare R2, Backblaze B2…) o a un NAS por WebDAV. Se recuperan con un comando.
+- **Privado:** nada sale de casa salvo los avisos de Telegram y las copias cifradas, si los activáis. Sin cuentas en la nube, sin anuncios y sin analítica.
 
 ## Tecnologías
 
@@ -88,6 +89,7 @@ El instalador elige la versión correcta solo. Consejos:
 | Sin conexión | Service worker, IndexedDB y caché del navegador |
 | HTTPS | [Caddy](https://caddyserver.com) con una autoridad de certificación propia de la casa |
 | Nombre en la red | avahi (mDNS): `nido.local` sin tocar el router |
+| Copias de seguridad | Copia en caliente de SQLite, `tar` y `openssl` (AES-256), subidas con `curl` a S3 (firma AWS v4) o WebDAV |
 | Avisos | [Bot API de Telegram](https://core.telegram.org/bots/api) con widgets HTML, a través de `curl` |
 | Compilación | [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) para ARM de 64 y 32 bits (`aarch64`, `armv7`, `armv6`; musl, estático) y GitHub Actions para las versiones |
 
@@ -181,6 +183,41 @@ Responde `201` con `{"id", "description", "merchant", "category", "amount_cents"
 
 El iPhone tiene que llegar a la Pi en ese momento, es decir, estar en la wifi de casa.
 
+### 7. Copias de seguridad (muy recomendable)
+
+Las tarjetas SD acaban fallando. En **Ajustes → La casa → Copias de seguridad**:
+
+1. Elegid una **contraseña para las copias** y guardadla fuera de Nido, en un gestor de contraseñas o en papel. **Sin ella no se puede recuperar ninguna copia.**
+2. Añadid uno o varios **destinos**. Cada destino tiene su número de copias que guardar (14 por defecto) y un botón **Probar**, que sube, lista y borra un archivo de prueba.
+3. Elegid la hora (las 4:00 por defecto). Cada día, Nido hace la copia y la envía a todos los destinos. Con **Hacer copia ahora** se lanza en el momento.
+
+| Destino | Para qué | Qué pide |
+|---|---|---|
+| **Carpeta o disco USB** | Un disco conectado a la Pi | La ruta, dentro de `/media` o `/mnt`. Dad permiso a Nido con `sudo chown nido /media/usb/nido` |
+| **Compatible con S3** | En la nube: Cloudflare R2 y Backblaze B2 (gratis hasta 10 GB), Wasabi, AWS S3, Hetzner, MinIO… | Endpoint, bucket, región (`auto` en R2), access key y secret key |
+| **WebDAV** | Nextcloud, Synology, Owncloud o cualquier NAS con WebDAV | La dirección de la carpeta, el usuario y una contraseña de aplicación |
+
+**Qué se guarda:**
+- La base de datos, con una copia en caliente consistente sin parar Nido.
+- Las fotos de los tickets y las de perfil.
+- Todo comprimido y **cifrado en la Pi con AES-256** antes de salir.
+
+Cada copia ocupa poco: unos cientos de KB más ~150 KB por ticket. Si una copia falla, os llega un aviso por Telegram (si está activado) y el destino lo muestra en rojo con el motivo.
+
+**Recuperar una copia** (en la Pi, con la contraseña de las copias):
+
+```sh
+sudo nido-restore nido-20261113-040000.tar.gz.enc
+```
+
+Para y vuelve a arrancar Nido. Lo que había antes se guarda en `/var/lib/nido.before-restore`.
+
+Las copias son archivos `openssl` normales, así que también se pueden abrir sin Nido:
+
+```sh
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in nido-….tar.gz.enc | tar -xz
+```
+
 ## Mantenimiento
 
 **Actualizar:**
@@ -188,11 +225,7 @@ El iPhone tiene que llegar a la Pi en ese momento, es decir, estar en la wifi de
 - **Sin GitHub:** copia el binario nuevo (y, si cambian, los modelos) a `~/nido-install` en la Pi y ejecuta `sudo nido-deploy`. El usuario que lanzó el instalador puede hacerlo sin contraseña.
 - **En los dos casos,** si la versión nueva no arranca, la Pi vuelve sola a la anterior.
 
-**Copia de seguridad:** todo está en `/var/lib/nido`: la base de datos `nido.db`, las fotos de los tickets y las fotos de perfil. Para copiar la base de datos en caliente:
-
-```sh
-sqlite3 /var/lib/nido/nido.db ".backup /ruta/copia.db"
-```
+**Datos:** todo está en `/var/lib/nido`: la base de datos `nido.db`, las fotos de los tickets y las de perfil. Para las copias, mirad el [paso 7](#7-copias-de-seguridad-muy-recomendable).
 
 **Registros:** `journalctl -u nido -f`.
 
@@ -235,6 +268,7 @@ src/
   api.rs           API del Atajo de iPhone
   chores.rs        tareas de casa y su calendario
   notify.rs        avisos por Telegram (bot, recordatorio, resumen, botones «Hecha»)
+  backup.rs        copias de seguridad cifradas: disco, S3 y WebDAV
   tickets.rs       subida y lectura de tickets en segundo plano
   ocr.rs           lector de texto: detección, recorte y reconocimiento (PP-OCRv6 con rten)
   receipt.rs       del texto del ticket a comercio, fecha, total y productos

@@ -81,6 +81,18 @@ fn send_widget(token: &str, chat: i64, html: &str, data: &str, caption: &str, qu
     }
 }
 
+/// Sends the same notice to everyone who linked Telegram (used when a backup fails).
+pub fn tell_all(c: &Connection, html: &str) {
+    let Some(token) = setting(c, "tg_token") else { return };
+    let chats: Vec<i64> = c
+        .prepare("SELECT tg_chat FROM users WHERE tg_chat IS NOT NULL")
+        .and_then(|mut s| s.query_map([], |r| r.get(0))?.collect())
+        .unwrap_or_default();
+    for chat in chats {
+        send_later(token.clone(), chat, html.to_string());
+    }
+}
+
 fn chat_of(c: &Connection, user: i64) -> Option<i64> {
     c.query_row("SELECT tg_chat FROM users WHERE id=?1", [user], |r| r.get(0)).ok().flatten()
 }

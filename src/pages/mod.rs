@@ -8,8 +8,10 @@ mod settings;
 mod shopping;
 mod tasks;
 mod ticket;
+mod copies;
 
 pub use ticket::ticket_page;
+pub use copies::backups_page;
 
 pub struct U {
     pub id: i64,
@@ -105,6 +107,7 @@ pub struct View {
     pub suggestions: Vec<String>,
     pub tickets: Vec<PendingTicket>,
     pub tg: Option<notify::Panel>,
+    pub backups: Option<backup::Panel>,
     pub chores: Vec<Chore>,
     pub logs: Vec<Log>,
     pub plans: Vec<Plan>,
@@ -253,8 +256,10 @@ impl View {
         };
         let first_weekday: i64 = c.query_row("SELECT (CAST(strftime('%w', ?1 || '-01') AS INTEGER) + 6) % 7", [&m], |r| r.get(0))?;
         let tg = if t == "settings" || t == "household" { Some(notify::panel(c, me.id)?) } else { None };
+        let backups = if t == "household" { Some(backup::panel(c)?) } else { None };
         Ok(View {
             tg,
+            backups,
             today,
             chores,
             logs,

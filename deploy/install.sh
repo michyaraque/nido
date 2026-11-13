@@ -12,7 +12,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 echo "· Paquetes"
 apt-get update -qq
-apt-get install -y -qq curl jq avahi-daemon avahi-utils caddy >/dev/null
+apt-get install -y -qq curl jq openssl tar udisks2 avahi-daemon avahi-utils caddy >/dev/null
 
 echo "· Usuario y carpetas"
 id nido >/dev/null 2>&1 || useradd --system --home-dir /var/lib/nido --shell /usr/sbin/nologin nido
@@ -88,6 +88,47 @@ printf '%s\n' "$P" | sudo -u nido NIDO_DB=/var/lib/nido/nido.db /opt/nido/nido u
 EOF
 chmod 755 /usr/local/bin/nido-user
 
+# Lets Nido mount the USB disk chosen for backups (and nothing else), also after a reboot or a replug.
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/50-nido-usb.rules <<'EOF'
+polkit.addRule(function (action, subject) {
+  if (subject.user == "nido" && [
+        "org.freedesktop.udisks2.filesystem-mount",
+        "org.freedesktop.udisks2.filesystem-mount-other-seat",
+        "org.freedesktop.udisks2.filesystem-unmount-others"
+      ].indexOf(action.id) >= 0) {
+    return polkit.Result.YES;
+  }
+});
+EOF
+
+cat > /usr/local/bin/nido-restore <<'EOF'
+#!/bin/sh
+# Usage: sudo nido-restore <nido-AAAAMMDD-HHMMSS.tar.gz.enc>
+# Replaces Nido's data with the copy; what was there before is kept in /var/lib/nido.before-restore.
+set -eu
+[ -f "${1:-}" ] || { echo "Uso: sudo nido-restore <copia.tar.gz.enc>"; exit 1; }
+printf "Contraseña de las copias: "; stty -echo; read -r P; stty echo; echo
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+NIDO_BACKUP_PASS="$P" openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:NIDO_BACKUP_PASS -in "$1" -out "$TMP/copia.tar.gz" 2>/dev/null \
+  || { echo "Contraseña incorrecta o copia dañada."; exit 1; }
+tar -xzf "$TMP/copia.tar.gz" -C "$TMP"
+[ -f "$TMP/nido.db" ] || { echo "La copia no contiene nido.db."; exit 1; }
+systemctl stop nido
+rm -rf /var/lib/nido.before-restore
+mkdir -p /var/lib/nido.before-restore
+for f in nido.db nido.db-wal nido.db-shm tickets avatars; do
+  [ -e "/var/lib/nido/$f" ] && mv "/var/lib/nido/$f" /var/lib/nido.before-restore/
+done
+mv "$TMP/nido.db" /var/lib/nido/
+for d in tickets avatars; do [ -d "$TMP/$d" ] && mv "$TMP/$d" /var/lib/nido/; done
+chown -R nido:nido /var/lib/nido
+systemctl start nido
+echo "Copia recuperada. Lo que había antes está en /var/lib/nido.before-restore."
+EOF
+chmod 755 /usr/local/bin/nido-restore
+
 cat > /usr/local/bin/nido-deploy <<'EOF'
 #!/bin/sh
 # Rolls back to the previous binary if the new one does not start.
@@ -138,7 +179,7 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-ReadWritePaths=/var/lib/nido
+ReadWritePaths=/var/lib/nido -/media -/mnt
 # Reading a receipt peaks around 100 MB; the rest of the time Nido uses ~10 MB.
 MemoryMax=300M
 Nice=5

@@ -121,3 +121,15 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS backup_targets (
+  id         INTEGER PRIMARY KEY,
+  kind       TEXT NOT NULL,                     -- local | s3 | webdav
+  name       TEXT NOT NULL,
+  config     TEXT NOT NULL,                     -- JSON: path, or endpoint/bucket/keys, or url/user/pass
+  keep       INTEGER NOT NULL DEFAULT 14,
+  last_at    TEXT,
+  last_ok    INTEGER,
+  last_error TEXT,
+  last_size  INTEGER
+);

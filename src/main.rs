@@ -13,6 +13,7 @@ mod errors;
 mod merchants;
 mod money;
 mod nav;
+mod backup;
 mod notify;
 mod ocr;
 mod receipt;
@@ -115,6 +116,7 @@ async fn main() {
 
     let db: Db = Arc::new(Mutex::new(conn));
     notify::start(db.clone());
+    backup::start(db.clone());
     let app = Router::new()
         .route("/", get(dashboard))
         .route("/login", get(login_page).post(login))
@@ -154,6 +156,15 @@ async fn main() {
         .route("/plans/{id}/done", post(complete_plan))
         .route("/plans/{id}/delete", post(delete_plan))
         .route("/house/settings", post(save_house))
+        .route("/backups/password", post(backup::save_password))
+        .route("/backups/time", post(backup::save_time))
+        .route("/backups/run", post(backup::run_backup))
+        .route("/backups/targets", post(backup::add_target))
+        .route("/backups/targets/{id}/test", post(backup::test_target))
+        .route("/backups/targets/{id}/delete", post(backup::delete_target))
+        .route("/backups/targets/{id}", get(backups_page).post(backup::update_target))
+        .route("/backups/targets/{id}/files/{name}", get(backup::download))
+        .route("/backups/targets/{id}/files/{name}/delete", post(backup::delete_copy))
         .route("/telegram/bot", post(notify::connect_bot))
         .route("/telegram/remove", post(notify::remove_bot))
         .route("/telegram/time", post(notify::save_time))

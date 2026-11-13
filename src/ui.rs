@@ -52,7 +52,7 @@ pub fn hue(s: &str) -> &'static str {
 pub fn icon(name: &str) -> Markup {
     let inner = merchants::ICONS.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or("");
     html! {
-        svg.i viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        svg.i.spinning[name == "loader-circle"] viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" { (PreEscaped(inner)) }
     }
 }
