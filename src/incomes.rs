@@ -74,3 +74,22 @@ pub async fn set_track_pay(State(db): State<Db>, h: HeaderMap, F(f): F<TrackF>) 
     }
     back(&month(&c, Some(&f.month))?, f.tab.as_deref(), "track_pay")
 }
+
+#[derive(Deserialize)]
+pub struct SinceF {
+    since: String,
+    month: String,
+    tab: Option<String>,
+}
+
+/// From which month the fixed income is confirmed by hand; unticked months since then are pending.
+pub async fn set_pay_since(State(db): State<Db>, h: HeaderMap, F(f): F<SinceF>) -> R {
+    let c = lock(&db);
+    let me = require_user!(c, h);
+    let now = today(&c)?[..7].to_string();
+    if !valid_month(&f.since) || f.since > now {
+        return bad("Elige un mes que no sea futuro.");
+    }
+    c.execute("UPDATE users SET pay_since=?2 WHERE id=?1", params![me.id, f.since])?;
+    back(&month(&c, Some(&f.month))?, f.tab.as_deref(), "track_pay")
+}

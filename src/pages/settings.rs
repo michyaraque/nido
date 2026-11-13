@@ -73,6 +73,16 @@ pub fn render(v: &View) -> Markup {
                             button.btn.outline.sm.auto-go { "Guardar" }
                         }
                     }))
+                    @if v.track_pay {
+                        div.set-item {
+                            div.set-item-txt { label for="ps" { b { "Desde" } } small { "Los meses sin marcar desde entonces salen como pendientes." } }
+                            form.inline-field method="post" action="/me/pay-since" {
+                                (v.ctx())
+                                input #ps.input type="month" name="since" value=(v.pay_since) max=(&v.today[..7]) required;
+                                button.btn.outline { "Guardar" }
+                            }
+                        }
+                    }
                 }
             }
         }))

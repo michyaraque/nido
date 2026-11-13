@@ -140,6 +140,7 @@ async fn main() {
         .route("/me/salary", post(set_salary))
         .route("/me/password", post(change_password))
         .route("/me/track-pay", post(set_track_pay))
+        .route("/me/pay-since", post(set_pay_since))
         .route("/incomes", post(add_income))
         .route("/incomes/{id}/toggle", post(toggle_income))
         .route("/incomes/{id}/delete", post(delete_income))

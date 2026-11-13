@@ -349,3 +349,4 @@ form:has(input[name=mode][value=custom]:checked) .split-custom{display:grid}
 .owe-who.sm{gap:4px}
 .owe-who.sm .avatar{width:26px;height:26px;font-size:11px}
 .owe-who.sm .owe-arrow .i{width:14px;height:14px}
+.set-item input[type=month]{min-width:200px}
