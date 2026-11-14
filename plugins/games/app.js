@@ -218,7 +218,7 @@
     t.innerHTML = html.trim();
     const next = t.content.firstElementChild;
     if (next?.id !== "gm-live" || +next.dataset.v < +old.dataset.v) return null;
-    const picked = old.querySelector("input[name=k]:checked")?.value; // keep the same ship picked
+    const picked = old.querySelector("input[name=k]:checked")?.value;
     old.replaceWith(next);
     if (picked) { const r = next.querySelector(`input[name=k][value="${picked}"]`); if (r) r.checked = true; }
     cardsMoved(old, next);
@@ -307,7 +307,7 @@
     audio();
     const id = +box()?.dataset.id;
     let value = e.submitter?.value ?? "";
-    if (value.includes("{k}")) value = value.replace("{k}", f.querySelector("input[name=k]:checked")?.value ?? "0"); // the picked ship
+    if (value.includes("{k}")) value = value.replace("{k}", f.querySelector("input[name=k]:checked")?.value ?? "0");
     f.closest("details")?.removeAttribute("open");
     const react = f.action.endsWith("/react");
     if (ws?.readyState === 1 && id) {
@@ -324,6 +324,46 @@
       else { toast(html || "No se ha podido hacer"); play("error"); }
     } catch { location.reload(); }
   }, true);
+
+  // ---------- hundir la flota: drag a ship with the finger (or mouse); tap a picked ship to turn it ----------
+  let drag = null;
+  document.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest?.(".gm-ocean.placing .gm-boat");
+    if (!b || e.button > 0) return;
+    const input = b.querySelector("input"), r = b.getBoundingClientRect();
+    drag = { b, picked: input.checked, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, moved: false };
+    input.checked = true;
+    b.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 8) return;
+    drag.moved = true;
+    drag.b.classList.add("dragging");
+    drag.b.style.transform = `translate(${dx}px, ${dy}px)`;
+  });
+  const drop = (e) => {
+    if (!drag) return;
+    const { b, picked, moved, ox, oy } = drag;
+    drag = null;
+    const f = b.closest("form");
+    const back = () => setTimeout(() => { if (b.isConnected) { b.style.transform = ""; b.classList.remove("dragging"); } }, 900);
+    if (!moved) {
+      if (picked && e.type === "pointerup") f.requestSubmit(f.querySelector('button[value^="turn:"]'));
+      return;
+    }
+    // The square under the ship's first square is where it starts.
+    const cell = f.querySelector(".gm-cells button").getBoundingClientRect();
+    const x = e.clientX - ox + cell.width / 2, y = e.clientY - oy + cell.height / 2;
+    const to = document.elementsFromPoint(x, y).find((el) => el.matches(".gm-ocean.placing .gm-cells button"));
+    if (to) f.requestSubmit(to);
+    back();
+  };
+  document.addEventListener("pointerup", drop);
+  document.addEventListener("pointercancel", drop);
+  document.addEventListener("click", (e) => { if (e.target.closest?.(".gm-ocean.placing .gm-boat")) e.preventDefault(); }, true);
 
   // The comodín picker closes when you tap outside the diamond.
   document.addEventListener("click", (e) => {

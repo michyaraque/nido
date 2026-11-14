@@ -1,5 +1,5 @@
 [package]
-name = "nido-juegos"
+name = "nido-games"
 version = "0.1.0"
 edition = "2021"
 description = "Juegos, un extra de Nido que va en su propio programa"

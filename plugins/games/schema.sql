@@ -34,3 +34,16 @@ CREATE TABLE IF NOT EXISTS reactions (
   at       INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 CREATE INDEX IF NOT EXISTS reactions_match ON reactions(match_id, at);
+
+-- Invitations for people of the house: Nido shows them in the open app (GET /notices) and, if
+-- nobody saw them after a minute, sends them by Telegram (GET /notices/late).
+CREATE TABLE IF NOT EXISTS notices (
+  id       INTEGER PRIMARY KEY,
+  user_id  INTEGER NOT NULL,
+  match_id INTEGER NOT NULL,
+  text     TEXT NOT NULL,
+  at       INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  seen     INTEGER NOT NULL DEFAULT 0,
+  sent     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS notices_user ON notices(user_id, seen);

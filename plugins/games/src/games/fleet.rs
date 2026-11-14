@@ -149,7 +149,7 @@ impl Fleet {
                 div.gm-fleet-side {
                     div.gm-fleet-head {
                         h3 { "Coloca tu flota" }
-                        span.gm-wait { @if self.ready[1 - me] { (cx.name(1 - me)) " ya está listo" } @else { "Toca un barco y luego dónde lo quieres" } }
+                        span.gm-wait { @if self.ready[1 - me] { (cx.name(1 - me)) " ya está listo" } @else { "Arrastra los barcos; tócalo otra vez para girarlo" } }
                     }
                     div.gm-ocean.placing {
                         span {}

@@ -85,20 +85,33 @@ impl Game for Rps {
                         }
                     }
                 }
-                @if let Some([a, b]) = self.last {
-                    // The reveal: both hands shake, then open (CSS). Keyed by round so it replays only when new.
-                    div.gm-rps-reveal data-round=(self.round) {
-                        span.gm-hand-big.l.win[beats(a, b) == 1] { (PreEscaped(HANDS[a as usize].1)) }
-                        span.gm-vs { "vs" }
-                        span.gm-hand-big.r.win[beats(a, b) == 2] { (PreEscaped(HANDS[b as usize].1)) }
+                // The stage: one slot each. A fresh round is clean; whoever has chosen shows a "?"
+                // (your own choice you see); when both have, the hands open and then clear away.
+                @let shown = if self.pick == [None, None] { self.last } else { None };
+                div.gm-rps-stage {
+                    @for s in 0..2usize {
+                        @let side = if s == 0 { "l" } else { "r" };
+                        div.gm-slot style={ "--c:" (cx.color(s)) } {
+                            span.gm-slot-base {}
+                            @if let Some(h) = shown {
+                                @let won = beats(h[0], h[1]) == s as u8 + 1;
+                                span class={ "gm-hand-big " (side) @if won { " win" } @if playing { " clear" } } { (PreEscaped(HANDS[h[s] as usize].1)) }
+                            } @else if let Some(h) = self.pick[s] {
+                                @if me == Some(s) {
+                                    span class={ "gm-hand-big gm-own " (side) } { (PreEscaped(HANDS[h as usize].1)) }
+                                } @else {
+                                    span.gm-hand-big.gm-hidden aria-label="Ya ha elegido" { "?" }
+                                }
+                            }
+                            small { (cx.name(s)) }
+                        }
+                        @if s == 0 { span.gm-vs { "vs" } }
                     }
-                } @else {
-                    div.gm-rps-reveal {} // keeps its room
                 }
                 @if playing {
                     @if let Some(me) = me {
                         @if waiting_other {
-                            p.gm-rps-wait { span.gm-hand-mini { (PreEscaped(HANDS[mine.unwrap_or(0) as usize].1)) } "Has elegido " (HANDS[mine.unwrap_or(0) as usize].2) ". Esperando a " (cx.name(1 - me)) "…" }
+                            p.gm-rps-wait { "Has elegido " (HANDS[mine.unwrap_or(0) as usize].2) ". Esperando a " (cx.name(1 - me)) "…" }
                         } @else {
                             div.gm-rps-pick {
                                 @for (id, emoji, name) in HANDS {

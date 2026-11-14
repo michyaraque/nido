@@ -179,6 +179,9 @@ button.gm-cell:hover{background:var(--canvas)}
 .gm-cell.win{background:color-mix(in srgb,#eab308 22%,var(--surface));animation:gm-pop .5s var(--gm-spring)}
 .gm-mark{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:6;stroke-linecap:round}
 .gm-cell.last .gm-mark{stroke-dasharray:60;animation:gm-draw .35s var(--gm-out) both}
+.gm-cell.going .gm-mark{opacity:.35;animation:gm-fade 1.4s ease-in-out infinite}
+.gm-cell.going{border-style:dashed}
+@keyframes gm-fade{50%{opacity:.15}}
 
 /* ---------- 4 en raya ---------- */
 .gm-c4{max-width:440px;margin:0 auto}
@@ -232,10 +235,11 @@ button.gm-water:hover::before{inset:12%;background:radial-gradient(circle,transp
 .gm-wait{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gm-arrange{grid-template-columns:minmax(0,440px);justify-content:center}
 .gm-ocean.placing .gm-boats{pointer-events:none}
-.gm-ocean.placing .gm-boat{pointer-events:auto;cursor:grab;border-radius:12px;transition:filter .2s,transform .25s var(--gm-spring)}
+.gm-ocean.placing .gm-boat{pointer-events:auto;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:12px;transition:filter .2s,transform .25s var(--gm-spring)}
 .gm-ocean.placing .gm-boat input{position:absolute;opacity:0;pointer-events:none}
-.gm-ocean.placing .gm-boat:hover{transform:scale(1.04)}
-.gm-ocean.placing .gm-boat:has(input:checked){pointer-events:none;filter:drop-shadow(0 0 0 #fde68a) drop-shadow(0 0 6px #fde68a) drop-shadow(0 4px 3px rgb(0 0 0/.3))}
+@media (hover:hover){.gm-ocean.placing .gm-boat:not(.dragging):hover{transform:scale(1.04)}}
+.gm-ocean.placing .gm-boat.dragging{z-index:5;cursor:grabbing;transition:none;opacity:.9}
+.gm-ocean.placing .gm-boat:has(input:checked){filter:drop-shadow(0 0 0 #fde68a) drop-shadow(0 0 6px #fde68a) drop-shadow(0 4px 3px rgb(0 0 0/.3))}
 .gm-ocean.placing .gm-boat:has(input:checked) svg{animation:gm-lift 1.2s ease-in-out infinite}
 .gm-ocean.placing .gm-boat:has(input:focus-visible){outline:2px solid #fde68a}
 .gm-ocean.placing button.gm-water{cursor:pointer}
@@ -304,7 +308,16 @@ img.avatar{object-fit:cover;background:var(--canvas)}
 .gm-rps-pips{display:flex;gap:4px}
 .gm-rps-pips i{width:10px;height:10px;border-radius:50%;background:var(--line)}
 .gm-rps-pips i.on{background:var(--c)}
-.gm-rps-reveal{display:flex;align-items:center;gap:18px;min-height:96px}
+.gm-rps-stage{display:flex;align-items:flex-start;gap:18px}
+.gm-rps-stage .gm-vs{margin-top:38px}
+.gm-slot{position:relative;display:grid;justify-items:center;gap:6px}
+.gm-slot small{font-size:12px;font-weight:600;color:var(--mute)}
+.gm-slot-base{width:96px;height:96px;border-radius:28px;border:2px dashed color-mix(in srgb,var(--c) 45%,var(--line));background:color-mix(in srgb,var(--c) 5%,transparent)}
+.gm-slot>.gm-hand-big{position:absolute;top:0;left:50%;margin-left:-48px}
+.gm-hand-big.gm-own{animation:gm-pop .35s var(--gm-spring) both;opacity:.9}
+.gm-hand-big.gm-hidden{font:800 46px/1 var(--display);color:#fff;border:0;background:linear-gradient(150deg,color-mix(in srgb,var(--c) 75%,#fff),var(--c));box-shadow:0 10px 22px -10px var(--c),inset 0 -5px 0 rgb(0 0 0/.15);animation:gm-pop .35s var(--gm-spring) both,gm-breathe 1.6s ease-in-out .4s infinite}
+.gm-hand-big.l.clear,.gm-hand-big.r.clear{animation:gm-pump .9s ease-in-out both,gm-clear .4s ease-in 2.8s forwards}
+@keyframes gm-clear{to{opacity:0;transform:scale(.7)}}
 .gm-hand-big{width:96px;height:96px;display:grid;place-items:center;border-radius:28px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card);transition:transform .3s}
 .gm-hand-big svg{width:70%;height:70%}
 .gm-hand-big.l{animation:gm-pump .9s ease-in-out both}
@@ -318,7 +331,6 @@ img.avatar{object-fit:cover;background:var(--canvas)}
 .gm-rps-btn:hover span{transform:translateY(-4px) rotate(-6deg) scale(1.08)}
 .gm-rps-btn small{font-size:13px;font-weight:600}
 .gm-rps-wait{display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--mute)}
-.gm-hand-mini{width:28px;height:28px;display:grid}
 
 /* ---------- Colores: the felt table ---------- */
 .gm-colores{--cw:68px;position:relative;display:grid;gap:14px;padding:18px 14px 20px;border-radius:24px;color:#e6f2ef;background:radial-gradient(120% 80% at 50% 45%,#1f4a46 0%,#16332f 55%,#0f2421 100%);box-shadow:inset 0 0 0 1px rgb(255 255 255/.06),var(--shadow-float);overflow:hidden}
@@ -383,6 +395,9 @@ button.gm-card-btn:hover,.gm-wild>summary:hover{transform:translateY(-14px) rota
   .gm-fleet{grid-template-columns:minmax(0,1fr)}
   .gm-rps-btn{width:88px}
   .gm-hand-big{width:80px;height:80px}
+  .gm-slot-base{width:80px;height:80px}
+  .gm-slot>.gm-hand-big{margin-left:-40px}
+  .gm-rps-stage .gm-vs{margin-top:30px}
 }
 
 /* Colores: the messy pile, the turn glowing, skips and warnings */

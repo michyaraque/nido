@@ -125,7 +125,7 @@ pub const GAMES: &[Info] = &[
     Info { id: "fleet", name: "Hundir la flota", icon: "anchor", players: (2, 2), minutes: "10 min", blurb: "Agua, tocado, hundido: encuentra los barcos del otro antes que él los tuyos.", accent: "#0891b2" },
     Info { id: "c4", name: "4 en raya", icon: "circle-dot", players: (2, 2), minutes: "5 min", blurb: "Deja caer fichas y junta cuatro en línea antes que tu rival.", accent: "#2f6bff" },
     Info { id: "rps", name: "Piedra, papel o tijera", icon: "scissors", players: (2, 2), minutes: "1 min", blurb: "Los dos eligen a la vez y nadie ve la mano del otro hasta el final. Gana quien llega a 3.", accent: "#d97706" },
-    Info { id: "ttt", name: "Tres en raya", icon: "grid-3x3", players: (2, 2), minutes: "2 min", blurb: "El de toda la vida: tres en línea en un tablero de tres por tres.", accent: "#7c3aed" },
+    Info { id: "ttt", name: "Tres en raya", icon: "grid-3x3", players: (2, 2), minutes: "3 min", blurb: "Sin empates: cada uno tiene tres fichas y la cuarta borra la más antigua. Gana quien hace línea.", accent: "#7c3aed" },
 ];
 
 /// The banner art of each game for the gallery: our own little scenes made of its pieces.

@@ -1,4 +1,4 @@
-//! nido-juegos: the "Juegos" extra of Nido, as a program of its own (see plugins/README.md).
+//! nido-games: the "Juegos" extra of Nido, as a program of its own (see plugins/README.md).
 //!
 //! Board games for the house: everyone plays from their own phone against the others or against
 //! a robot. Nido starts this program, forwards `/x/games/<path>` to it as `/<path>`, and asks
@@ -161,7 +161,7 @@ async fn main() {
     }
     let env = |k: &str, default: &str| std::env::var(k).unwrap_or_else(|_| default.to_string());
     let key = std::env::var("NIDO_PLUGIN_KEY").unwrap_or_else(|_| {
-        eprintln!("nido-juegos lo arranca Nido (Extras); falta NIDO_PLUGIN_KEY");
+        eprintln!("nido-games lo arranca Nido (Extras); falta NIDO_PLUGIN_KEY");
         std::process::exit(2);
     });
     let conn = Connection::open(env("NIDO_PLUGIN_DB", "games.db")).expect("no se pudo abrir la base de datos");
@@ -175,6 +175,6 @@ async fn main() {
         .with_state(db);
     let addr = env("NIDO_PLUGIN_ADDR", "127.0.0.1:8182");
     let listener = tokio::net::TcpListener::bind(&addr).await.expect("no se pudo abrir el puerto");
-    println!("nido-juegos {VERSION} en http://{addr}");
+    println!("nido-games {VERSION} en http://{addr}");
     axum::serve(listener, app).await.expect("servidor");
 }

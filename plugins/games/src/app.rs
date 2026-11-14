@@ -47,6 +47,8 @@ pub fn routes() -> Router<Db> {
         .route("/m/{id}/leave", post(leave))
         .route("/m/{id}/again", post(again))
         .route("/assets/app.js", get(script))
+        .route("/notices", get(notices))
+        .route("/notices/late", get(late))
 }
 
 async fn script() -> Response {
@@ -245,6 +247,7 @@ async fn create(State(db): State<Db>, h: HeaderMap, F(f): F<Pairs>) -> R {
         params![g.id, serde_json::to_string(&players)?, st.state, st.turn as i64, me.id],
     )?;
     let id = c.last_insert_rowid();
+    invite(&c, &me, id, &players, &format!("{} te invita a jugar a {}", me.name, g.name))?;
     robots(db.clone(), id);
     to_match(&c, field(&f, "month"), id, "game_started")
 }
@@ -379,8 +382,50 @@ async fn again(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<
         params![m.game, serde_json::to_string(&players)?, st.state, st.turn as i64, me.id],
     )?;
     let new = c.last_insert_rowid();
+    let name = games::info(&m.game).map_or("la partida", |g| g.name);
+    invite(&c, &me, new, &players, &format!("{} quiere la revancha de {name}", me.name))?;
     robots(db.clone(), new); // after a rematch a robot may start
     to_match(&c, field(&f, "month"), new, "game_started")
+}
+
+// ---------- invitations ----------
+
+/// Tells everyone else (not the robots) in `players` about match `id`.
+fn invite(c: &Connection, me: &Me, id: i64, players: &[i64], text: &str) -> rusqlite::Result<()> {
+    for &p in players.iter().filter(|&&p| p != 0 && p != me.id) {
+        c.execute("INSERT INTO notices(user_id, match_id, text) VALUES(?1,?2,?3)", params![p, id, text])?;
+    }
+    Ok(())
+}
+
+fn json(v: serde_json::Value) -> Response {
+    ([(header::CONTENT_TYPE, "application/json")], v.to_string()).into_response()
+}
+
+/// `GET /notices`: my invitations not seen yet (the open app shows them, so now they are seen).
+async fn notices(State(db): State<Db>, h: HeaderMap) -> R {
+    let me = require_user!(h);
+    let c = lock(&db);
+    let list: Vec<serde_json::Value> = c
+        .prepare_cached("SELECT text, match_id FROM notices WHERE user_id=?1 AND seen=0 AND at > strftime('%s','now') - 1800 ORDER BY id DESC")?
+        .query_map([me.id], |r| Ok(serde_json::json!({ "text": r.get::<_, String>(0)?, "href": format!("/?tab=games&m={}", r.get::<_, i64>(1)?), "action": "Jugar" })))?
+        .collect::<Result<_, _>>()?;
+    if !list.is_empty() {
+        c.execute("UPDATE notices SET seen=1 WHERE user_id=?1 AND seen=0", [me.id])?;
+    }
+    Ok(json(list.into()))
+}
+
+/// `GET /notices/late`: invitations nobody saw in a minute, for Nido to send by Telegram (once).
+async fn late(State(db): State<Db>) -> R {
+    let c = lock(&db);
+    let due = "seen=0 AND sent=0 AND at <= strftime('%s','now') - 60 AND at > strftime('%s','now') - 1800";
+    let list: Vec<serde_json::Value> = c
+        .prepare(&format!("SELECT user_id, text, match_id FROM notices WHERE {due}"))?
+        .query_map([], |r| Ok(serde_json::json!({ "user": r.get::<_, i64>(0)?, "text": r.get::<_, String>(1)?, "href": format!("/?tab=games&m={}", r.get::<_, i64>(2)?) })))?
+        .collect::<Result<_, _>>()?;
+    c.execute(&format!("UPDATE notices SET sent=1 WHERE {due}"), [])?;
+    Ok(json(list.into()))
 }
 
 // ---------- pages ----------
@@ -612,6 +657,7 @@ fn new_match(v: &View, g: &Info) -> Markup {
 }
 
 fn match_page(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
+    c.execute("UPDATE notices SET seen=1 WHERE user_id=?1 AND match_id=?2", params![v.me.id, m.id])?;
     let g = games::info(&m.game);
     Ok(html! {
         a.back href=(v.link("")) { (icon("chevron-left")) "Juegos" }
