@@ -61,7 +61,6 @@ El instalador elige la versión correcta solo. Consejos:
 | **Gastos** | Gastos del día a día con el logo y la categoría de más de 200 comercios españoles, comentario opcional, filtros por persona y gasto por categoría. Escaneo de tickets. |
 | **Compra** | Lista compartida con iconos por producto y sugerencias con lo que más compráis. |
 | **Tareas** | Tareas de casa con icono, color y frecuencia, ordenadas por urgencia. Calendario para planificarlas para alguien o libres («La cojo»), y marcador del mes. |
-| **Recetas** *(extra)* | El recetario de casa: ingredientes que se ajustan a las raciones, pasos que se tachan mientras cocinas y, con un toque, lo que falta a la lista de la compra. Trae un recetario de 134 recetas españolas escritas para Nido, con foto; un editor por bloques para las vuestras, e importación desde el enlace de casi cualquier web de recetas. Es un extra: se instala desde *Extras* (≈ 4 MB) y las fotos se descargan aparte si las quieres. |
 | **Ajustes** | *Mis ajustes*: foto, sueldo, avisos de Telegram, Atajo de iPhone y uso sin conexión. *La casa*: quién ve qué, el bot de Telegram, las copias de seguridad y las cuentas mensuales. |
 
 **Además:**
@@ -74,8 +73,8 @@ El instalador elige la versión correcta solo. Consejos:
   - un resumen de la semana los domingos.
 - **Atajo de iPhone:** cada pago con Apple Pay se apunta solo.
 - **Copias de seguridad cifradas:** cada día, a un disco USB, a la nube (S3: Cloudflare R2, Backblaze B2…) o a un NAS por WebDAV. Se recuperan con un comando.
-- **Extras:** funciones opcionales que se instalan desde *Extras* en el menú. Cada una es un programa aparte con su propia base de datos, así que Nido no pesa más hasta que instalas una; si la quitas, sus datos se guardan. La primera es **Recetas**. Cómo se hace un extra: [plugins/README.md](plugins/README.md).
-- **Privado:** nada sale de casa salvo los avisos de Telegram, las copias cifradas y las recetas que importéis desde un enlace, si los usáis. Sin cuentas en la nube, sin anuncios y sin analítica.
+- **Extras:** funciones opcionales que se instalan desde *Extras* en el menú. Cada una es un programa aparte con su propia base de datos, así que Nido no pesa más hasta que instalas una; si la quitas, sus datos se guardan. Cómo se hace un extra: [plugins/README.md](plugins/README.md).
+- **Privado:** nada sale de casa salvo los avisos de Telegram, las copias cifradas y lo que pidáis a un extra, si los usáis. Sin cuentas en la nube, sin anuncios y sin analítica.
 
 ## Tecnologías
 
