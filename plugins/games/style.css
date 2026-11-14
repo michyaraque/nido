@@ -332,7 +332,7 @@ img.avatar{object-fit:cover;background:var(--canvas)}
 .gm-rps-btn small{font-size:13px;font-weight:600}
 .gm-rps-wait{display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--mute)}
 
-/* ---------- Colores: the felt table ---------- */
+/* ---------- Colors: the felt table ---------- */
 .gm-colores{--cw:68px;position:relative;display:grid;gap:14px;padding:18px 14px 20px;border-radius:24px;color:#e6f2ef;background:radial-gradient(120% 80% at 50% 45%,#1f4a46 0%,#16332f 55%,#0f2421 100%);box-shadow:inset 0 0 0 1px rgb(255 255 255/.06),var(--shadow-float);overflow:hidden}
 .gm-colores::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgb(255 255 255/.018) 0 18px,transparent 18px 36px);pointer-events:none}
 .gm-colores>*{position:relative}
@@ -400,7 +400,7 @@ button.gm-card-btn:hover,.gm-wild>summary:hover{transform:translateY(-14px) rota
   .gm-rps-stage .gm-vs{margin-top:30px}
 }
 
-/* Colores: the messy pile, the turn glowing, skips and warnings */
+/* Colors: the messy pile, the turn glowing, skips and warnings */
 .gm-pile{position:relative;width:var(--cw);aspect-ratio:5/7}
 .gm-pile-card{position:absolute;inset:0;transform:translate(var(--x),var(--y)) rotate(var(--r))}
 .gm-pile-card .gm-card{animation:none;rotate:0deg}
@@ -434,7 +434,7 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm-stage.full>#gm-live{max-width:1100px;min-height:100%;margin:0 auto;display:flex;flex-direction:column}
 .gm-stage.full .gm-move{flex:1;display:flex;flex-direction:column;justify-content:center}
 .gm-stage.full .gm-foot{margin-top:8px}
-/* Colores: the felt fills the screen and the cards grow */
+/* Colors: the felt fills the screen and the cards grow */
 .gm-stage.full[data-game=colores]{background:radial-gradient(120% 90% at 50% 45%,#1f4a46 0%,#16332f 55%,#0d1f1c 100%);color:#e6f2ef}
 .gm-stage.full[data-game=colores] .gm-colores{flex:1;--cw:clamp(64px,9vw,96px);background:none;box-shadow:none;align-content:space-between;padding:8px 4px}
 .gm-stage.full[data-game=colores] .gm-colores::before{display:none}

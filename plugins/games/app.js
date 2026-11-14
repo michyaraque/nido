@@ -167,7 +167,7 @@
     if (flags & 1 && !mineBefore) setTimeout(() => play("turn"), 280);
   }
 
-  // ---------- Colores: cards fly from where they come to where they go ----------
+  // ---------- Colors: cards fly from where they come to where they go ----------
   let clicked = null; // the card I just tapped, so mine leaves from my hand
   const rect = (el) => el?.getBoundingClientRect();
   function fly(el, from, { rotate = 0, delay = 0 } = {}) {

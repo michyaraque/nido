@@ -28,7 +28,7 @@ pub const REACTIONS: [(&str, &str, &str, &str); 10] = [
     ("angry", "angry", "#dc2626", "Grrr"),
 ];
 
-/// Colores is a table game with banter: there, reactions are emoji (everywhere else, icons).
+/// Colors is a table game with banter: there, reactions are emoji (everywhere else, icons).
 pub const EMOJI: [&str; 16] = ["😭", "😎", "🤩", "🤣", "😈", "😡", "🥺", "😱", "😫", "😳", "🥴", "😴", "👋", "🎉", "❤️", "🤔"];
 
 fn with_emoji(game: &str) -> bool {

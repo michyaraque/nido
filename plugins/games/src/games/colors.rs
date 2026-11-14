@@ -1,4 +1,4 @@
-//! Colores: a colour-matching discard game. 100 cards: four colours with 1..9 twice each and
+//! Colors: a colour-matching discard game. 100 cards: four colours with 1..9 twice each and
 //! the actions Salta, Gira and +2 twice each, plus four Comodín that choose the colour. Play a
 //! card of the same colour or number (or symbol); if you cannot, draw one and play it or pass.
 //! The first with no cards wins. Each player only sees their own hand.
@@ -22,7 +22,7 @@ pub struct Card {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Colores {
+pub struct Colors {
     deck: Vec<Card>,
     pile: Vec<Card>,
     hands: Vec<Vec<Card>>,
@@ -54,7 +54,7 @@ fn name(card: Card) -> String {
     format!("{what} {}", NAMES[card.c as usize])
 }
 
-impl Colores {
+impl Colors {
     fn top(&self) -> Card {
         *self.pile.last().unwrap_or(&Card { c: 0, v: 1 })
     }
@@ -113,7 +113,7 @@ fn card_face(card: Card, shown: u8) -> Markup {
     }
 }
 
-impl Game for Colores {
+impl Game for Colors {
     fn new(players: usize, rng: &mut Rng) -> Self {
         let mut deck = Vec::with_capacity(100);
         for c in 0..4 {
@@ -130,7 +130,7 @@ impl Game for Colores {
         // The first card face up is a plain number.
         let i = deck.iter().position(|c| c.v <= 9).unwrap_or(0);
         let first = deck.remove(i);
-        Colores { deck, pile: vec![first], hands, color: first.c, turn: 0, dir: 1, drew: false, winner: None, log: Vec::new(), act: None, skipped: None, victim: None }
+        Colors { deck, pile: vec![first], hands, color: first.c, turn: 0, dir: 1, drew: false, winner: None, log: Vec::new(), act: None, skipped: None, victim: None }
     }
     fn turn(&self) -> usize {
         self.turn
@@ -352,11 +352,11 @@ mod tests {
     #[test]
     fn deck_and_actions() {
         let mut rng = Rng::seeded(5);
-        let g = Colores::new(3, &mut rng);
+        let g = Colors::new(3, &mut rng);
         assert_eq!(g.deck.len() + g.pile.len() + g.hands.iter().map(Vec::len).sum::<usize>(), 100);
         assert!(g.top().v <= 9, "starts on a number");
 
-        let mut g = Colores::new(3, &mut rng);
+        let mut g = Colors::new(3, &mut rng);
         g.color = 0;
         g.pile.push(Card { c: 0, v: 3 });
         g.hands[0] = vec![Card { c: 0, v: TWO }, Card { c: 2, v: 5 }];

@@ -6,7 +6,7 @@ use maud::Markup;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub mod c4;
-pub mod colores;
+pub mod colors;
 pub mod fleet;
 pub mod oca;
 pub mod parchis;
@@ -121,7 +121,7 @@ pub struct Info {
 pub const GAMES: &[Info] = &[
     Info { id: "parchis", name: "Parchís", icon: "dices", players: (2, 4), minutes: "30 min", blurb: "Saca tus cuatro fichas con un 5, come a los demás y llega a meta.", accent: "#eab308" },
     Info { id: "oca", name: "La oca", icon: "bird", players: (2, 4), minutes: "15 min", blurb: "De oca a oca y tiro porque me toca. Cuidado con el pozo y la calavera.", accent: "#16a34a" },
-    Info { id: "colores", name: "Colores", icon: "layers", players: (2, 4), minutes: "10 min", blurb: "Echa una carta del mismo color o número. Gana quien se queda sin cartas.", accent: "#e11d48" },
+    Info { id: "colores", name: "Colors", icon: "layers", players: (2, 4), minutes: "10 min", blurb: "Echa una carta del mismo color o número. Gana quien se queda sin cartas.", accent: "#e11d48" },
     Info { id: "fleet", name: "Hundir la flota", icon: "anchor", players: (2, 2), minutes: "10 min", blurb: "Agua, tocado, hundido: encuentra los barcos del otro antes que él los tuyos.", accent: "#0891b2" },
     Info { id: "c4", name: "4 en raya", icon: "circle-dot", players: (2, 2), minutes: "5 min", blurb: "Deja caer fichas y junta cuatro en línea antes que tu rival.", accent: "#2f6bff" },
     Info { id: "rps", name: "Piedra, papel o tijera", icon: "scissors", players: (2, 2), minutes: "1 min", blurb: "Los dos eligen a la vez y nadie ve la mano del otro hasta el final. Gana quien llega a 3.", accent: "#d97706" },
@@ -185,7 +185,7 @@ macro_rules! with_game {
                 Some($body)
             }
             "colores" => {
-                type $G = colores::Colores;
+                type $G = colors::Colors;
                 Some($body)
             }
             "rps" => {

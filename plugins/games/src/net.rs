@@ -11,7 +11,7 @@
 //! |------|-----------|---------|
 //! | 0x01 HELLO    | → server | u32 match · u32 version the page has |
 //! | 0x02 MOVE     | → server | u32 match · str move |
-//! | 0x03 REACT    | → server | u32 match · str reaction (an icon id like "heart"; an emoji in Colores) |
+//! | 0x03 REACT    | → server | u32 match · str reaction (an icon id like "heart"; an emoji in Colors) |
 //! | 0x04 PING     | → server | — |
 //! | 0x81 VIEW     | → phone  | u32 match · u32 version · u8 sound · u8 flags · text html |
 //! | 0x82 REACTION | → phone  | u32 match · u8 seat · str reaction id |
