@@ -3,7 +3,7 @@ members = [".", "plugins/recetas", "plugins/juegos"]
 
 [package]
 name = "nido"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 
 [dependencies]
