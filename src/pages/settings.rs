@@ -85,6 +85,18 @@ pub fn render(v: &View) -> Markup {
                         }
                     }
                 }
+                div.set-item.stacked #push {
+                    div.set-item-txt {
+                        b { "Notificaciones en este móvil" }
+                        small { "Invitaciones a jugar, tareas que te planifican… aunque Nido esté cerrado. Quien no las active los sigue recibiendo por Telegram." }
+                    }
+                    div.push-row {
+                        span.push-state { "Comprobando…" }
+                        button.btn.primary.sm.push-on type="button" hidden { (icon("bell-ring")) "Activar" }
+                        button.btn.ghost.sm.push-test type="button" hidden { (icon("send")) "Probar" }
+                        button.btn.ghost.sm.push-off type="button" hidden { "Desactivar" }
+                    }
+                }
                 div.set-item.stacked #offline {
                     div.set-item-txt { b { "Usar sin conexión" } small { "Fuera de casa, Nido abre con lo último que viste y guarda lo que apuntes; al volver a la wifi de casa lo envía solo. El iPhone necesita el certificado de casa (una vez por móvil)." } }
                     details.steps {

@@ -7,7 +7,9 @@
 //! - forwards `/x/<id>/<path>` from the browser to the program as `/<path>`, after checking the
 //!   session, telling it who asks in `X-Nido-User` / `X-Nido-Name` and who lives in the house
 //!   in `X-Nido-People`; a WebSocket opened there is handed over to the extra as it is;
-//! - shows its toasts (from its `/manifest`) and offers its own services, like `/shopping/many`.
+//! - shows its toasts (from its `/manifest`) and offers its own services, like `/shopping/many`;
+//! - shows its notices to a person in the open app (`GET /notices`) and sends the ones nobody saw
+//!   in time (`GET /notices/late`) as a push notification, or by Telegram.
 //!
 //! Each extra keeps its own database (`extras/<id>.db`, in backups). The protocol and a guide to write one
 //! are in plugins/README.md.
@@ -32,7 +34,7 @@ pub struct Known {
 pub static ALL: &[Known] = &[
     Known {
     id: "recipes",
-    bin: "nido-recetas",
+    bin: "nido-recipes",
     name: "Recetas",
     icon: "chef-hat",
     tagline: "El recetario de casa",
@@ -50,13 +52,13 @@ pub static ALL: &[Known] = &[
     },
     Known {
         id: "games",
-        bin: "nido-juegos",
+        bin: "nido-games",
         name: "Juegos",
         icon: "gamepad-2",
         tagline: "Juegos de mesa para jugar en casa",
         blurb: "Parchís, la oca, cartas de colores, hundir la flota, 4 en raya y tres en raya. Cada uno juega desde su móvil, o contra el robot.",
         features: &[
-            "Seis juegos de mesa clásicos",
+            "Siete juegos de mesa clásicos",
             "Partidas entre los de casa, cada uno en su móvil",
             "Un robot para jugar cuando no hay nadie",
             "Ranking de la casa por juego",
@@ -216,6 +218,82 @@ pub fn start(db: &Db) {
     tokio::spawn(async move {
         for k in on {
             ensure(k).await;
+        }
+    });
+    late(db.clone());
+}
+
+// ---------- notices: an extra wants to tell someone something ----------
+
+/// How people reach Nido (from their last request), for links in Telegram.
+static ORIGIN: Mutex<String> = Mutex::new(String::new());
+static SILENT: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+
+fn running(id: &str) -> Option<(u16, String)> {
+    let mut ps = procs();
+    let p = ps.iter_mut().find(|p| p.id == id)?;
+    matches!(p.child.try_wait(), Ok(None)).then(|| (p.port, p.key.clone()))
+}
+
+/// Notices are lists of `{text, href}` (plus `user` in the late ones); `href` stays inside Nido.
+fn notice_list(r: Reply) -> Vec<serde_json::Value> {
+    let list: Vec<serde_json::Value> = if r.status == 200 { serde_json::from_slice(&r.body).unwrap_or_default() } else { Vec::new() };
+    list.into_iter().filter(|n| n["text"].is_string() && n["href"].as_str().is_some_and(|h| h.starts_with("/?") && !h.contains(['\r', '\n', '"']))).collect()
+}
+
+/// `GET /notices`: what the running extras have for me. The page asks every little while it is open.
+async fn notices(State(db): State<Db>, h: HeaderMap) -> R {
+    let (me, on) = {
+        let c = lock(&db);
+        let me = require_user!(c, h);
+        (me, enabled(&c)?)
+    };
+    let host = h.get(header::HOST).and_then(|v| v.to_str().ok()).filter(|v| v.chars().all(|c| c.is_ascii_alphanumeric() || ".-:[]".contains(c)));
+    if let Some(host) = host {
+        let proto = if h.get("x-forwarded-proto").and_then(|v| v.to_str().ok()) == Some("https") { "https" } else { "http" };
+        *ORIGIN.lock().unwrap_or_else(|e| e.into_inner()) = format!("{proto}://{host}");
+    }
+    let who = Who { id: me.id, name: &me.name, people: String::new() };
+    let mut all = Vec::new();
+    for k in on {
+        if SILENT.lock().unwrap_or_else(|e| e.into_inner()).contains(&k.id) {
+            continue;
+        }
+        let Some((port, key)) = running(k.id) else { continue };
+        if let Ok(r) = call(port, &key, "GET", "/notices", Some(&who), None, &[]).await {
+            if r.status == 404 {
+                SILENT.lock().unwrap_or_else(|e| e.into_inner()).push(k.id);
+            }
+            all.extend(notice_list(r));
+        }
+    }
+    Ok(([(header::CONTENT_TYPE, "application/json"), (header::CACHE_CONTROL, "no-store")], serde_json::Value::from(all).to_string()).into_response())
+}
+
+/// Every half minute: notices nobody saw in the app go to Telegram, with a link to open them.
+fn late(db: Db) {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            let on = enabled(&lock(&db)).unwrap_or_default();
+            for k in on {
+                if SILENT.lock().unwrap_or_else(|e| e.into_inner()).contains(&k.id) {
+                    continue;
+                }
+                let Some((port, key)) = running(k.id) else { continue };
+                let Ok(r) = call(port, &key, "GET", "/notices/late", None, None, &[]).await else { continue };
+                let origin = ORIGIN.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                let origin = if origin.is_empty() { "https://nido.local".to_string() } else { origin };
+                for n in notice_list(r) {
+                    let (Some(user), Some(text), Some(href)) = (n["user"].as_i64(), n["text"].as_str(), n["href"].as_str()) else { continue };
+                    let c = lock(&db);
+                    if crate::push::send(&c, user, k.name, text, href) {
+                        continue;
+                    }
+                    let html = format!("{}\n\n<a href=\"{origin}{href}\">{}</a>", crate::notify::esc_html(text), crate::notify::esc_html(n["action"].as_str().unwrap_or("Abrir en Nido")));
+                    crate::notify::tell(&c, user, &html);
+                }
+            }
         }
     });
 }
@@ -513,6 +591,7 @@ pub fn routes() -> Router<Db> {
         .route("/plugins/{id}/install", post(install))
         .route("/plugins/{id}/uninstall", post(uninstall))
         .route("/x/{id}/{*rest}", any(proxy).layer(DefaultBodyLimit::max(25 * 1024 * 1024)))
+        .route("/notices", get(notices))
 }
 
 // ---------- the marketplace ----------

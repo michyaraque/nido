@@ -394,6 +394,7 @@ document.addEventListener("visibilitychange", () => document.visibilityState ===
 let refreshTimer, wasCopying = false;
 function ready() {
   updateSum();
+  pushPanel();
   // Plugin pages: their script loads once, then re-arms on every view (window.nidoPlugins[id]).
   for (const el of document.querySelectorAll("[data-plugin-js]")) {
     const init = window.nidoPlugins?.[el.dataset.plugin];
@@ -526,3 +527,84 @@ document.addEventListener("click", (e) => {
   else target.scrollIntoView({ behavior: "smooth", block: "start" });
   setTimeout(() => target.querySelector("input:not([type=hidden]):not([type=file]),textarea")?.focus(), 60);
 }, true); // capture: runs before in-place navigation
+
+/* ---------- notices from extras (an invitation to a game…): asked while the app is open ---------- */
+
+let asking = false;
+async function notices() {
+  if (asking || document.hidden || !document.querySelector(".app")) return;
+  asking = true;
+  const list = await fetch("/notices", { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  asking = false;
+  if (!list.length) return;
+  document.querySelector(".notice")?.remove();
+  const n = list[0], a = document.createElement("a");
+  a.className = "notice";
+  a.href = n.href;
+  a.setAttribute("role", "status");
+  const b = document.createElement("b"), go = document.createElement("span");
+  b.textContent = list.length > 1 ? `${n.text} (y ${list.length - 1} más)` : n.text;
+  go.textContent = n.action || "Abrir";
+  a.append(b, go);
+  a.addEventListener("click", () => a.remove());
+  document.body.append(a);
+  setTimeout(() => a.remove(), 15000);
+}
+notices();
+setInterval(notices, 3000);
+document.addEventListener("visibilitychange", notices);
+
+/* ---------- notifications on this phone (Web Push) ---------- */
+
+const pushable = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+async function pushPanel() {
+  const box = document.getElementById("push");
+  if (!box) return;
+  const state = box.querySelector(".push-state"), on = box.querySelector(".push-on"), test = box.querySelector(".push-test"), off = box.querySelector(".push-off");
+  const show = (text, buttons = []) => {
+    state.textContent = text;
+    for (const b of [on, test, off]) b.hidden = !buttons.includes(b);
+  };
+  if (!pushable) return show(iphone && !standalone ? "En iPhone: abre Nido desde el icono de la pantalla de inicio (con https://nido.local) y actívalas allí." : "Este navegador no puede recibirlas.");
+  if (Notification.permission === "denied") return show("Las bloqueaste: actívalas en los ajustes del móvil, en Notificaciones.");
+  const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(r, 6000))]);
+  if (!reg) return show("Aún se está preparando: recarga la página en unos segundos.");
+  const sub = await reg.pushManager.getSubscription();
+  if (sub) show("Activadas en este móvil", [test, off]);
+  else show("Desactivadas en este móvil", [on]);
+}
+
+const postJson = (url, body) => fetch(url, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest?.("#push button");
+  if (!b) return;
+  b.disabled = true;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (b.matches(".push-on")) {
+      if ((await Notification.requestPermission()) !== "granted") return toast("Sin permiso no se pueden enviar", true);
+      const key = await fetch("/push/key", { credentials: "same-origin" }).then((r) => r.text());
+      const raw = Uint8Array.from(atob(key.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: raw });
+      const r = await postJson("/push/subscribe", sub.toJSON());
+      if (!r.ok) throw new Error(await r.text());
+      toast("Notificaciones activadas");
+    } else if (b.matches(".push-off")) {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { await postJson("/push/unsubscribe", { endpoint: sub.endpoint }); await sub.unsubscribe(); }
+      toast("Notificaciones desactivadas");
+    } else if (b.matches(".push-test")) {
+      const r = await fetch("/push/test", { method: "POST", credentials: "same-origin" });
+      toast(r.ok ? "Enviada: llegará en unos segundos" : (await r.text()) || "No se ha podido enviar", !r.ok);
+    }
+  } catch (err) {
+    toast("No se han podido activar: " + (err.message || err), true);
+  } finally {
+    b.disabled = false;
+    pushPanel();
+  }
+});

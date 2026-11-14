@@ -152,3 +152,12 @@ CREATE TABLE IF NOT EXISTS incomes (
   amount   INTEGER NOT NULL,
   received TEXT
 );
+
+-- Phones that turned on notifications (Web Push): where to send them and their keys.
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint TEXT PRIMARY KEY,
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  p256dh   TEXT NOT NULL,
+  auth     TEXT NOT NULL,
+  created  TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);

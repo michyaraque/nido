@@ -146,6 +146,17 @@ pub fn tell_all(c: &Connection, html: &str) {
     }
 }
 
+/// Sends a notice to one person, if they linked Telegram.
+pub fn tell(c: &Connection, user: i64, html: &str) {
+    if let (Some(token), Some(chat)) = (setting(c, "tg_token"), chat_of(c, user)) {
+        send_later(token, chat, html.to_string());
+    }
+}
+
+pub fn esc_html(s: &str) -> String {
+    esc(s)
+}
+
 fn chat_of(c: &Connection, user: i64) -> Option<i64> {
     c.query_row("SELECT tg_chat FROM users WHERE id=?1", [user], |r| r.get(0)).ok().flatten()
 }
@@ -166,7 +177,7 @@ fn day_words(c: &Connection, day: &str) -> String {
 }
 
 pub fn planned(c: &Connection, by: &User, chore: i64, day: &str, assignee: Option<i64>) {
-    let Some(token) = setting(c, "tg_token") else { return };
+    let token = setting(c, "tg_token").unwrap_or_default();
     let Ok(name) = c.query_row("SELECT name FROM chores WHERE id=?1", [chore], |r| r.get::<_, String>(0)) else { return };
     let when = day_words(c, day);
     let users: Vec<(i64, Option<i64>)> = c
@@ -174,13 +185,16 @@ pub fn planned(c: &Connection, by: &User, chore: i64, day: &str, assignee: Optio
         .and_then(|mut s| s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect())
         .unwrap_or_default();
     for (id, chat) in users {
-        let Some(chat) = chat else { continue };
         let text = match assignee {
-            Some(a) if a == id && a != by.id => format!("<b>{}</b> te ha planificado «{}» para {when}.", esc(&by.name), esc(&name)),
-            None if id != by.id => format!("<b>{}</b> ha dejado «{}» libre para {when}: la puede coger quien pueda.", esc(&by.name), esc(&name)),
+            Some(a) if a == id && a != by.id => format!("{} te ha planificado «{}» para {when}.", by.name, name),
+            None if id != by.id => format!("{} ha dejado «{}» libre para {when}: la puede coger quien pueda.", by.name, name),
             _ => continue,
         };
-        send_later(token.clone(), chat, text);
+        if crate::push::send(c, id, "Tareas", &text, "/?tab=chores") {
+            continue;
+        }
+        let (Some(chat), false) = (chat, token.is_empty()) else { continue };
+        send_later(token.clone(), chat, esc(&text).replacen(&esc(&by.name), &format!("<b>{}</b>", esc(&by.name)), 1));
     }
 }
 

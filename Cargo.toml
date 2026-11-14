@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "plugins/recetas", "plugins/juegos"]
+members = [".", "plugins/recipes", "plugins/games"]
 
 [package]
 name = "nido"
@@ -23,6 +23,10 @@ rten = "0.28"
 rten-tensor = "0.28"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 webp = { version = "0.3", default-features = false }
+p256 = { version = "0.13", default-features = false, features = ["ecdh", "ecdsa", "std"] }
+hkdf = "0.12"
+sha2 = "0.10"
+aes-gcm = "0.10"
 
 [profile.release]
 lto = true

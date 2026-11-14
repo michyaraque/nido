@@ -18,6 +18,7 @@ mod notify;
 mod incomes;
 mod ocr;
 mod plugins;
+mod push;
 mod receipt;
 mod tickets;
 mod text;
@@ -190,6 +191,7 @@ async fn main() {
         .route("/api/expenses", post(api_create_expense))
         .merge(assets::routes())
         .merge(plugins::routes())
+        .merge(push::routes())
         .with_state(db);
 
     let addr = std::env::var("NIDO_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());

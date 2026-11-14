@@ -254,3 +254,10 @@ html.loading::before{opacity:0;animation:progress 1s linear infinite,show-late .
 
 /* Anything you tap: a quick double click must not select text (nor zoom on a phone). */
 button,.btn,.icon-btn,.chip,.chip-radio,.check,.fab,.tabbar a,.side-nav a,.seg a,.rc-cat,.rc-stepper,.mk-actions{-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.notice{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));translate:-50% 0;z-index:310;display:flex;align-items:center;gap:12px;width:max-content;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:16px;background:var(--ink);color:var(--surface);box-shadow:var(--shadow-float);font-size:14px;text-decoration:none;animation:notice .5s var(--ease-out)}
+.notice b{font-weight:600;min-width:0}
+.notice span{flex:none;padding:7px 14px;border-radius:11px;background:var(--accent);color:#fff;font-weight:600}
+@keyframes notice{from{opacity:0;translate:-50% -16px}}
+@media (prefers-reduced-motion:reduce){.notice{animation:none}}
+.push-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.push-state{flex:1;min-width:160px;font-size:13px;color:var(--mute)}

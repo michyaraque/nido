@@ -71,3 +71,23 @@ async function sameTab(c, url) {
   });
   return keys.length ? c.match(keys[keys.length - 1]) : undefined;
 }
+
+// ---------- notifications (Web Push) ----------
+
+self.addEventListener("push", (e) => {
+  let n = {};
+  try { n = e.data ? e.data.json() : {}; } catch { n = { body: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(n.title || "Nido", { body: n.body || "", icon: "/icon.png", badge: "/icon.png", data: { url: n.url || "/" }, tag: n.url || undefined }));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || "/", location.origin).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => new URL(c.url).origin === location.origin);
+      if (open) return open.focus().then((c) => c.navigate(url));
+      return self.clients.openWindow(url);
+    }),
+  );
+});
