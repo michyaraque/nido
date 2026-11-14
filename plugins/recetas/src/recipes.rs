@@ -159,7 +159,7 @@ fn one(c: &Connection, id: i64) -> rusqlite::Result<Option<Recipe>> {
 
 /// What search looks at for each recipe: name, origin, category and every ingredient, folded.
 /// The page carries it on each card (`data-k`), so the browser filters as you type.
-// ponytail: one GROUP BY over all lines; thousands of recipes still take a millisecond or two.
+// One GROUP BY over all lines; thousands of recipes still take a millisecond or two.
 fn search_keys(c: &Connection) -> rusqlite::Result<std::collections::HashMap<i64, String>> {
     c.prepare_cached(
         "SELECT r.id, trim(r.search || ' ' || COALESCE(group_concat(i.item, ' '), ''))
@@ -1538,7 +1538,7 @@ fn curl(url: &str) -> Result<Vec<u8>, String> {
 }
 
 /// Only public web pages: not the Pi itself, the router or anything else on the home network.
-// ponytail: checks the written host only (no DNS lookup); a public name pointing inside the house
+// Checks the written host only (no DNS lookup); a public name pointing inside the house
 // would pass. Everyone who can use this is already a person of the house.
 fn public_url(url: &str) -> Option<&str> {
     let url = url.trim();
@@ -2220,6 +2220,21 @@ mod tests {
         prepare(&c, Some(core.to_str().unwrap())).unwrap(); // a second start moves nothing again
         assert_eq!(all(&c).unwrap().len(), catalog().len() + 1);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Every photo that comes in (upload or import) ends as a 640x480 WebP, like the tickets.
+    #[test]
+    fn photos_become_webp() {
+        let mut png = Vec::new();
+        image::RgbImage::from_pixel(1200, 300, image::Rgb([200, 120, 40]))
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let webp = to_webp(&png).unwrap();
+        assert_eq!((&webp[..4], &webp[8..12]), (&b"RIFF"[..], &b"WEBP"[..]));
+        let img = image::load_from_memory(&webp).unwrap();
+        assert_eq!((img.width(), img.height()), (640, 480));
+        assert!(webp.len() < png.len());
+        assert!(to_webp(b"not an image").is_err());
     }
 
     #[test]
