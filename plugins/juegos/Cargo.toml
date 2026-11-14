@@ -1,0 +1,14 @@
+[package]
+name = "nido-juegos"
+version = "0.1.0"
+edition = "2021"
+description = "Juegos, un extra de Nido que va en su propio programa"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["rt", "net", "macros", "sync", "time"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+maud = "0.27"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_urlencoded = "0.7"
