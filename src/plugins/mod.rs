@@ -5,7 +5,8 @@
 //! on 127.0.0.1 with a secret, and from then on the core:
 //! - draws its section in the sidebar and puts the HTML of `GET /page` into the content area;
 //! - forwards `/x/<id>/<path>` from the browser to the program as `/<path>`, after checking the
-//!   session, telling it who asks in `X-Nido-User` / `X-Nido-Name`;
+//!   session, telling it who asks in `X-Nido-User` / `X-Nido-Name` and who lives in the house
+//!   in `X-Nido-People`; a WebSocket opened there is handed over to the extra as it is;
 //! - shows its toasts (from its `/manifest`) and offers its own services, like `/shopping/many`.
 //!
 //! Each extra keeps its own database (`extras/<id>.db`, in backups). The protocol and a guide to write one
@@ -28,7 +29,8 @@ pub struct Known {
     pub fab: Option<(&'static str, &'static str)>, // mobile `+` on its page: (href, label)
 }
 
-pub static ALL: &[Known] = &[Known {
+pub static ALL: &[Known] = &[
+    Known {
     id: "recipes",
     bin: "nido-recetas",
     name: "Recetas",
@@ -45,7 +47,25 @@ pub static ALL: &[Known] = &[Known {
     accent: "#ea580c",
     size: "≈ 4 MB",
     fab: Some(("/?tab=recipes&new=1", "Nueva receta")),
-}];
+    },
+    Known {
+        id: "games",
+        bin: "nido-juegos",
+        name: "Juegos",
+        icon: "gamepad-2",
+        tagline: "Juegos de mesa para jugar en casa",
+        blurb: "Parchís, la oca, cartas de colores, hundir la flota, 4 en raya y tres en raya. Cada uno juega desde su móvil, o contra el robot.",
+        features: &[
+            "Seis juegos de mesa clásicos",
+            "Partidas entre los de casa, cada uno en su móvil",
+            "Un robot para jugar cuando no hay nadie",
+            "Ranking de la casa por juego",
+        ],
+        accent: "#7c3aed",
+        size: "≈ 3 MB",
+        fab: None,
+    },
+];
 
 pub fn find(id: &str) -> Option<&'static Known> {
     ALL.iter().find(|k| k.id == id)
@@ -113,7 +133,7 @@ fn procs() -> MutexGuard<'static, Vec<Proc>> {
 }
 
 /// Port and secret of the running extra, starting it if needed (and if it died).
-// ponytail: extras end with Nido because systemd stops the whole service; on a dev machine an
+// Extras end with Nido because systemd stops the whole service; on a dev machine an
 // extra can outlive a killed Nido until its port is reused.
 async fn ensure(k: &'static Known) -> Option<(u16, String)> {
     {
@@ -216,10 +236,93 @@ pub struct Reply {
 pub struct Who<'a> {
     pub id: i64,
     pub name: &'a str,
+    pub people: String, // `X-Nido-People`: see `people`
+}
+
+/// Everyone in the house for an extra (to invite them, to show them): `id=name=color=photo`
+/// joined by commas, name and colour percent-encoded, in Nido's order (by id). `photo` is the
+/// version of their profile photo (0 = none), served by Nido at `/avatars/<id>?v=<photo>`.
+pub fn people(users: &[(i64, &str, &str, i64)]) -> String {
+    users.iter().map(|(id, name, color, photo)| format!("{id}={}={}={photo}", pct(name), pct(color))).collect::<Vec<_>>().join(",")
+}
+
+/// The same list straight from the database (colours fall back to the palette, as Nido draws them).
+fn house(c: &Connection) -> rusqlite::Result<String> {
+    let rows: Vec<(i64, String, Option<String>, i64)> = c
+        .prepare("SELECT id,name,color,photo FROM users ORDER BY id")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+        .collect::<Result<_, _>>()?;
+    let rows: Vec<(i64, String, String, i64)> = rows
+        .into_iter()
+        .enumerate()
+        .map(|(i, (id, name, color, photo))| (id, name, color.filter(|c| PALETTE.contains(&c.as_str())).unwrap_or_else(|| PALETTE[i % PALETTE.len()].to_string()), photo))
+        .collect();
+    Ok(people(&rows.iter().map(|(id, n, c, p)| (*id, n.as_str(), c.as_str(), *p)).collect::<Vec<_>>()))
 }
 
 fn pct(s: &str) -> String {
     s.bytes().map(|b| if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
+}
+
+fn who_headers(w: &Who) -> String {
+    format!("X-Nido-User: {}\r\nX-Nido-Name: {}\r\nX-Nido-People: {}\r\n", w.id, pct(w.name), w.people)
+}
+
+/// Reads an HTTP response head: (status, lower-case headers, bytes already read past the head).
+async fn read_head(s: &mut tokio::net::TcpStream) -> std::io::Result<(u16, Vec<(String, String)>, Vec<u8>)> {
+    use tokio::io::AsyncReadExt;
+    let bad = || std::io::Error::new(std::io::ErrorKind::InvalidData, "respuesta no válida del extra");
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 2048];
+    loop {
+        let n = s.read(&mut chunk).await?;
+        if n == 0 || buf.len() > 16_384 {
+            return Err(bad());
+        }
+        buf.extend_from_slice(&chunk[..n]);
+        if let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+            let head = std::str::from_utf8(&buf[..end]).map_err(|_| bad())?;
+            let mut lines = head.split("\r\n");
+            let status = lines.next().and_then(|l| l.split(' ').nth(1)?.parse().ok()).ok_or_else(bad)?;
+            let headers = lines.filter_map(|l| l.split_once(':')).map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string())).collect();
+            return Ok((status, headers, buf[end + 4..].to_vec()));
+        }
+    }
+}
+
+/// A WebSocket from the browser to an extra. The handshake goes to the extra with who is asking,
+/// its `101` goes back to the browser (the accept key is computed from the browser's own key, so
+/// it fits), and from then on the bytes flow both ways untouched: Nido never reads the packets.
+async fn websocket(port: u16, key: &str, path: &str, who: &Who<'_>, h: &HeaderMap, upgrade: hyper::upgrade::OnUpgrade) -> std::io::Result<Response> {
+    use tokio::io::AsyncWriteExt;
+    let get = |n: &str| h.get(n).and_then(|v| v.to_str().ok()).filter(|v| !v.contains(['\r', '\n'])).unwrap_or("");
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await?;
+    let head = format!(
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: {}\r\nX-Nido-Key: {key}\r\n{}\r\n",
+        get("sec-websocket-key"),
+        who_headers(who)
+    );
+    s.write_all(head.as_bytes()).await?;
+    let (status, headers, early) = read_head(&mut s).await?;
+    if status != 101 {
+        return Ok((StatusCode::BAD_GATEWAY, "El extra no acepta la conexión").into_response());
+    }
+    let accept = headers.iter().find(|(k, _)| k == "sec-websocket-accept").map(|(_, v)| v.clone()).unwrap_or_default();
+    tokio::spawn(async move {
+        let Ok(up) = upgrade.await else { return };
+        let mut browser = hyper_util::rt::TokioIo::new(up);
+        if !early.is_empty() && browser.write_all(&early).await.is_err() {
+            return;
+        }
+        let _ = tokio::io::copy_bidirectional(&mut browser, &mut s).await;
+    });
+    Ok(Response::builder()
+        .status(StatusCode::SWITCHING_PROTOCOLS)
+        .header(header::UPGRADE, "websocket")
+        .header(header::CONNECTION, "Upgrade")
+        .header(header::SEC_WEBSOCKET_ACCEPT, accept)
+        .body(axum::body::Body::empty())
+        .unwrap_or_else(|_| StatusCode::BAD_GATEWAY.into_response()))
 }
 
 async fn call(port: u16, key: &str, method: &str, path: &str, who: Option<&Who<'_>>, ctype: Option<&str>, body: &[u8]) -> std::io::Result<Reply> {
@@ -227,7 +330,7 @@ async fn call(port: u16, key: &str, method: &str, path: &str, who: Option<&Who<'
     let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await?;
     let mut head = format!("{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\nX-Nido-Key: {key}\r\nContent-Length: {}\r\n", body.len());
     if let Some(w) = who {
-        head += &format!("X-Nido-User: {}\r\nX-Nido-Name: {}\r\n", w.id, pct(w.name));
+        head += &who_headers(w);
     }
     if let Some(ct) = ctype.filter(|c| !c.contains(['\r', '\n'])) {
         head += &format!("Content-Type: {ct}\r\n");
@@ -286,19 +389,27 @@ pub async fn page(k: &'static Known, who: &Who<'_>, query: &str) -> Markup {
 }
 
 /// `/x/<id>/<path>`: what the browser asks the extra (forms, photos, its script).
-async fn proxy(State(db): State<Db>, h: HeaderMap, method: Method, Path((id, rest)): Path<(String, String)>, RawQuery(q): RawQuery, body: Bytes) -> R {
-    let (me, k) = {
+async fn proxy(State(db): State<Db>, Path((id, rest)): Path<(String, String)>, RawQuery(q): RawQuery, mut req: Request) -> R {
+    let h = req.headers().clone();
+    let method = req.method().clone();
+    let (me, k, people) = {
         let c = lock(&db);
         let me = require_user!(c, h);
         match enabled(&c)?.into_iter().find(|k| k.id == id) {
-            Some(k) => (me, k),
+            Some(k) => (me, k, house(&c)?),
             None => return Ok(StatusCode::NOT_FOUND.into_response()),
         }
     };
     let Some((port, key)) = ensure(k).await else { return Ok((StatusCode::SERVICE_UNAVAILABLE, "El extra no responde. Inténtalo en unos segundos.").into_response()) };
     let path = format!("/{rest}{}", q.map(|q| format!("?{q}")).unwrap_or_default());
     let ctype = h.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok());
-    let who = Who { id: me.id, name: &me.name };
+    let who = Who { id: me.id, name: &me.name, people };
+    let wants_ws = h.get(header::UPGRADE).and_then(|v| v.to_str().ok()).is_some_and(|u| u.eq_ignore_ascii_case("websocket"));
+    if method == Method::GET && wants_ws {
+        let upgrade = hyper::upgrade::on(&mut req);
+        return Ok(websocket(port, &key, &path, &who, &h, upgrade).await.unwrap_or_else(|e| (StatusCode::BAD_GATEWAY, e.to_string()).into_response()));
+    }
+    let body = axum::body::to_bytes(req.into_body(), 25 * 1024 * 1024).await.map_err(|e| AppErr(e.to_string()))?;
     let r = match call(port, &key, method.as_str(), &path, Some(&who), ctype, &body).await {
         Ok(r) => r,
         Err(e) => {

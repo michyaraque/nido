@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "plugins/recetas"]
+members = [".", "plugins/recetas", "plugins/juegos"]
 
 [package]
 name = "nido"
@@ -16,6 +16,9 @@ argon2 = "0.5"
 getrandom = "0.3"
 serde_json = "1"
 serde_urlencoded = "0.7"
+# Already in the build through axum: used to pass WebSocket connections on to extras.
+hyper = "1"
+hyper-util = { version = "0.1", features = ["tokio"] }
 rten = "0.28"
 rten-tensor = "0.28"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

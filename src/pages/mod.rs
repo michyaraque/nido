@@ -661,7 +661,7 @@ impl View {
             div.app {
                 aside.side {
                     div.brand.side-brand { (brand()) }
-                    // ponytail: groups by TABS index; keep in sync if TABS changes order
+                    // Groups by TABS index; keep in sync if TABS changes order
                     @for (title, tabs) in [("Este mes", &TABS[..3]), ("En casa", &TABS[3..5])] {
                         nav.side-nav aria-label=(title) {
                             span.side-label { (title) }
@@ -797,7 +797,10 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
     };
     // An extra's page comes from its own program; the database is not locked meanwhile.
     let plugin = match v.plugin() {
-        Some(p) => Some((p, plugins::page(p, &plugins::Who { id: v.me.id, name: &v.me.name }, raw.as_deref().unwrap_or("")).await)),
+        Some(p) => {
+            let people = plugins::people(&v.users.iter().map(|u| (u.id, u.name.as_str(), u.color.as_str(), u.photo)).collect::<Vec<_>>());
+            Some((p, plugins::page(p, &plugins::Who { id: v.me.id, name: &v.me.name, people }, raw.as_deref().unwrap_or("")).await))
+        }
         None => None,
     };
 
@@ -817,7 +820,7 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
         _ => home::render(&v),
     } };
     let body = v.shell(content, q.ok.as_deref().and_then(flash));
-    // ponytail: only the app shell is themed; login and sheets stay on the default
+    // Only the app shell is themed; login and sheets stay on the default
     Ok(page(&title, &format!("theme-{}", v.theme), body))
 }
 

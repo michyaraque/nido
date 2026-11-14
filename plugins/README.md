@@ -60,6 +60,7 @@ Todas llevan estas cabeceras. Nido ya ha comprobado la sesión; el extra se fía
 | `X-Nido-Key` | el secreto de `NIDO_PLUGIN_KEY` |
 | `X-Nido-User` | `3`: el id de la persona en Nido |
 | `X-Nido-Name` | `Ana%20Mar%C3%ADa`: su nombre, con *percent-encoding* |
+| `X-Nido-People` | `1=Ana=%232f6bff=1731600000,2=Leo=%23e1166b=0`: todos los de casa, `id=nombre=color=foto` separados por comas (nombre y color con *percent-encoding*), en el orden de Nido. `foto` es la versión de su foto de perfil (0 = sin foto): la página la muestra con `<img src="/avatars/<id>?v=<foto>">`, que sirve Nido. Para invitar a alguien o pintarlo con su color y su cara. |
 
 ### Lo que el extra responde
 
@@ -68,6 +69,7 @@ Todas llevan estas cabeceras. Nido ya ha comprobado la sesión; el extra se fía
 | `GET /manifest` | JSON con sus avisos: `{"id":"<id>","version":"v0.1.0","flashes":{"<código>":"<texto>"}}` |
 | `GET /page?<query>` | El HTML de la zona de contenido de `/?tab=<id>&…`. Recibe la query entera: `month`, `tab` y sus propios parámetros. Solo el contenido: Nido pone el menú, la cabecera, el tema y los avisos. |
 | `<método> /<ruta>` | Lo que el navegador pide a `/x/<id>/<ruta>` llega aquí como `/<ruta>`: formularios, imágenes, su script. Nido devuelve al navegador el estado, `Content-Type`, `Location` y `Cache-Control`. |
+| WebSocket a `/<ruta>` | Para tiempo real. El navegador abre `ws(s)://<host>/x/<id>/<ruta>`; Nido comprueba la sesión, pasa el *handshake* al extra con las cabeceras `X-Nido-*` y, tras el `101`, deja pasar los bytes en los dos sentidos sin leerlos. El formato de los mensajes es cosa del extra (Juegos usa paquetes binarios: mira `juegos/src/net.rs`). |
 
 ### Reglas de la página
 
@@ -182,3 +184,4 @@ Entra, ve a **Extras → Ejemplo → Activar** y ábrelo desde el menú.
 | Carpeta | Extra |
 |---|---|
 | [`recetas/`](recetas/) | Recetas: recetario con importación desde webs, editor por bloques y paso a la lista de la compra. Es el ejemplo completo de todo lo de arriba. |
+| [`juegos/`](juegos/) | Juegos: siete juegos de mesa entre los de casa o contra un robot, con ranking. Ejemplo de tiempo real: WebSocket con paquetes binarios (`juegos/src/net.rs`). |
