@@ -271,6 +271,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:16px 0}
 .set-item:first-child{border-top:0}
 .set-item.stacked{display:grid;gap:14px;justify-content:stretch}
 .set-item-txt{display:grid;gap:2px;min-width:0}
+.set-plug{display:flex;align-items:center;gap:12px;min-width:0}
 .set-item-txt b{font-size:14px;font-weight:600}
 .set-item-txt small{font-size:13px;color:var(--mute);line-height:1.45}
 .set-item .actions{display:flex;gap:8px;flex:none}
@@ -374,3 +375,23 @@ form:has(input[name=received]:checked) .received-on{display:grid}
 .bill-edit{display:grid;gap:16px}
 .bill-edit form{display:grid;gap:12px}
 .bill-edit hr{border:0;border-top:1px solid var(--line)}
+
+/* Extras: the marketplace of built-in plugins */
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;align-items:start}
+.mk-card{position:relative;display:grid;gap:14px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-card);overflow:hidden}
+.mk-card::before{content:"";position:absolute;inset:0 0 auto;height:96px;background:radial-gradient(color-mix(in srgb,var(--c) 18%,transparent) 1px,transparent 1.6px) 0 0/14px 14px,linear-gradient(180deg,color-mix(in srgb,var(--c) 12%,var(--surface)),transparent);pointer-events:none}
+.mk-card>*{position:relative}
+.mk-card.on{border-color:color-mix(in srgb,var(--c) 35%,var(--line))}
+.mk-top{display:flex;align-items:flex-start;gap:14px}
+.mk-ico{width:56px;height:56px;flex:none;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(140deg,color-mix(in srgb,var(--c) 80%,#fff),var(--c));box-shadow:0 8px 20px -8px color-mix(in srgb,var(--c) 70%,transparent)}
+.mk-ico .i{width:28px;height:28px}
+.mk-title{flex:1;min-width:0;padding-top:4px}
+.mk-title h2{font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:-.01em}
+.mk-title p{color:var(--mute);font-size:13px;margin-top:2px}
+.mk-desc{font-size:14px;line-height:1.55;color:var(--ink-2)}
+.mk-feats{list-style:none;padding:0;display:grid;gap:7px}
+.mk-feats li{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink-2)}
+.mk-feats .i{width:15px;height:15px;flex:none;margin-top:2px;color:var(--c);stroke-width:2.6}
+.mk-foot{display:flex;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--line)}
+.mk-actions{display:flex;gap:6px}
+@media (max-width:767px){.mk-grid{grid-template-columns:minmax(0,1fr)}}

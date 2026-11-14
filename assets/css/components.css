@@ -251,3 +251,6 @@ html.loading::before{opacity:0;animation:progress 1s linear infinite,show-late .
 .concept-pop .tile .i{width:15px;height:15px}
 .concept-pop .tile.logo img{width:20px;height:20px}
 .concept-pop .tile.letter{font-size:13px}
+
+/* Anything you tap: a quick double click must not select text (nor zoom on a phone). */
+button,.btn,.icon-btn,.chip,.chip-radio,.check,.fab,.tabbar a,.side-nav a,.seg a,.rc-cat,.rc-stepper,.mk-actions{-webkit-user-select:none;user-select:none;touch-action:manipulation}

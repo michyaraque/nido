@@ -1,0 +1,16 @@
+[package]
+name = "nido-recetas"
+version = "0.1.0"
+edition = "2021"
+description = "Recetas, un extra de Nido que va en su propio programa"
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1", features = ["rt", "net", "macros"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+maud = "0.27"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_urlencoded = "0.7"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+webp = { version = "0.3", default-features = false }

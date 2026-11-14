@@ -394,6 +394,13 @@ document.addEventListener("visibilitychange", () => document.visibilityState ===
 let refreshTimer, wasCopying = false;
 function ready() {
   updateSum();
+  // Plugin pages: their script loads once, then re-arms on every view (window.nidoPlugins[id]).
+  for (const el of document.querySelectorAll("[data-plugin-js]")) {
+    const init = window.nidoPlugins?.[el.dataset.plugin];
+    if (init) init(document);
+    else if (!document.querySelector(`script[src="${el.dataset.pluginJs}"]`))
+      document.head.append(Object.assign(document.createElement("script"), { src: el.dataset.pluginJs }));
+  }
   const target = location.hash.length > 1 ? document.getElementById(location.hash.slice(1)) : null;
   if (target?.matches(".modal") && !target.matches(":target")) {
     const hash = location.hash;

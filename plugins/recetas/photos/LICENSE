@@ -1,0 +1,5 @@
+Fotos del recetario: Wikimedia Commons (https://commons.wikimedia.org), reducidas a 400x300 WebP.
+Cada una conserva su licencia libre (CC BY, CC BY-SA, CC0 o dominio público); autor, licencia y
+página original de cada foto en CREDITS.tsv, que Recetas muestra bajo la foto de cada receta.
+No van dentro de ningún programa: Recetas las descarga de aquí solo si la casa lo pide.
+Se regeneran con tools/fetch-recipe-photos.py.

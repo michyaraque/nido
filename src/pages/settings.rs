@@ -219,6 +219,13 @@ pub fn render_house(v: &View) -> Markup {
                     }))
                 }
             }))
+            (sec("extras", "Extras", html! { "Secciones opcionales para toda la casa." }, html! {
+                div.card.set-card {
+                    (item("Explorar extras", "Actívalos o desactívalos desde su página. Al apagar uno, sus datos se guardan.", html! {
+                        a.btn.outline.sm href=(v.link("extras")) { (icon("puzzle")) "Abrir Extras" }
+                    }))
+                }
+            }))
             (sec("split", "Reparto de las cuentas", html! { "Cómo se dividen las cuentas comunes." }, split(v)))
             (sec("people", "Personas", html! { "Quién vive en casa y su color." }, people(v)))
             @if let Some(tg) = &v.tg {

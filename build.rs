@@ -35,4 +35,9 @@ fn main() {
         s += &format!("    ({name:?}, {inner:?}),\n");
     }
     fs::write(out.join("icons.rs"), s + "];\n").unwrap();
+
+    // Board family, as release assets name it: extras are downloaded for the same one.
+    let target = env::var("TARGET").unwrap();
+    let arch = if target.starts_with("aarch64") { "aarch64" } else if target.starts_with("armv7") { "armv7" } else if target.starts_with("arm") { "armv6" } else { "other" };
+    println!("cargo:rustc-env=NIDO_ARCH={arch}");
 }

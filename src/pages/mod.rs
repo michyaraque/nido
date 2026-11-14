@@ -1,4 +1,5 @@
 use super::*;
+use axum::extract::RawQuery;
 
 mod bills;
 mod expenses;
@@ -164,6 +165,7 @@ pub struct View {
     pub yesterday: String,
     pub ndays: i64,
     pub host: String,
+    pub plugins: Vec<&'static plugins::Known>, // extras installed and switched on in this house
 }
 
 impl View {
@@ -387,6 +389,7 @@ impl View {
             m,
             t,
             host,
+            plugins: plugins::enabled(c)?,
         })
     }
 
@@ -560,10 +563,10 @@ impl View {
         if income > 0 { v * 100 / income } else { 0 }
     }
 
-    fn name_of(&self, id: i64) -> &str {
+    pub fn name_of(&self, id: i64) -> &str {
         self.users.iter().find(|u| u.id == id).map(|u| u.name.as_str()).unwrap_or("?")
     }
-    fn link(&self, tab: &str) -> String {
+    pub fn link(&self, tab: &str) -> String {
         format!("/?month={}&tab={tab}", self.m)
     }
     /// Past expense descriptions as ready-made options (logo, name, category). app.js filters them
@@ -581,7 +584,7 @@ impl View {
             }
         }
     }
-    fn ctx(&self) -> Markup {
+    pub fn ctx(&self) -> Markup {
         html! { input type="hidden" name="month" value=(self.m); input type="hidden" name="tab" value=(self.t); }
     }
     fn avatar(&self, id: i64) -> Markup {
@@ -600,11 +603,11 @@ impl View {
         html! { div.avatars { @for u in &self.users { (self.avatar(u.id)) } } }
     }
 
-    fn head(&self, title: &str, sub: Markup) -> Markup {
+    pub fn head(&self, title: &str, sub: Markup) -> Markup {
         html! {
             div.page-head {
                 div { h1 { (title) } p { (sub) } }
-                @if !matches!(self.t, "shopping" | "settings" | "household") { (self.month_nav()) }
+                @if !matches!(self.t, "shopping" | "settings" | "household" | "extras") && self.plugin().is_none() { (self.month_nav()) }
             }
         }
     }
@@ -619,6 +622,11 @@ impl View {
                 @if !self.is_now() { a.btn.ghost.sm href={ "/?tab=" (t) } { "Volver a hoy" } }
             }
         }
+    }
+
+    /// The extra whose page is on screen, if it is installed and switched on.
+    pub fn plugin(&self) -> Option<&'static plugins::Known> {
+        self.plugins.iter().copied().find(|p| p.id == self.t)
     }
 
     /// Count shown next to a sidebar entry: what still needs doing there.
@@ -660,6 +668,12 @@ impl View {
                             @for &(id, label, ic) in tabs { (self.side_link(id, label, ic)) }
                         }
                     }
+                    // Always there: the marketplace, then the extras the house switched on.
+                    nav.side-nav aria-label="Extras" {
+                        span.side-label { "Extras" }
+                        @for p in &self.plugins { (self.side_link(p.id, p.name, p.icon)) }
+                        (self.side_link("extras", "Explorar extras", "puzzle"))
+                    }
                     nav.side-nav.side-bottom aria-label="Ajustes" { @let (id, label, ic) = TABS[5]; (self.side_link(id, label, ic)) }
                     div.side-user {
                         (self.avatar(self.me.id))
@@ -670,6 +684,10 @@ impl View {
                 main #main.content {
                     header.mtop {
                         div.brand { (brand()) }
+                        @for p in &self.plugins {
+                            a.icon-btn.mtop-plug.on[p.id == self.t] href=(self.link(p.id)) aria-label=(p.name) title=(p.name) { (icon(p.icon)) }
+                        }
+                        a.icon-btn.mtop-plug.on[self.t == "extras"] href=(self.link("extras")) aria-label="Extras" title="Extras" { (icon("puzzle")) }
                         a.mtop-me href=(self.link("settings")) aria-label="Ajustes" { (self.avatars()) span.mtop-gear { (icon("settings")) } }
                     }
                     (content)
@@ -680,7 +698,9 @@ impl View {
                     a.on[id == self.t] href=(self.link(id)) aria-current=[(id == self.t).then_some("page")] { (icon(ic)) span { (label) } }
                 }
             }
-            @if self.t == "shopping" {
+            @if let Some((href, label)) = self.plugin().and_then(|p| p.fab) {
+                a.fab href=(href) aria-label=(label) { (icon("plus")) }
+            } @else if self.t == "shopping" {
                 a.fab href="#add-item" aria-label="Añadir a la lista" { (icon("plus")) }
             } @else if self.t == "tasks" {
                 a.fab href="#new-chore" aria-label="Nueva tarea" { (icon("plus")) }
@@ -763,29 +783,42 @@ pub struct DashQ {
     who: Option<String>,
 }
 
-pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ>) -> R {
-    let c = lock(&db);
-    let me = require_user!(c, h);
-    let m = month(&c, q.month.as_deref())?;
-    let host = h.get(header::HOST).and_then(|v| v.to_str().ok()).unwrap_or("nido.local").to_string();
-    let mut v = View::load(&c, me, m, tab(q.tab.as_deref()), host, q.day.as_deref(), q.who.as_deref())?;
-    if v.t == "home" {
-        v.carried = carried(&c, &v)?;
-    }
-    drop(c);
+pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ>, RawQuery(raw): RawQuery) -> R {
+    let v = {
+        let c = lock(&db);
+        let me = require_user!(c, h);
+        let m = month(&c, q.month.as_deref())?;
+        let host = h.get(header::HOST).and_then(|v| v.to_str().ok()).unwrap_or("nido.local").to_string();
+        let mut v = View::load(&c, me, m, tab(q.tab.as_deref()), host, q.day.as_deref(), q.who.as_deref())?;
+        if v.t == "home" {
+            v.carried = carried(&c, &v)?;
+        }
+        v
+    };
+    // An extra's page comes from its own program; the database is not locked meanwhile.
+    let plugin = match v.plugin() {
+        Some(p) => Some((p, plugins::page(p, &plugins::Who { id: v.me.id, name: &v.me.name }, raw.as_deref().unwrap_or("")).await)),
+        None => None,
+    };
 
-    let content = match v.t {
+    let title = match &plugin {
+        Some((p, _)) => format!("{} · Nido", p.name),
+        None if v.t == "extras" => "Extras · Nido".to_string(),
+        None => format!("{} {} · Nido", v.month_name(), v.year()),
+    };
+    let content = if let Some((_, page)) = plugin { page } else { match v.t {
         "house" => house::render(&v),
         "expenses" => expenses::render(&v),
         "settings" => settings::render(&v),
         "household" => settings::render_house(&v),
+        "extras" => plugins::marketplace(&v),
         "shopping" => shopping::render(&v),
         "tasks" => tasks::render(&v),
         _ => home::render(&v),
-    };
+    } };
     let body = v.shell(content, q.ok.as_deref().and_then(flash));
     // ponytail: only the app shell is themed; login and sheets stay on the default
-    Ok(page(&format!("{} {} · Nido", v.month_name(), v.year()), &format!("theme-{}", v.theme), body))
+    Ok(page(&title, &format!("theme-{}", v.theme), body))
 }
 
 #[cfg(test)]

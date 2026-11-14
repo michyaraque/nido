@@ -665,6 +665,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nido-recetas"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "image",
+ "maud",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "webp",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1097,6 +1112,7 @@ version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
+ "bytes",
  "libc",
  "mio",
  "pin-project-lite",

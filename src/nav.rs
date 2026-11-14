@@ -8,7 +8,9 @@ pub fn tab(t: Option<&str>) -> &'static str {
         Some("tasks") => "tasks",
         Some("settings") => "settings",
         Some("household") => "household",
-        _ => "home",
+        Some("extras") => "extras",
+        Some(t) => crate::plugins::find(t).map_or("home", |p| p.id),
+        None => "home",
     }
 }
 
@@ -29,6 +31,7 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "settled" => "Deuda saldada",
         "unsettled" => "Devolución borrada",
         "items_added" => "Añadido a la lista",
+        "items_known" => "Todo eso ya estaba en la lista",
         "item_deleted" => "Quitado de la lista",
         "list_cleared" => "Lista vaciada: lo comprado queda como sugerencia",
         "ticket_saved" => "Ticket registrado como gasto",
@@ -65,7 +68,11 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "tg_time" => "Hora del recordatorio guardada",
         "tg_test" => "Mensaje de prueba enviado",
         "tg_unlinked" => "Ya no recibirás avisos en Telegram",
-        _ => return None,
+        "plugin_on" => "Activado: ya lo tienes en el menú",
+        "plugin_off" => "Extra desactivado: sus datos se guardan",
+        "plugin_installed" => "Instalado y activado: ya lo tienes en el menú",
+        "plugin_removed" => "Desinstalado: sus datos se guardan por si vuelve",
+        _ => return crate::plugins::flash(code),
     })
 }
 

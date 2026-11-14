@@ -249,16 +249,39 @@ pub async fn add_items(State(db): State<Db>, h: HeaderMap, F(f): F<ItemsF>) -> R
     let c = lock(&db);
     let me = require_user!(c, h);
     let m = month(&c, Some(&f.month))?;
-    for name in f.names.split([',', ';', '\n']).map(clean).filter(|n| !n.is_empty()).take(30) {
-        let mut chars = name.chars();
-        let name: String = chars.next().map(|f| f.to_uppercase().chain(chars).collect()).unwrap_or_default();
-        c.execute(
-            "INSERT INTO shopping(name,added_by) SELECT ?1,?2
-             WHERE NOT EXISTS (SELECT 1 FROM shopping WHERE cleared=0 AND done=0 AND lower(name)=lower(?1))",
-            params![name, me.id],
-        )?;
+    for name in f.names.split([',', ';', '\n']).take(30) {
+        add_to_list(&c, name, me.id)?;
     }
     back(&m, Some("shopping"), "items_added")
+}
+
+/// Several products at once, from an extra's page (Recetas → Compra). Fields `item` (repeated) and
+/// `next`, the Nido page to go back to. Then the toast says they are on the list.
+pub async fn add_many(State(db): State<Db>, h: HeaderMap, F(pairs): F<Vec<(String, String)>>) -> R {
+    let c = lock(&db);
+    let me = require_user!(c, h);
+    let mut added = 0;
+    for (_, item) in pairs.iter().filter(|p| p.0 == "item").take(60) {
+        added += add_to_list(&c, item, me.id)? as usize;
+    }
+    // Only back into Nido itself ("/?…"), never to another site.
+    let next = pairs.iter().find(|p| p.0 == "next").map(|p| p.1.clone()).filter(|n| n.starts_with("/?") && !n.contains(['\r', '\n'])).unwrap_or_else(|| "/?tab=shopping".into());
+    let ok = if added > 0 { "items_added" } else { "items_known" };
+    Ok(Redirect::to(&format!("{next}&ok={ok}")).into_response())
+}
+
+/// Puts a product on the shared shopping list (capitalised) unless it is already pending there.
+/// Returns whether it was added. Also used by plugins (recipes → Compra).
+pub fn add_to_list(c: &Connection, name: &str, by: i64) -> rusqlite::Result<bool> {
+    let name = clean(name);
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else { return Ok(false) };
+    let name: String = first.to_uppercase().chain(chars).collect();
+    Ok(c.execute(
+        "INSERT INTO shopping(name,added_by) SELECT ?1,?2
+         WHERE NOT EXISTS (SELECT 1 FROM shopping WHERE cleared=0 AND done=0 AND lower(name)=lower(?1))",
+        params![name, by],
+    )? > 0)
 }
 
 pub async fn toggle_item(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<Ctx>) -> R {

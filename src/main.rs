@@ -17,6 +17,7 @@ mod backup;
 mod notify;
 mod incomes;
 mod ocr;
+mod plugins;
 mod receipt;
 mod tickets;
 mod text;
@@ -119,6 +120,7 @@ async fn main() {
     let db: Db = Arc::new(Mutex::new(conn));
     notify::start(db.clone());
     backup::start(db.clone());
+    plugins::start(&db);
     let app = Router::new()
         .route("/", get(dashboard))
         .route("/login", get(login_page).post(login))
@@ -147,6 +149,7 @@ async fn main() {
         .route("/incomes/{id}/day", post(set_income_day))
         .route("/shopping", post(add_items))
         .route("/shopping/clear", post(clear_items))
+        .route("/shopping/many", post(add_many))
         .route("/shopping/{id}/toggle", post(toggle_item))
         .route("/shopping/{id}/delete", post(delete_item))
         .route("/tickets", post(upload_ticket).layer(DefaultBodyLimit::max(25 * 1024 * 1024)))
@@ -186,6 +189,7 @@ async fn main() {
         .route("/telegram/unlink", post(notify::unlink))
         .route("/api/expenses", post(api_create_expense))
         .merge(assets::routes())
+        .merge(plugins::routes())
         .with_state(db);
 
     let addr = std::env::var("NIDO_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());

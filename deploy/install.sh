@@ -16,7 +16,9 @@ apt-get install -y -qq curl jq openssl tar udisks2 avahi-daemon avahi-utils cadd
 
 echo "· Usuario y carpetas"
 id nido >/dev/null 2>&1 || useradd --system --home-dir /var/lib/nido --shell /usr/sbin/nologin nido
-mkdir -p /opt/nido /var/lib/nido/models /var/lib/nido/tickets /etc/nido
+mkdir -p /opt/nido /var/lib/nido/models /var/lib/nido/tickets /var/lib/nido/plugins /etc/nido
+# Extras: Nido downloads them here from Extras, so the folder is its own.
+chown nido:nido /var/lib/nido/plugins
 chown -R nido:nido /var/lib/nido
 
 echo "· Lector de tickets (PaddleOCR PP-OCRv6 Tiny, ~6 MB)"
@@ -140,6 +142,13 @@ install -m 755 "$SRC/nido" /opt/nido/nido.new
 if [ -d "$SRC/models" ]; then
   install -m 644 -o nido -g nido "$SRC"/models/* /var/lib/nido/models/
 fi
+# Extras built at home (nido-<name>): the same place the marketplace downloads them to.
+install -d -o nido -g nido /var/lib/nido/plugins
+for p in "$SRC"/plugins/nido-*; do
+  [ -f "$p" ] || continue
+  chmod 755 "$p" # copied from Windows it arrives without the execute bit
+  "$p" --version >/dev/null && install -D -m 755 -o nido -g nido "$p" "/var/lib/nido/plugins/$(basename "$p")"
+done
 [ -f /opt/nido/nido ] && cp /opt/nido/nido /opt/nido/nido.old
 mv /opt/nido/nido.new /opt/nido/nido
 systemctl restart nido
@@ -204,6 +213,8 @@ cat > /etc/caddy/Caddyfile <<'EOF'
 }
 
 (nido) {
+	# Pages are HTML made on the Pi: compressed they travel ~8x lighter to the phone.
+	encode zstd gzip
 	handle /nido.crt {
 		root * /var/lib/caddy/.local/share/caddy/pki/authorities/local
 		rewrite * /root.crt
