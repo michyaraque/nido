@@ -1,8 +1,8 @@
-"""Photos for the catalog of the Recetas extra (plugins/recetas/catalog) from Wikimedia Commons.
+"""Photos for the catalog of the Recetas extra (plugins/recipes/catalog) from Wikimedia Commons.
 
 For each recipe: the lead image of its Spanish Wikipedia article (or a hand-picked Commons file in
 PICK), only if its licence is free (CC BY, CC BY-SA, CC0, public domain). Saved as a small WebP
-(400x300, ~14 KB) in plugins/recetas/photos/<slug>.webp, credited in photos/CREDITS.tsv
+(400x300, ~14 KB) in plugins/recipes/photos/<slug>.webp, credited in photos/CREDITS.tsv
 (slug, author, licence, file page), which the recipe page shows under the photo.
 
 Re-run any time; existing photos are kept (delete one to fetch it again). Usage:
@@ -12,7 +12,7 @@ Re-run any time; existing photos are kept (delete one to fetch it again). Usage:
 import html, io, json, urllib.error, pathlib, re, sys, time, unicodedata, urllib.parse, urllib.request
 from PIL import Image
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "recetas"
+ROOT = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "recipes"
 OUT = ROOT / "photos"
 UA = {"User-Agent": "NidoRecipePhotos/1.0 (self-hosted home app; recipe thumbnails)"}
 FREE = re.compile(r"^(CC BY(-SA)?( \d\.\d)?|CC0|Public domain|PD)", re.I)

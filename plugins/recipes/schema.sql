@@ -1,4 +1,4 @@
--- Recetas (extra). Its own database, recetas.db: Nido's database never holds a recipe.
+-- Recetas (extra). Its own database, recipes.db: Nido's database never holds a recipe.
 CREATE TABLE IF NOT EXISTS recipes (
   id          INTEGER PRIMARY KEY,
   name        TEXT NOT NULL,

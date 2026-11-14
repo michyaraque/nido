@@ -1,10 +1,10 @@
-//! nido-recetas: the "Recetas" extra of Nido, as a program of its own.
+//! nido-recipes: the "Recetas" extra of Nido, as a program of its own.
 //!
 //! Nido starts it when the house activates the extra, and talks to it over HTTP on 127.0.0.1
 //! (see plugins/README.md): `GET /page` returns the HTML for the content area, and every
 //! `/x/recipes/<path>` request from the browser reaches this program as `/<path>`. Nido checks the
 //! session first and says who is asking in `X-Nido-*` headers. The recipes live in their own
-//! database (`recetas.db`), so the core never carries a byte of this extra.
+//! database (`recipes.db`), so the core never carries a byte of this extra.
 use axum::{
     extract::{Query, Request, State},
     http::{header, HeaderMap, StatusCode},
@@ -157,11 +157,11 @@ async fn main() {
     }
     let env = |k: &str, default: &str| std::env::var(k).unwrap_or_else(|_| default.to_string());
     let key = std::env::var("NIDO_PLUGIN_KEY").unwrap_or_else(|_| {
-        eprintln!("nido-recetas lo arranca Nido (Extras); falta NIDO_PLUGIN_KEY");
+        eprintln!("nido-recipes lo arranca Nido (Extras); falta NIDO_PLUGIN_KEY");
         std::process::exit(2);
     });
     let conn =
-        Connection::open(env("NIDO_PLUGIN_DB", "recetas.db")).expect("no se pudo abrir recetas.db");
+        Connection::open(env("NIDO_PLUGIN_DB", "recipes.db")).expect("no se pudo abrir recipes.db");
     recipes::prepare(&conn, std::env::var("NIDO_CORE_DB").ok().as_deref())
         .expect("preparar el recetario");
     let db: Db = Arc::new(Mutex::new(conn));
@@ -174,6 +174,6 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("no se pudo abrir el puerto");
-    println!("nido-recetas {VERSION} en http://{addr}");
+    println!("nido-recipes {VERSION} en http://{addr}");
     axum::serve(listener, app).await.expect("servidor");
 }

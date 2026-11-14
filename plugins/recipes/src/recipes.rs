@@ -1231,7 +1231,7 @@ async fn photo(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>) -> R {
 fn photos_base() -> String {
     std::env::var("NIDO_RECETAS_FOTOS").unwrap_or_else(|_| {
         format!(
-            "https://raw.githubusercontent.com/{}/master/plugins/recetas/photos/",
+            "https://raw.githubusercontent.com/{}/master/plugins/recipes/photos/",
             option_env!("NIDO_REPO").unwrap_or("michyaraque/nido")
         )
     })
@@ -1354,7 +1354,7 @@ fn store_catalog_photo(c: &Connection, slug: &str, bytes: &[u8]) -> rusqlite::Re
 fn download_photos(db: Db, slugs: Vec<String>) {
     *DOWNLOAD.lock().unwrap_or_else(|e| e.into_inner()) = Some((0, slugs.len()));
     std::thread::spawn(move || {
-        let dir = std::env::temp_dir().join(format!("nido-recetas-fotos-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("nido-recipes-photos-{}", std::process::id()));
         let base = photos_base();
         let total = slugs.len();
         // A second pass for whatever a flaky connection dropped the first time.
@@ -2192,10 +2192,10 @@ mod tests {
         assert!(ingredients_of(&croquetas).all(|l| !l.starts_with("##")));
     }
 
-    /// Recipes an older Nido kept in nido.db move to recetas.db the first time; never twice.
+    /// Recipes an older Nido kept in nido.db move to recipes.db the first time; never twice.
     #[test]
     fn moves_recipes_from_the_core() {
-        let dir = std::env::temp_dir().join(format!("nido-recetas-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("nido-recipes-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let core = dir.join("nido.db");
         let _ = std::fs::remove_file(&core);

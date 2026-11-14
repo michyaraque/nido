@@ -1,5 +1,5 @@
 [package]
-name = "nido-recetas"
+name = "nido-recipes"
 version = "0.1.0"
 edition = "2021"
 description = "Recetas, un extra de Nido que va en su propio programa"

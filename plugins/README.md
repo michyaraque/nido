@@ -69,7 +69,9 @@ Todas llevan estas cabeceras. Nido ya ha comprobado la sesión; el extra se fía
 | `GET /manifest` | JSON con sus avisos: `{"id":"<id>","version":"v0.1.0","flashes":{"<código>":"<texto>"}}` |
 | `GET /page?<query>` | El HTML de la zona de contenido de `/?tab=<id>&…`. Recibe la query entera: `month`, `tab` y sus propios parámetros. Solo el contenido: Nido pone el menú, la cabecera, el tema y los avisos. |
 | `<método> /<ruta>` | Lo que el navegador pide a `/x/<id>/<ruta>` llega aquí como `/<ruta>`: formularios, imágenes, su script. Nido devuelve al navegador el estado, `Content-Type`, `Location` y `Cache-Control`. |
-| WebSocket a `/<ruta>` | Para tiempo real. El navegador abre `ws(s)://<host>/x/<id>/<ruta>`; Nido comprueba la sesión, pasa el *handshake* al extra con las cabeceras `X-Nido-*` y, tras el `101`, deja pasar los bytes en los dos sentidos sin leerlos. El formato de los mensajes es cosa del extra (Juegos usa paquetes binarios: mira `juegos/src/net.rs`). |
+| WebSocket a `/<ruta>` | Para tiempo real. El navegador abre `ws(s)://<host>/x/<id>/<ruta>`; Nido comprueba la sesión, pasa el *handshake* al extra con las cabeceras `X-Nido-*` y, tras el `101`, deja pasar los bytes en los dos sentidos sin leerlos. El formato de los mensajes es cosa del extra (Juegos usa paquetes binarios: mira `games/src/net.rs`). |
+| `GET /notices` *(opcional)* | Avisos para quien pregunta (`X-Nido-User`), como JSON `[{"text":"Ana te invita…","href":"/?tab=<id>&…","action":"Jugar"}]`. Nido los pide cada 3 s mientras la app está abierta y a la vista y los muestra arriba; lo que devuelvas cuenta como visto. `href` debe empezar por `/?`. |
+| `GET /notices/late` *(opcional)* | Los avisos que nadie ha visto a tiempo, con su destinatario: `[{"user":2,"text":"…","href":"/?…"}]`. Nido lo pide cada 30 s y los manda como notificación del móvil o, si esa persona no las tiene activadas, por Telegram. Devuelve cada uno una sola vez. |
 
 ### Reglas de la página
 
@@ -183,5 +185,5 @@ Entra, ve a **Extras → Ejemplo → Activar** y ábrelo desde el menú.
 
 | Carpeta | Extra |
 |---|---|
-| [`recetas/`](recetas/) | Recetas: recetario con importación desde webs, editor por bloques y paso a la lista de la compra. Es el ejemplo completo de todo lo de arriba. |
-| [`juegos/`](juegos/) | Juegos: siete juegos de mesa entre los de casa o contra un robot, con ranking. Ejemplo de tiempo real: WebSocket con paquetes binarios (`juegos/src/net.rs`). |
+| [`recipes/`](recipes/) | Recetas: recetario con importación desde webs, editor por bloques y paso a la lista de la compra. Es el ejemplo completo de todo lo de arriba. |
+| [`games/`](games/) | Juegos: siete juegos de mesa entre los de casa o contra un robot, con ranking. Ejemplo de tiempo real: WebSocket con paquetes binarios (`juegos/src/net.rs`). |
