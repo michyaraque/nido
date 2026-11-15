@@ -387,6 +387,7 @@ async function sync() {
 
 if ("serviceWorker" in navigator && isSecureContext) navigator.serviceWorker.register("/sw.js").catch(() => {});
 addEventListener("online", sync);
+document.addEventListener("gesturestart", (e) => e.preventDefault()); // iOS ignores user-scalable=no
 document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && sync());
 
 /* ---------- after every page (first load or in-place update) ---------- */

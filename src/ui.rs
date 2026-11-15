@@ -7,7 +7,7 @@ pub fn page(title: &str, body_class: &str, body: Markup) -> Response {
             html lang="es" {
                 head {
                     meta charset="utf-8";
-                    meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover";
+                    meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
                     meta name="color-scheme" content="light dark";
                     meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)";
                     meta name="theme-color" content="#0c0c10" media="(prefers-color-scheme: dark)";
