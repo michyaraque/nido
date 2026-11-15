@@ -390,6 +390,49 @@ addEventListener("online", sync);
 document.addEventListener("gesturestart", (e) => e.preventDefault()); // iOS ignores user-scalable=no
 document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && sync());
 
+/* ---------- updating Nido ----------
+   While an update runs, its card is fetched again every moment. Nido restarts halfway, so failed
+   fetches mean it is coming back. When it ends, a full reload brings the new version's files. */
+
+const UPDATE_POLL_MS = 1500;
+const UPDATE_RETRY_MS = 2000;
+const UPDATE_PATIENCE = 40; // failed fetches in a row (~80 s) before saying it takes too long
+
+let updateTimer = null;
+let updateFailures = 0;
+
+const runningUpdateCard = () => document.querySelector('[data-update="running"]');
+
+function followUpdate() {
+  clearTimeout(updateTimer);
+  updateFailures = 0;
+  if (runningUpdateCard()) updateTimer = setTimeout(refreshUpdateCard, UPDATE_POLL_MS);
+}
+
+async function refreshUpdateCard() {
+  const card = runningUpdateCard();
+  if (!card) return;
+  const res = await fetch(location.href, { credentials: "same-origin", cache: "no-store" }).catch(() => null);
+  if (res?.redirected) return location.reload(); // signed out meanwhile: show the login
+  const next = res?.ok ? new DOMParser().parseFromString(await res.text(), "text/html").querySelector("[data-update]") : null;
+  if (!next) return waitForRestart(card);
+  if (next.dataset.update !== "running") return location.reload();
+  updateFailures = 0;
+  card.replaceWith(next);
+  updateTimer = setTimeout(refreshUpdateCard, UPDATE_POLL_MS);
+}
+
+function waitForRestart(card) {
+  updateFailures++;
+  const note = card.querySelector(".upd-job-head span");
+  if (note) {
+    note.textContent = updateFailures > UPDATE_PATIENCE
+      ? "Nido tarda en volver. Si no aparece en un par de minutos, mira la Raspberry."
+      : "Nido se está reiniciando… Esta página se reconecta sola.";
+  }
+  updateTimer = setTimeout(refreshUpdateCard, UPDATE_RETRY_MS);
+}
+
 /* ---------- after every page (first load or in-place update) ---------- */
 
 let refreshTimer, wasCopying = false;
@@ -412,7 +455,7 @@ function ready() {
   for (let d = target?.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
   if (target?.closest("details")) target.scrollIntoView({ block: "center" });
   sync();
-  updateWatch();
+  followUpdate();
   clearTimeout(refreshTimer);
   // A backup in progress: say how it went once the page shows it finished.
   const copying = !!document.querySelector("#backups [data-refresh]");
@@ -423,38 +466,6 @@ function ready() {
   wasCopying = copying;
   const reading = document.querySelector("[data-refresh]");
   if (reading) refreshTimer = setTimeout(() => visit(location.href, {}, { keepScroll: true }), reading.dataset.refresh * 1000);
-}
-ready();
-
-/* ---------- updating Nido ----------
-   While it runs, the card is fetched again every moment. Nido restarts in the middle: failed
-   fetches mean it is coming back. Once it ends, a full reload brings the new version's files. */
-
-let updateTimer, updateDown = 0;
-function updateWatch() {
-  clearTimeout(updateTimer);
-  if (document.querySelector('[data-update="running"]')) updateTimer = setTimeout(updatePoll, 1500);
-}
-async function updatePoll() {
-  const box = document.querySelector('[data-update="running"]');
-  if (!box) return;
-  let next = null;
-  try {
-    const r = await fetch(location.href, { credentials: "same-origin", cache: "no-store" });
-    if (r.ok && !r.redirected) next = new DOMParser().parseFromString(await r.text(), "text/html").querySelector("[data-update]");
-    else if (r.redirected) return location.reload();
-  } catch {}
-  if (!next) {
-    updateDown++;
-    const say = box.querySelector(".upd-job-head span");
-    if (say) say.textContent = updateDown > 40 ? "Nido tarda en volver. Si no aparece en un par de minutos, mira la Raspberry." : "Nido se está reiniciando… Esta página se reconecta sola.";
-    updateTimer = setTimeout(updatePoll, 2000);
-    return;
-  }
-  updateDown = 0;
-  if (next.dataset.update !== "running") return location.reload();
-  box.replaceWith(next);
-  updateTimer = setTimeout(updatePoll, 1500);
 }
 
 /* ---------- concept suggestions ----------
@@ -641,3 +652,7 @@ document.addEventListener("click", async (e) => {
     pushPanel();
   }
 });
+
+/* ---------- start: everything above is declared, so the first page can be prepared ---------- */
+
+ready();
