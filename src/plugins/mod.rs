@@ -67,6 +67,24 @@ pub static ALL: &[Known] = &[
         size: "≈ 3 MB",
         fab: None,
     },
+    Known {
+        id: "devices",
+        bin: "nido-devices",
+        name: "Domótica",
+        icon: "plug",
+        tagline: "Los aparatos de casa, sin la app de cada marca",
+        blurb: "Enchufes, bombillas e interruptores Tuya (Smart Life, Gosund, Teckin, Woox, Lidl…) y mandos infrarrojos Broadlink, controlados desde la red de casa.",
+        features: &[
+            "Se conecta con un QR desde la app que ya usas",
+            "Funciona sin internet una vez añadidos",
+            "Mandos de tele y aire con botones aprendidos",
+            "Consumo por aparato, con histórico y coste",
+            "Escenas a mano o a una hora",
+        ],
+        accent: "#f59e0b",
+        size: "≈ 4 MB",
+        fab: Some(("/?tab=devices&add=1", "Añadir")),
+    },
 ];
 
 pub fn find(id: &str) -> Option<&'static Known> {

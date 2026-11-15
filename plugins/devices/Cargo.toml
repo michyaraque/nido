@@ -1,0 +1,26 @@
+[package]
+name = "nido-devices"
+version = "0.1.0"
+edition = "2021"
+description = "Domótica, un plugin de Nido que va en su propio programa"
+
+[package.metadata.nido]
+min = "0.18.0"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt", "net", "macros", "time", "io-util"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+maud = "0.27"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_urlencoded = "0.7"
+aes = "0.8"
+aes-gcm = "0.10"
+hmac = "0.12"
+sha2 = "0.10"
+getrandom = "0.3"
+md-5 = "0.10"
+base64 = "0.22"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+cbc = "0.1"

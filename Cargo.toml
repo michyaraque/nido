@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "plugins/recipes", "plugins/games"]
+members = [".", "plugins/recipes", "plugins/games", "plugins/devices"]
 
 [package]
 name = "nido"
