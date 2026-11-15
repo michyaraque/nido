@@ -92,13 +92,13 @@ pub fn find(id: &str) -> Option<&'static Known> {
 }
 
 /// Repository whose releases carry the plugins (set at build time for forks).
-const REPO: &str = match option_env!("NIDO_REPO") {
+pub(crate) const REPO: &str = match option_env!("NIDO_REPO") {
     Some(r) => r,
     None => "michyaraque/nido",
 };
 
 /// Board family of this build, as release assets name it (aarch64, armv7, armv6).
-const ARCH: &str = env!("NIDO_ARCH");
+pub(crate) const ARCH: &str = env!("NIDO_ARCH");
 
 fn dir() -> PathBuf {
     std::env::var("NIDO_PLUGINS").map(PathBuf::from).unwrap_or_else(|_| data_dir().join("plugins"))
@@ -551,12 +551,13 @@ struct Offer {
     bin: String,
     version: String,
     min: String,
+    tag: String,
 }
 
 static OFFERS: Mutex<(Option<Instant>, Vec<Offer>)> = Mutex::new((None, Vec::new()));
 
 /// `v0.16.2` or `0.16.2` as numbers, for comparing.
-fn semver(v: &str) -> (u32, u32, u32) {
+pub(crate) fn semver(v: &str) -> (u32, u32, u32) {
     let mut it = v.trim().trim_start_matches('v').split('.').map(|p| p.parse().unwrap_or(0));
     (it.next().unwrap_or(0), it.next().unwrap_or(0), it.next().unwrap_or(0))
 }
@@ -572,8 +573,21 @@ fn offers() -> Vec<Offer> {
     o.1.clone()
 }
 
+/// The tag GitHub currently calls the latest release, like `v0.18.1`.
+pub(crate) fn latest_tag() -> Option<String> {
+    let out = std::process::Command::new("curl")
+        .args(["-s", "-o", "/dev/null", "--max-time", "20", "--proto", "=https", "-w", "%{redirect_url}"])
+        .arg(format!("https://github.com/{REPO}/releases/latest"))
+        .output()
+        .ok()?;
+    let url = String::from_utf8_lossy(&out.stdout);
+    let tag = url.rsplit_once("/releases/tag/")?.1.trim();
+    tag.starts_with('v').then(|| tag.to_string())
+}
+
 fn fetch_offers() {
-    let url = format!("https://github.com/{REPO}/releases/latest/download/plugins.json");
+    let Some(tag) = latest_tag() else { return };
+    let url = format!("https://github.com/{REPO}/releases/download/{tag}/plugins.json");
     let Ok(out) = std::process::Command::new("curl")
         .args(["-sfL", "--max-time", "20", "--proto", "=https", "--proto-redir", "=https"])
         .arg(&url)
@@ -583,7 +597,7 @@ fn fetch_offers() {
     };
     let Ok(list) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) else { return };
     let s = |e: &serde_json::Value, k: &str| e[k].as_str().unwrap_or("").to_string();
-    let list = list.iter().map(|e| Offer { bin: s(e, "bin"), version: s(e, "version"), min: s(e, "min") }).collect();
+    let list = list.iter().map(|e| Offer { bin: s(e, "bin"), version: s(e, "version"), min: s(e, "min"), tag: tag.clone() }).collect();
     OFFERS.lock().unwrap_or_else(|e| e.into_inner()).1 = list;
 }
 
@@ -613,7 +627,8 @@ fn update_to(k: &Known) -> Option<String> {
 
 /// Downloads the plugin's program for this board, checks that it runs, and puts it in place. It
 /// comes from the latest release when that version works with this Nido, and otherwise from the
-/// release of this Nido's own version, whose plugins match it by construction.
+/// release of this Nido's own version, whose plugins match it by construction. A program that
+/// reports another version than the one offered is refused.
 fn download(k: &Known) -> Result<(), String> {
     let dir = dir();
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -621,10 +636,11 @@ fn download(k: &Known) -> Result<(), String> {
     if std::fs::File::create(&part).is_err() {
         return Err(format!("Nido no puede guardar plugins en {}. En la Raspberry: sudo chown nido:nido {}", dir.display(), dir.display()));
     }
-    let url = match offer(k) {
-        Some(o) if fits(&o) => format!("https://github.com/{REPO}/releases/latest/download/{}-{ARCH}", k.bin),
-        _ => format!("https://github.com/{REPO}/releases/download/{}/{}-{ARCH}", crate::VERSION, k.bin),
+    let (tag, want) = match offer(k) {
+        Some(o) if fits(&o) => (o.tag, Some(o.version)),
+        _ => (crate::VERSION.to_string(), None),
     };
+    let url = format!("https://github.com/{REPO}/releases/download/{tag}/{}-{ARCH}", k.bin);
     let ok = std::process::Command::new("curl")
         .args(["-sfL", "--max-time", "300", "--proto", "=https", "--proto-redir", "=https", "-o"])
         .arg(&part)
@@ -641,10 +657,19 @@ fn download(k: &Known) -> Result<(), String> {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&part, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
     }
-    let runs = std::process::Command::new(&part).arg("--version").output().is_ok_and(|o| o.status.success());
-    if !runs {
+    let got = std::process::Command::new(&part)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+    let Some(got) = got else {
         let _ = std::fs::remove_file(&part);
         return Err("Lo descargado no funciona en este equipo".into());
+    };
+    if let Some(want) = want.filter(|w| semver(w) != semver(&got)) {
+        let _ = std::fs::remove_file(&part);
+        return Err(format!("GitHub ha servido la versión {got} en vez de la {want}. No se ha cambiado nada; prueba de nuevo en unos minutos."));
     }
     std::fs::rename(&part, bin_path(k)).map_err(|e| e.to_string())
 }
@@ -835,7 +860,7 @@ mod tests {
     fn versions() {
         assert!(semver("v0.10.0") > semver("0.9.12"));
         assert_eq!(semver("v1.2"), (1, 2, 0));
-        let o = |min: &str| Offer { bin: "nido-x".into(), version: "0.2.0".into(), min: min.into() };
+        let o = |min: &str| Offer { bin: "nido-x".into(), version: "0.2.0".into(), min: min.into(), tag: "v0.18.1".into() };
         assert!(fits(&o("0.0.0")));
         assert!(!fits(&o("99.0.0")));
     }
