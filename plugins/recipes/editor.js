@@ -257,24 +257,30 @@
       e.preventDefault();
       const b = g.parentElement;
       b.classList.add("drag");
-      g.setPointerCapture(e.pointerId);
+      const id = e.pointerId;
       const move = (ev) => {
+        if (ev.pointerId !== id) return;
         for (const o of list.children) {
           if (o === b) continue;
           const r = o.getBoundingClientRect();
           if (ev.clientY < r.top || ev.clientY > r.bottom) continue;
-          ev.clientY < r.top + r.height / 2 ? o.before(b) : o.after(b);
+          if (ev.clientY < r.top + r.height / 2) {
+            if (o.previousElementSibling !== b) o.before(b);
+          } else if (o.nextElementSibling !== b) o.after(b);
           break;
         }
       };
-      const end = () => {
+      const end = (ev) => {
+        if (ev.pointerId !== id) return;
         b.classList.remove("drag");
-        g.removeEventListener("pointermove", move);
+        removeEventListener("pointermove", move);
+        removeEventListener("pointerup", end);
+        removeEventListener("pointercancel", end);
         save();
       };
-      g.addEventListener("pointermove", move);
-      g.addEventListener("pointerup", end, { once: true });
-      g.addEventListener("pointercancel", end, { once: true });
+      addEventListener("pointermove", move);
+      addEventListener("pointerup", end);
+      addEventListener("pointercancel", end);
     });
 
     add.addEventListener("click", () => {
