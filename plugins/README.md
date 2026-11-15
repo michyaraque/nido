@@ -207,5 +207,5 @@ Compila para la placa, copia el binario a `~/nido-install/plugins/` y ejecuta `s
 | Carpeta | Plugin |
 |---|---|
 | [`recipes/`](recipes/) | Recetas: recetario con importación desde webs, editor por bloques y envío de ingredientes a la lista de la compra. Ejemplo completo de formularios, subida de archivos y servicios del núcleo. |
-| [`games/`](games/) | Juegos: siete juegos de mesa entre personas de la casa o contra el ordenador, con ranking. Ejemplo de tiempo real con WebSocket y paquetes binarios (`games/src/net.rs`). |
+| [`games/`](games/) | Juegos: nueve juegos de mesa entre personas de la casa o contra el ordenador, con ranking. Ejemplo de tiempo real con WebSocket y paquetes binarios (`games/src/net.rs`). |
 | [`devices/`](devices/) | Domótica: control local de aparatos Tuya y mandos infrarrojos Broadlink, consumo eléctrico, escenas y avisos. Ejemplo de tareas en segundo plano, protocolos de red propios y `/notices`. |
