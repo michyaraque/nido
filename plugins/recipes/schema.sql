@@ -53,3 +53,10 @@ CREATE TABLE IF NOT EXISTS recipe_settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- What the house ticked as "lo tengo" for a recipe the last time it sent the rest to Compra,
+-- one product per line. No row: never sent, so only the staples (salt, water...) start ticked.
+CREATE TABLE IF NOT EXISTS recipe_have (
+  recipe_id INTEGER PRIMARY KEY REFERENCES recipes(id) ON DELETE CASCADE,
+  items     TEXT NOT NULL
+);

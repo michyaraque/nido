@@ -64,6 +64,7 @@ pub fn routes() -> Router<Db> {
         .route("/{id}", post(update).layer(big()))
         .route("/{id}/photo", get(photo))
         .route("/{id}/favorite", post(favorite))
+        .route("/{id}/shop", post(shop))
         .route("/{id}/cooked", post(cooked))
         .route("/{id}/delete", post(delete))
 }
@@ -603,7 +604,8 @@ fn view(c: &Connection, v: &View, p: &Params) -> rusqlite::Result<Markup> {
                 .and_then(|s| s.parse().ok())
                 .filter(|n| (1..=50).contains(n))
                 .unwrap_or(r.serves);
-            return Ok(detail(v, &r, serves));
+            let have: Option<String> = c.query_row("SELECT items FROM recipe_have WHERE recipe_id=?1", [id], |r| r.get(0)).optional()?;
+            return Ok(detail(v, &r, serves, have.as_deref()));
         }
     }
     let q = p.get("q").map(|s| clean(s)).unwrap_or_default();
@@ -739,7 +741,8 @@ fn listing(
     }
 }
 
-fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
+fn detail(v: &View, r: &Recipe, serves: i64, have: Option<&str>) -> Markup {
+    let owned = |name: &str| have.map_or_else(|| staple(name), |h| h.lines().any(|l| l == name));
     let (_, ic, color) = cat(&r.category);
     let factor = serves as f64 / r.serves as f64;
     let has_ings = ingredients_of(r).next().is_some();
@@ -801,7 +804,7 @@ fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
                     @if !has_ings {
                         p.hint { "Todavía no tiene ingredientes. Añádelos desde «Editar»." }
                     } @else {
-                        form method="post" action="/shopping/many" {
+                        form method="post" action={ "/plugins/recipes/" (r.id) "/shop" } {
                             input type="hidden" name="next" value={ (base) "&serves=" (serves) };
                             ul.rc-ings {
                                 @for l in lines_of(&r.ingredients) {
@@ -812,8 +815,9 @@ fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
                                             @let (gi, gc) = products::look(&g.name);
                                             @let qty = g.qty_for(factor);
                                             li {
+                                                input type="hidden" name="item" value=(shop_name(&g.name));
                                                 label.rc-ing-row {
-                                                    input type="checkbox" name="item" value=(shop_name(&g.name)) checked[!staple(&g.name)];
+                                                    input type="checkbox" name="skip" value=(shop_name(&g.name)) checked[owned(&shop_name(&g.name))] aria-label={ "Lo tengo: " (g.name) };
                                                     span.tile.sm style={ "--c:" (gc) } { (icon(gi)) }
                                                     span.rc-ing-txt { @if !qty.is_empty() { b { (qty) } " " } (g.name) }
                                                 }
@@ -822,8 +826,8 @@ fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
                                     }
                                 }
                             }
-                            button.btn.primary.wide { (icon("shopping-basket")) "Añadir a la compra" }
-                            p.hint.top { "Desmarca lo que ya tengáis. Lo que ya está en la lista no se repite." }
+                            button.btn.primary.wide { (icon("shopping-basket")) "Añadir lo que falta a la compra" }
+                            p.hint.top { "Marca lo que ya tengáis. Lo que quede sin marcar va a la lista, sin repetir lo que ya esté." }
                         }
                     }
                 }
@@ -1465,6 +1469,20 @@ async fn photos(State(db): State<Db>, h: HeaderMap, F(f): F<PhotosF>) -> R {
 }
 
 type Pairs = Vec<(String, String)>;
+
+/// "Añadir lo que falta": keeps what was ticked as "lo tengo", so the recipe shows it next time,
+/// then hands the same form to Nido's shopping list (a 307 keeps the method and the body).
+async fn shop(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<Pairs>) -> R {
+    let c = lock(&db);
+    require_user!(c, h);
+    let have: Vec<&str> = f.iter().filter(|p| p.0 == "skip").map(|p| p.1.as_str()).collect();
+    c.execute(
+        "INSERT INTO recipe_have(recipe_id,items) SELECT id,?2 FROM recipes WHERE id=?1
+         ON CONFLICT(recipe_id) DO UPDATE SET items=excluded.items",
+        params![id, have.join("\n")],
+    )?;
+    Ok((StatusCode::TEMPORARY_REDIRECT, [(header::LOCATION, "/shopping/many")]).into_response())
+}
 
 async fn favorite(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<Pairs>) -> R {
     let c = lock(&db);
