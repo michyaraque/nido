@@ -1,25 +1,25 @@
-//! Extras: optional features that live in programs of their own, so the core stays light.
+//! Plugins: optional features that live in programs of their own, so the core stays light.
 //!
-//! The core only knows the catalog below (a few lines of text per extra). Installing one downloads
+//! The core only knows the catalog below (a few lines of text per plugin). Installing one downloads
 //! its binary from the GitHub release into `<data dir>/plugins/`; activating it starts that program
 //! on 127.0.0.1 with a secret, and from then on the core:
 //! - draws its section in the sidebar and puts the HTML of `GET /page` into the content area;
-//! - forwards `/x/<id>/<path>` from the browser to the program as `/<path>`, after checking the
+//! - forwards `/plugins/<id>/<path>` from the browser to the program as `/<path>`, after checking the
 //!   session, telling it who asks in `X-Nido-User` / `X-Nido-Name` and who lives in the house
-//!   in `X-Nido-People`; a WebSocket opened there is handed over to the extra as it is;
+//!   in `X-Nido-People`; a WebSocket opened there is handed over to the plugin as it is;
 //! - shows its toasts (from its `/manifest`) and offers its own services, like `/shopping/many`;
 //! - shows its notices to a person in the open app (`GET /notices`) and sends the ones nobody saw
 //!   in time (`GET /notices/late`) as a push notification, or by Telegram.
 //!
-//! Each extra keeps its own database (`extras/<id>.db`, in backups). The protocol and a guide to write one
+//! Each plugin keeps its own database (`plugins/data/<id>.db`, in backups). The protocol and a guide to write one
 //! are in plugins/README.md.
 use super::*;
 use axum::{extract::RawQuery, http::Method, routing::any};
-use std::{path::PathBuf, process::Child, time::Duration};
+use std::{path::PathBuf, process::Child, time::{Duration, Instant}};
 
-/// An extra the core can offer in the marketplace.
+/// An plugin the core can offer in the marketplace.
 pub struct Known {
-    pub id: &'static str,  // its tab, its `/x/<id>/` prefix and its settings key `plugin:<id>`
+    pub id: &'static str,  // its tab, its `/plugins/<id>/` prefix and its settings key `plugin:<id>`
     pub bin: &'static str, // program name; release asset `<bin>-<arch>`
     pub name: &'static str,
     pub icon: &'static str,
@@ -73,7 +73,7 @@ pub fn find(id: &str) -> Option<&'static Known> {
     ALL.iter().find(|k| k.id == id)
 }
 
-/// Repository whose releases carry the extras (set at build time for forks).
+/// Repository whose releases carry the plugins (set at build time for forks).
 const REPO: &str = match option_env!("NIDO_REPO") {
     Some(r) => r,
     None => "michyaraque/nido",
@@ -86,9 +86,27 @@ fn dir() -> PathBuf {
     std::env::var("NIDO_PLUGINS").map(PathBuf::from).unwrap_or_else(|_| data_dir().join("plugins"))
 }
 
-/// Where extras keep their databases: next to nido.db (writable by Nido, included in backups).
+/// Where plugins keep their databases: next to nido.db (writable by Nido, included in backups).
 pub fn data() -> PathBuf {
-    data_dir().join("extras")
+    data_dir().join("plugins").join("data")
+}
+
+/// Before 0.18 plugin databases lived in `extras/`, and older backups still restore them there:
+/// move them into place before any plugin opens its database.
+fn move_old_data() {
+    let old = data_dir().join("extras");
+    let Ok(files) = std::fs::read_dir(&old) else { return };
+    let new = data();
+    if std::fs::create_dir_all(&new).is_err() {
+        return;
+    }
+    for f in files.filter_map(|e| e.ok()) {
+        let dest = new.join(f.file_name());
+        if !dest.exists() {
+            let _ = std::fs::rename(f.path(), dest);
+        }
+    }
+    let _ = std::fs::remove_dir(&old);
 }
 
 fn bin_path(k: &Known) -> PathBuf {
@@ -99,7 +117,7 @@ pub fn installed(k: &Known) -> bool {
     bin_path(k).is_file()
 }
 
-/// Extras installed and switched on in this house, in catalog order.
+/// Plugins installed and switched on in this house, in catalog order.
 pub fn enabled(c: &Connection) -> rusqlite::Result<Vec<&'static Known>> {
     let on: Vec<String> = c
         .prepare("SELECT substr(key,8) FROM settings WHERE key LIKE 'plugin:%' AND value='1'")?
@@ -116,7 +134,7 @@ fn set_on(c: &Connection, k: &Known, on: bool) -> rusqlite::Result<()> {
     Ok(())
 }
 
-// ---------- running extras ----------
+// ---------- running plugins ----------
 
 struct Proc {
     id: &'static str,
@@ -126,7 +144,7 @@ struct Proc {
 }
 
 static PROCS: Mutex<Vec<Proc>> = Mutex::new(Vec::new());
-/// Toasts of every extra that has run, as (code, text). Leaked once per extra: they live as long as Nido.
+/// Toasts of every plugin that has run, as (code, text). Leaked once per plugin: they live as long as Nido.
 static FLASHES: Mutex<Vec<(&'static str, &'static str)>> = Mutex::new(Vec::new());
 static LOADED: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
 
@@ -134,9 +152,9 @@ fn procs() -> MutexGuard<'static, Vec<Proc>> {
     PROCS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Port and secret of the running extra, starting it if needed (and if it died).
-// Extras end with Nido because systemd stops the whole service; on a dev machine an
-// extra can outlive a killed Nido until its port is reused.
+/// Port and secret of the running plugin, starting it if needed (and if it died).
+// Plugins end with Nido because systemd stops the whole service; on a dev machine an
+// plugin can outlive a killed Nido until its port is reused.
 async fn ensure(k: &'static Known) -> Option<(u16, String)> {
     {
         let mut ps = procs();
@@ -157,7 +175,7 @@ async fn ensure(k: &'static Known) -> Option<(u16, String)> {
         .env("NIDO_PLUGIN_DB", data().join(format!("{}.db", k.id)))
         .env("NIDO_CORE_DB", core_db)
         .spawn()
-        .map_err(|e| eprintln!("extra {}: {e}", k.id))
+        .map_err(|e| eprintln!("plugin {}: {e}", k.id))
         .ok()?;
     let mut ready = false;
     for _ in 0..100 {
@@ -169,7 +187,7 @@ async fn ensure(k: &'static Known) -> Option<(u16, String)> {
     }
     if !ready {
         let _ = child.kill();
-        eprintln!("extra {}: no arranca", k.id);
+        eprintln!("plugin {}: no arranca", k.id);
         return None;
     }
     let first = {
@@ -212,8 +230,10 @@ fn stop(id: &str) {
     }
 }
 
-/// Starts the extras the house has on, in the background, so their first page is quick.
+/// Starts the plugins the house has on, in the background, so their first page is quick.
 pub fn start(db: &Db) {
+    move_old_data();
+    offers();
     let on = enabled(&lock(db)).unwrap_or_default();
     tokio::spawn(async move {
         for k in on {
@@ -223,7 +243,7 @@ pub fn start(db: &Db) {
     late(db.clone());
 }
 
-// ---------- notices: an extra wants to tell someone something ----------
+// ---------- notices: an plugin wants to tell someone something ----------
 
 /// How people reach Nido (from their last request), for links in Telegram.
 static ORIGIN: Mutex<String> = Mutex::new(String::new());
@@ -241,7 +261,7 @@ fn notice_list(r: Reply) -> Vec<serde_json::Value> {
     list.into_iter().filter(|n| n["text"].is_string() && n["href"].as_str().is_some_and(|h| h.starts_with("/?") && !h.contains(['\r', '\n', '"']))).collect()
 }
 
-/// `GET /notices`: what the running extras have for me. The page asks every little while it is open.
+/// `GET /notices`: what the running plugins have for me. The page asks every little while it is open.
 async fn notices(State(db): State<Db>, h: HeaderMap) -> R {
     let (me, on) = {
         let c = lock(&db);
@@ -302,7 +322,7 @@ pub fn flash(code: &str) -> Option<&'static str> {
     FLASHES.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|f| f.0 == code).map(|f| f.1)
 }
 
-// ---------- talking to an extra: plain HTTP/1.1 on loopback ----------
+// ---------- talking to an plugin: plain HTTP/1.1 on loopback ----------
 
 pub struct Reply {
     pub status: u16,
@@ -310,14 +330,14 @@ pub struct Reply {
     pub body: Vec<u8>,
 }
 
-/// Who is asking, for the extra.
+/// Who is asking, for the plugin.
 pub struct Who<'a> {
     pub id: i64,
     pub name: &'a str,
     pub people: String, // `X-Nido-People`: see `people`
 }
 
-/// Everyone in the house for an extra (to invite them, to show them): `id=name=color=photo`
+/// Everyone in the house for an plugin (to invite them, to show them): `id=name=color=photo`
 /// joined by commas, name and colour percent-encoded, in Nido's order (by id). `photo` is the
 /// version of their profile photo (0 = none), served by Nido at `/avatars/<id>?v=<photo>`.
 pub fn people(users: &[(i64, &str, &str, i64)]) -> String {
@@ -349,7 +369,7 @@ fn who_headers(w: &Who) -> String {
 /// Reads an HTTP response head: (status, lower-case headers, bytes already read past the head).
 async fn read_head(s: &mut tokio::net::TcpStream) -> std::io::Result<(u16, Vec<(String, String)>, Vec<u8>)> {
     use tokio::io::AsyncReadExt;
-    let bad = || std::io::Error::new(std::io::ErrorKind::InvalidData, "respuesta no válida del extra");
+    let bad = || std::io::Error::new(std::io::ErrorKind::InvalidData, "respuesta no válida del plugin");
     let mut buf = Vec::new();
     let mut chunk = [0u8; 2048];
     loop {
@@ -368,7 +388,7 @@ async fn read_head(s: &mut tokio::net::TcpStream) -> std::io::Result<(u16, Vec<(
     }
 }
 
-/// A WebSocket from the browser to an extra. The handshake goes to the extra with who is asking,
+/// A WebSocket from the browser to an plugin. The handshake goes to the plugin with who is asking,
 /// its `101` goes back to the browser (the accept key is computed from the browser's own key, so
 /// it fits), and from then on the bytes flow both ways untouched: Nido never reads the packets.
 async fn websocket(port: u16, key: &str, path: &str, who: &Who<'_>, h: &HeaderMap, upgrade: hyper::upgrade::OnUpgrade) -> std::io::Result<Response> {
@@ -383,7 +403,7 @@ async fn websocket(port: u16, key: &str, path: &str, who: &Who<'_>, h: &HeaderMa
     s.write_all(head.as_bytes()).await?;
     let (status, headers, early) = read_head(&mut s).await?;
     if status != 101 {
-        return Ok((StatusCode::BAD_GATEWAY, "El extra no acepta la conexión").into_response());
+        return Ok((StatusCode::BAD_GATEWAY, "El plugin no acepta la conexión").into_response());
     }
     let accept = headers.iter().find(|(k, _)| k == "sec-websocket-accept").map(|(_, v)| v.clone()).unwrap_or_default();
     tokio::spawn(async move {
@@ -419,8 +439,8 @@ async fn call(port: u16, key: &str, method: &str, path: &str, who: Option<&Who<'
     // Importing a recipe from another site can take a while; nothing legitimate takes two minutes.
     tokio::time::timeout(Duration::from_secs(120), s.read_to_end(&mut buf))
         .await
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "el extra tarda demasiado"))??;
-    parse(&buf).ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "respuesta no válida del extra"))
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "el plugin tarda demasiado"))??;
+    parse(&buf).ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "respuesta no válida del plugin"))
 }
 
 fn parse(buf: &[u8]) -> Option<Reply> {
@@ -449,7 +469,7 @@ fn dechunk(mut b: &[u8]) -> Option<Vec<u8>> {
     }
 }
 
-/// The extra's page for the content area, or a calm card if it does not answer.
+/// The plugin's page for the content area, or a calm card if it does not answer.
 pub async fn page(k: &'static Known, who: &Who<'_>, query: &str) -> Markup {
     let reply = match ensure(k).await {
         Some((port, key)) => call(port, &key, "GET", &format!("/page?{query}"), Some(who), None, &[]).await.ok(),
@@ -460,13 +480,13 @@ pub async fn page(k: &'static Known, who: &Who<'_>, query: &str) -> Markup {
         _ => {
             stop(k.id);
             html! {
-                section.card { (empty(k.icon, &format!("{} no responde", k.name), "Recarga la página en unos segundos. Si sigue igual, desactívalo y vuelve a activarlo en Extras.", None)) }
+                section.card { (empty(k.icon, &format!("{} no responde", k.name), "Recarga la página en unos segundos. Si sigue igual, desactívalo y vuelve a activarlo en Plugins.", None)) }
             }
         }
     }
 }
 
-/// `/x/<id>/<path>`: what the browser asks the extra (forms, photos, its script).
+/// `/plugins/<id>/<path>`: what the browser asks the plugin (forms, photos, its script).
 async fn proxy(State(db): State<Db>, Path((id, rest)): Path<(String, String)>, RawQuery(q): RawQuery, mut req: Request) -> R {
     let h = req.headers().clone();
     let method = req.method().clone();
@@ -478,7 +498,7 @@ async fn proxy(State(db): State<Db>, Path((id, rest)): Path<(String, String)>, R
             None => return Ok(StatusCode::NOT_FOUND.into_response()),
         }
     };
-    let Some((port, key)) = ensure(k).await else { return Ok((StatusCode::SERVICE_UNAVAILABLE, "El extra no responde. Inténtalo en unos segundos.").into_response()) };
+    let Some((port, key)) = ensure(k).await else { return Ok((StatusCode::SERVICE_UNAVAILABLE, "El plugin no responde. Inténtalo en unos segundos.").into_response()) };
     let path = format!("/{rest}{}", q.map(|q| format!("?{q}")).unwrap_or_default());
     let ctype = h.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok());
     let who = Who { id: me.id, name: &me.name, people };
@@ -492,7 +512,7 @@ async fn proxy(State(db): State<Db>, Path((id, rest)): Path<(String, String)>, R
         Ok(r) => r,
         Err(e) => {
             stop(k.id);
-            return Ok((StatusCode::BAD_GATEWAY, format!("El extra no ha contestado: {e}")).into_response());
+            return Ok((StatusCode::BAD_GATEWAY, format!("El plugin no ha contestado: {e}")).into_response());
         }
     };
     let mut res = Response::builder().status(r.status);
@@ -506,12 +526,87 @@ async fn proxy(State(db): State<Db>, Path((id, rest)): Path<(String, String)>, R
 
 // ---------- installing ----------
 
-/// Downloads the extra's program for this board, checks that it runs, and puts it in place.
+/// An plugin as the latest release offers it: its own version and the oldest Nido it works with
+/// (`plugins.json`, written by the release workflow from each plugin's Cargo.toml).
+#[derive(Clone)]
+struct Offer {
+    bin: String,
+    version: String,
+    min: String,
+}
+
+static OFFERS: Mutex<(Option<Instant>, Vec<Offer>)> = Mutex::new((None, Vec::new()));
+
+/// `v0.16.2` or `0.16.2` as numbers, for comparing.
+fn semver(v: &str) -> (u32, u32, u32) {
+    let mut it = v.trim().trim_start_matches('v').split('.').map(|p| p.parse().unwrap_or(0));
+    (it.next().unwrap_or(0), it.next().unwrap_or(0), it.next().unwrap_or(0))
+}
+
+/// What the latest release offers, as last fetched. A fetch older than an hour is renewed in the
+/// background, so pages never wait for GitHub.
+fn offers() -> Vec<Offer> {
+    let mut o = OFFERS.lock().unwrap_or_else(|e| e.into_inner());
+    if o.0.is_none_or(|t| t.elapsed() > Duration::from_secs(3600)) {
+        o.0 = Some(Instant::now());
+        std::thread::spawn(fetch_offers);
+    }
+    o.1.clone()
+}
+
+fn fetch_offers() {
+    let url = format!("https://github.com/{REPO}/releases/latest/download/plugins.json");
+    let Ok(out) = std::process::Command::new("curl")
+        .args(["-sfL", "--max-time", "20", "--proto", "=https", "--proto-redir", "=https"])
+        .arg(&url)
+        .output()
+    else {
+        return;
+    };
+    let Ok(list) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) else { return };
+    let s = |e: &serde_json::Value, k: &str| e[k].as_str().unwrap_or("").to_string();
+    let list = list.iter().map(|e| Offer { bin: s(e, "bin"), version: s(e, "version"), min: s(e, "min") }).collect();
+    OFFERS.lock().unwrap_or_else(|e| e.into_inner()).1 = list;
+}
+
+fn offer(k: &Known) -> Option<Offer> {
+    offers().into_iter().find(|o| o.bin == k.bin)
+}
+
+/// Whether this Nido is new enough for that version of the plugin.
+fn fits(o: &Offer) -> bool {
+    semver(&o.min) <= semver(crate::VERSION)
+}
+
+/// The version the installed program reports, like `v0.2.0`.
+fn installed_version(k: &Known) -> Option<String> {
+    if !installed(k) {
+        return None;
+    }
+    let out = std::process::Command::new(bin_path(k)).arg("--version").output().ok().filter(|o| o.status.success())?;
+    Some(String::from_utf8_lossy(&out.stdout).trim().to_string()).filter(|v| !v.is_empty())
+}
+
+/// The newer version this Nido can update the plugin to, if any.
+fn update_to(k: &Known) -> Option<String> {
+    let cur = installed_version(k)?;
+    offer(k).filter(|o| fits(o) && semver(&o.version) > semver(&cur)).map(|o| o.version)
+}
+
+/// Downloads the plugin's program for this board, checks that it runs, and puts it in place. It
+/// comes from the latest release when that version works with this Nido, and otherwise from the
+/// release of this Nido's own version, whose plugins match it by construction.
 fn download(k: &Known) -> Result<(), String> {
     let dir = dir();
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let part = dir.join(format!("{}.part", k.bin));
-    let url = format!("https://github.com/{REPO}/releases/latest/download/{}-{ARCH}", k.bin);
+    if std::fs::File::create(&part).is_err() {
+        return Err(format!("Nido no puede guardar plugins en {}. En la Raspberry: sudo chown nido:nido {}", dir.display(), dir.display()));
+    }
+    let url = match offer(k) {
+        Some(o) if fits(&o) => format!("https://github.com/{REPO}/releases/latest/download/{}-{ARCH}", k.bin),
+        _ => format!("https://github.com/{REPO}/releases/download/{}/{}-{ARCH}", crate::VERSION, k.bin),
+    };
     let ok = std::process::Command::new("curl")
         .args(["-sfL", "--max-time", "300", "--proto", "=https", "--proto-redir", "=https", "-o"])
         .arg(&part)
@@ -537,20 +632,51 @@ fn download(k: &Known) -> Result<(), String> {
 }
 
 #[derive(Deserialize)]
-pub struct ExtraF {
+pub struct PluginF {
+    #[serde(default)]
+    action: String,
     on: Option<String>,
     month: String,
-    tab: Option<String>, // where the button was: Extras or settings
+    tab: Option<String>, // where the button was: Plugins or settings
 }
 
-fn back_to(c: &Connection, f: &ExtraF, ok: &str) -> R {
-    back(&month(c, Some(&f.month))?, Some(f.tab.as_deref().unwrap_or("extras")), ok)
+fn back_to(c: &Connection, f: &PluginF, ok: &str) -> R {
+    back(&month(c, Some(&f.month))?, Some(f.tab.as_deref().unwrap_or("plugins")), ok)
 }
 
-async fn toggle(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<ExtraF>) -> R {
+/// `POST /plugins/<id>`: the Plugins page's buttons (`action` = install, update, toggle or uninstall).
+/// Everything below `/plugins/<id>/` belongs to the plugin itself.
+async fn manage(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<PluginF>) -> R {
+    match f.action.as_str() {
+        "install" => install(State(db), h, Path(id), F(f)).await,
+        "update" => update(State(db), h, Path(id), F(f)).await,
+        "toggle" => toggle(State(db), h, Path(id), F(f)).await,
+        "uninstall" => uninstall(State(db), h, Path(id), F(f)).await,
+        _ => bad("Acción desconocida"),
+    }
+}
+
+async fn update(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<PluginF>) -> R {
+    {
+        let c = lock(&db);
+        require_user!(c, h);
+    }
+    let Some(k) = find(&id).filter(|k| installed(k)) else { return bad("Ese plugin no está instalado") };
+    if update_to(k).is_none() {
+        return bad("Ya tienes la última versión que funciona con este Nido");
+    }
+    if let Err(e) = tokio::task::spawn_blocking(move || download(k)).await? {
+        return Ok((StatusCode::BAD_REQUEST, e).into_response());
+    }
+    stop(k.id);
+    let c = lock(&db);
+    back_to(&c, &f, "plugin_updated")
+}
+
+async fn toggle(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<PluginF>) -> R {
     let c = lock(&db);
     require_user!(c, h);
-    let Some(k) = find(&id).filter(|k| installed(k)) else { return bad("Ese extra no está instalado") };
+    let Some(k) = find(&id).filter(|k| installed(k)) else { return bad("Ese plugin no está instalado") };
     let on = f.on.is_some();
     set_on(&c, k, on)?;
     if !on {
@@ -559,12 +685,12 @@ async fn toggle(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f)
     back_to(&c, &f, if on { "plugin_on" } else { "plugin_off" })
 }
 
-async fn install(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<ExtraF>) -> R {
+async fn install(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<PluginF>) -> R {
     {
         let c = lock(&db);
         require_user!(c, h);
     }
-    let Some(k) = find(&id) else { return bad("Ese extra no existe") };
+    let Some(k) = find(&id) else { return bad("Ese plugin no existe") };
     if !installed(k) {
         if let Err(e) = tokio::task::spawn_blocking(move || download(k)).await? {
             return Ok((StatusCode::BAD_REQUEST, e).into_response());
@@ -575,10 +701,10 @@ async fn install(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f
     back_to(&c, &f, "plugin_installed")
 }
 
-async fn uninstall(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<ExtraF>) -> R {
+async fn uninstall(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<PluginF>) -> R {
     let c = lock(&db);
     require_user!(c, h);
-    let Some(k) = find(&id) else { return bad("Ese extra no existe") };
+    let Some(k) = find(&id) else { return bad("Ese plugin no existe") };
     stop(k.id);
     set_on(&c, k, false)?;
     let _ = std::fs::remove_file(bin_path(k)); // its database stays: reinstalling brings everything back
@@ -587,21 +713,21 @@ async fn uninstall(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F
 
 pub fn routes() -> Router<Db> {
     Router::new()
-        .route("/plugins/{id}/toggle", post(toggle))
-        .route("/plugins/{id}/install", post(install))
-        .route("/plugins/{id}/uninstall", post(uninstall))
+        .route("/plugins/{id}", post(manage))
+        .route("/plugins/{id}/{*rest}", any(proxy).layer(DefaultBodyLimit::max(25 * 1024 * 1024)))
+        // Plugins built before 0.18 still ask for `/x/<id>/…`, and updates replace only the core binary.
         .route("/x/{id}/{*rest}", any(proxy).layer(DefaultBodyLimit::max(25 * 1024 * 1024)))
         .route("/notices", get(notices))
 }
 
 // ---------- the marketplace ----------
 
-/// Tab "extras": every extra as a card, to install, switch on or off, or remove.
+/// Tab "plugins": every plugin as a card, to install, switch on or off, or remove.
 pub fn marketplace(v: &View) -> Markup {
     html! {
         div.page-head {
             div {
-                h1 { "Extras" }
+                h1 { "Plugins" }
                 p { "Funciones opcionales. Se instalan aparte y, si quitas una, sus datos se guardan." }
             }
         }
@@ -609,11 +735,26 @@ pub fn marketplace(v: &View) -> Markup {
             @for k in ALL {
                 @let has = installed(k);
                 @let on = v.plugins.iter().any(|p| p.id == k.id);
+                @let cur = installed_version(k);
+                @let off = offer(k);
+                @let next = update_to(k);
                 section.mk-card.on[on] style={ "--c:" (k.accent) } {
                     div.mk-top {
                         span.mk-ico { (icon(k.icon)) }
-                        div.mk-title { h2 { (k.name) } p { (k.tagline) } }
-                        @if on { (pill("ok", Some("circle-check"), "Activado")) }
+                        div.mk-title {
+                            h2 { (k.name) }
+                            p { (k.tagline) }
+                            p.mk-ver {
+                                @if let (Some(c), Some(n)) = (&cur, &next) { (c) " → " b { "v" (n) } }
+                                @else if let Some(c) = &cur { (c) }
+                                @else if let Some(o) = &off { "v" (o.version) }
+                                @if let Some(o) = off.as_ref().filter(|o| !fits(o) && cur.as_deref().is_none_or(|c| semver(&o.version) > semver(c))) {
+                                    span.mk-needs { " · v" (o.version) " necesita Nido v" (o.min) }
+                                }
+                            }
+                        }
+                        @if next.is_some() { (pill("warn", Some("refresh-cw"), "Nueva versión")) }
+                        @else if on { (pill("ok", Some("circle-check"), "Activado")) }
                         @else if has { (pill("", None, "Instalado")) }
                         @else { (pill("", Some("download"), k.size)) }
                     }
@@ -621,18 +762,24 @@ pub fn marketplace(v: &View) -> Markup {
                     ul.mk-feats { @for f in k.features { li { (icon("check")) (f) } } }
                     div.mk-foot {
                         div.mk-actions {
+                            @if let Some(n) = &next {
+                                form.inline method="post" action={ "/plugins/" (k.id) } {
+                                    (v.ctx()) input type="hidden" name="action" value="update";
+                                    button.btn.outline.sm { (icon("refresh-cw")) "Actualizar a v" (n) }
+                                }
+                            }
                             @if on {
                                 a.btn.primary.sm href=(v.link(k.id)) { "Abrir" (icon("arrow-right")) }
-                                form.inline method="post" action={ "/plugins/" (k.id) "/toggle" } { (v.ctx()) button.btn.ghost.sm { "Desactivar" } }
+                                form.inline method="post" action={ "/plugins/" (k.id) } { (v.ctx()) input type="hidden" name="action" value="toggle"; button.btn.ghost.sm { "Desactivar" } }
                             } @else if has {
-                                form.inline method="post" action={ "/plugins/" (k.id) "/uninstall" } { (v.ctx()) button.btn.ghost.sm { "Desinstalar" } }
-                                form.inline method="post" action={ "/plugins/" (k.id) "/toggle" } {
-                                    (v.ctx()) input type="hidden" name="on" value="1";
+                                form.inline method="post" action={ "/plugins/" (k.id) } { (v.ctx()) input type="hidden" name="action" value="uninstall"; button.btn.ghost.sm { "Desinstalar" } }
+                                form.inline method="post" action={ "/plugins/" (k.id) } {
+                                    (v.ctx()) input type="hidden" name="action" value="toggle"; input type="hidden" name="on" value="1";
                                     button.btn.primary.sm { (icon("plus")) "Activar" }
                                 }
                             } @else {
-                                form.inline method="post" action={ "/plugins/" (k.id) "/install" } {
-                                    (v.ctx())
+                                form.inline method="post" action={ "/plugins/" (k.id) } {
+                                    (v.ctx()) input type="hidden" name="action" value="install";
                                     button.btn.primary.sm { (icon("download")) "Instalar" }
                                 }
                             }
@@ -662,7 +809,16 @@ mod tests {
         crate::db::migrate(&c);
         // Switched on but not installed: nothing shows up.
         c.execute("INSERT INTO settings(key,value) VALUES('plugin:recipes','1')", []).unwrap();
-        std::env::set_var("NIDO_PLUGINS", std::env::temp_dir().join("nido-no-extras"));
+        std::env::set_var("NIDO_PLUGINS", std::env::temp_dir().join("nido-no-plugins"));
         assert!(enabled(&c).unwrap().is_empty());
+    }
+
+    #[test]
+    fn versions() {
+        assert!(semver("v0.10.0") > semver("0.9.12"));
+        assert_eq!(semver("v1.2"), (1, 2, 0));
+        let o = |min: &str| Offer { bin: "nido-x".into(), version: "0.2.0".into(), min: min.into() };
+        assert!(fits(&o("0.0.0")));
+        assert!(!fits(&o("99.0.0")));
     }
 }

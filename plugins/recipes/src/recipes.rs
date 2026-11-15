@@ -26,7 +26,7 @@ pub const FLASHES: &[(&str, &str)] = &[
     ("recipe_photos_removed", "Fotos del recetario quitadas"),
 ];
 
-const CSS: &str = include_str!("../style.css");
+const CSS: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 const JS: &str = include_str!("../editor.js");
 
 /// (name, icon, colour). The last one is the fallback.
@@ -84,7 +84,7 @@ fn js_url() -> String {
     let h = JS.bytes().fold(0xcbf29ce484222325u64, |h, b| {
         (h ^ b as u64).wrapping_mul(0x100000001b3)
     });
-    format!("/x/recipes/assets/editor.js?v={h:x}")
+    format!("/plugins/recipes/assets/editor.js?v={h:x}")
 }
 
 // ---------- data ----------
@@ -221,7 +221,7 @@ pub fn prepare(c: &Connection, core_db: Option<&str>) -> rusqlite::Result<()> {
     seed_catalog(c)
 }
 
-/// Before extras were programs of their own, Recetas lived inside nido.db. Its recipes move here
+/// Before plugins were programs of their own, Recetas lived inside nido.db. Its recipes move here
 /// the first time, if this database is still empty.
 fn import_from_core(c: &Connection, core: &str) -> rusqlite::Result<()> {
     let empty: bool = c.query_row("SELECT NOT EXISTS (SELECT 1 FROM recipes)", [], |r| {
@@ -616,7 +616,7 @@ fn view(c: &Connection, v: &View, p: &Params) -> rusqlite::Result<Markup> {
 fn cover(r: &Recipe, art: Markup) -> Markup {
     html! {
         @if r.photo > 0 {
-            img.rc-cover src={ "/x/recipes/" (r.id) "/photo?v=" (r.photo) } alt="" width="800" height="600" loading="lazy" decoding="async";
+            img.rc-cover src={ "/plugins/recipes/" (r.id) "/photo?v=" (r.photo) } alt="" width="800" height="600" loading="lazy" decoding="async";
         } @else {
             div.rc-cover.rc-art aria-hidden="true" { (art) }
         }
@@ -694,7 +694,7 @@ fn listing(
                 div.rc-welcome-actions {
                     a.btn.primary href=(url(v, "new=1")) { (icon("pencil")) "Escribir una receta" }
                     @if hidden > 0 {
-                        form method="post" action="/x/recipes/restore" { (v.ctx()) button.btn.outline { (icon("refresh-cw")) "Recuperar las del recetario" } }
+                        form method="post" action="/plugins/recipes/restore" { (v.ctx()) button.btn.outline { (icon("refresh-cw")) "Recuperar las del recetario" } }
                     }
                 }
             }
@@ -723,15 +723,15 @@ fn listing(
             div.rc-grid { @for r in &shown { (card(v, r, key(r), !matches(key(r), q))) } }
             div.rc-restore {
                 @if hidden > 0 {
-                    form method="post" action="/x/recipes/restore" {
+                    form method="post" action="/plugins/recipes/restore" {
                         (v.ctx())
                         button.btn.ghost.sm { (icon("refresh-cw")) "Recuperar " (hidden) " receta" @if hidden != 1 { "s" } " del recetario que borrasteis" }
                     }
                 }
                 @if photos.have > 0 && photos.running.is_none() {
-                    form method="post" action="/x/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="remove"; button.btn.ghost.sm { (icon("trash-2")) "Quitar las fotos del recetario" } }
+                    form method="post" action="/plugins/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="remove"; button.btn.ghost.sm { (icon("trash-2")) "Quitar las fotos del recetario" } }
                 } @else if photos.skipped && photos.missing > 0 {
-                    form method="post" action="/x/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="get"; button.btn.ghost.sm { (icon("image")) "Descargar las fotos del recetario" } }
+                    form method="post" action="/plugins/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="get"; button.btn.ghost.sm { (icon("image")) "Descargar las fotos del recetario" } }
                 }
             }
         }
@@ -777,11 +777,11 @@ fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
                         }
                     }
                     div.rc-actions {
-                        form.inline method="post" action={ "/x/recipes/" (r.id) "/favorite" } {
+                        form.inline method="post" action={ "/plugins/recipes/" (r.id) "/favorite" } {
                             (ctx)
                             button.btn.outline.sm.rc-heart.on[r.favorite] aria-pressed=(r.favorite) { (icon("heart")) @if r.favorite { "En favoritas" } @else { "Favorita" } }
                         }
-                        form.inline method="post" action={ "/x/recipes/" (r.id) "/cooked" } {
+                        form.inline method="post" action={ "/plugins/recipes/" (r.id) "/cooked" } {
                             (ctx)
                             button.btn.outline.sm { (icon("utensils")) "La hemos hecho hoy" }
                         }
@@ -874,7 +874,7 @@ fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
                     "Desaparece del recetario de toda la casa, con su foto."
                     @if r.source.starts_with("nido:") { " Si es del recetario de Nido, se puede recuperar desde la lista." } @else { " No se puede deshacer." }
                 }
-                form.dialog-actions method="post" action={ "/x/recipes/" (r.id) "/delete" } {
+                form.dialog-actions method="post" action={ "/plugins/recipes/" (r.id) "/delete" } {
                     (v.ctx())
                     a.btn.ghost href="#_" { "Cancelar" }
                     button.btn.destructive { "Borrar receta" }
@@ -889,11 +889,11 @@ fn detail(v: &View, r: &Recipe, serves: i64) -> Markup {
 fn editor(v: &View, r: Option<&Recipe>) -> Markup {
     let (action, back, back_label) = match r {
         Some(r) => (
-            format!("/x/recipes/{}", r.id),
+            format!("/plugins/recipes/{}", r.id),
             url(v, &format!("r={}", r.id)),
             "Volver a la receta",
         ),
-        None => ("/x/recipes/new".to_string(), v.link("recipes"), "Recetas"),
+        None => ("/plugins/recipes/new".to_string(), v.link("recipes"), "Recetas"),
     };
     let current = r.map_or("Otros", |r| r.category.as_str());
     let (_, ic, color) = cat(current);
@@ -906,7 +906,7 @@ fn editor(v: &View, r: Option<&Recipe>) -> Markup {
             (v.ctx())
             div.rc-ed-cover {
                 @match r {
-                    Some(r) if photo => img.rc-cover src={ "/x/recipes/" (r.id) "/photo?v=" (r.photo) } alt="";
+                    Some(r) if photo => img.rc-cover src={ "/plugins/recipes/" (r.id) "/photo?v=" (r.photo) } alt="";
                     _ => div.rc-cover.rc-art aria-hidden="true" { (icon(ic)) }
                 }
                 div.rc-ed-cover-actions {
@@ -975,7 +975,7 @@ fn import_modal(v: &View) -> Markup {
                     a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
                 }
                 p { "Pega el enlace de una receta de cualquier web: se guarda con su foto, sus ingredientes y sus pasos, y después es vuestra para editarla." }
-                form.form method="post" action="/x/recipes/import" accept-charset="utf-8" {
+                form.form method="post" action="/plugins/recipes/import" accept-charset="utf-8" {
                     (v.ctx())
                     div.field {
                         label for="imp-q" { "Enlace de la receta" }
@@ -1301,8 +1301,8 @@ fn photo_banner(v: &View, p: &PhotoState) -> Markup {
                 span.rc-banner-ico { (icon("cloud-off")) }
                 div.rc-banner-txt { b { "No se han podido descargar las fotos" } small { "Revisa que Nido tenga internet y vuelve a intentarlo." } }
                 div.rc-banner-actions {
-                    form method="post" action="/x/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="skip"; button.btn.ghost.sm { "Ahora no" } }
-                    form method="post" action="/x/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="get"; button.btn.primary.sm { (icon("refresh-cw")) "Reintentar" } }
+                    form method="post" action="/plugins/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="skip"; button.btn.ghost.sm { "Ahora no" } }
+                    form method="post" action="/plugins/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="get"; button.btn.primary.sm { (icon("refresh-cw")) "Reintentar" } }
                 }
             }
         } @else if p.missing > 0 && !p.skipped {
@@ -1314,8 +1314,8 @@ fn photo_banner(v: &View, p: &PhotoState) -> Markup {
                     small { (p.missing) " fotos, unos " (tenths / 10) "," (tenths % 10) " MB. Se descargan una vez y se guardan en Nido." }
                 }
                 div.rc-banner-actions {
-                    form method="post" action="/x/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="skip"; button.btn.ghost.sm { "Ahora no" } }
-                    form method="post" action="/x/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="get"; button.btn.primary.sm { (icon("download")) "Descargar fotos" } }
+                    form method="post" action="/plugins/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="skip"; button.btn.ghost.sm { "Ahora no" } }
+                    form method="post" action="/plugins/recipes/photos" { (v.ctx()) input type="hidden" name="do" value="get"; button.btn.primary.sm { (icon("download")) "Descargar fotos" } }
                 }
             }
         }

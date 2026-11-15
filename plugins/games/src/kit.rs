@@ -1,4 +1,4 @@
-//! The pieces of Nido's look this extra uses (same markup and classes as Nido's own helpers).
+//! The pieces of Nido's look this plugin uses (same markup and classes as Nido's own helpers).
 use maud::{html, Markup, PreEscaped};
 
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));

@@ -1,10 +1,10 @@
-//! nido-recipes: the "Recetas" extra of Nido, as a program of its own.
+//! nido-recipes: the "Recetas" plugin of Nido, as a program of its own.
 //!
-//! Nido starts it when the house activates the extra, and talks to it over HTTP on 127.0.0.1
+//! Nido starts it when the house activates the plugin, and talks to it over HTTP on 127.0.0.1
 //! (see plugins/README.md): `GET /page` returns the HTML for the content area, and every
-//! `/x/recipes/<path>` request from the browser reaches this program as `/<path>`. Nido checks the
+//! `/plugins/recipes/<path>` request from the browser reaches this program as `/<path>`. Nido checks the
 //! session first and says who is asking in `X-Nido-*` headers. The recipes live in their own
-//! database (`recipes.db`), so the core never carries a byte of this extra.
+//! database (`recipes.db`), so the core never carries a byte of this plugin.
 use axum::{
     extract::{Query, Request, State},
     http::{header, HeaderMap, StatusCode},
@@ -157,7 +157,7 @@ async fn main() {
     }
     let env = |k: &str, default: &str| std::env::var(k).unwrap_or_else(|_| default.to_string());
     let key = std::env::var("NIDO_PLUGIN_KEY").unwrap_or_else(|_| {
-        eprintln!("nido-recipes lo arranca Nido (Extras); falta NIDO_PLUGIN_KEY");
+        eprintln!("nido-recipes lo arranca Nido (Plugins); falta NIDO_PLUGIN_KEY");
         std::process::exit(2);
     });
     let conn =

@@ -1,8 +1,11 @@
 [package]
 name = "nido-games"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Juegos, un extra de Nido que va en su propio programa"
+description = "Juegos, un plugin de Nido que va en su propio programa"
+
+[package.metadata.nido]
+min = "0.18.0"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws"] }

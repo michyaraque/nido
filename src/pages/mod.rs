@@ -165,7 +165,7 @@ pub struct View {
     pub yesterday: String,
     pub ndays: i64,
     pub host: String,
-    pub plugins: Vec<&'static plugins::Known>, // extras installed and switched on in this house
+    pub plugins: Vec<&'static plugins::Known>, // plugins installed and switched on in this house
 }
 
 impl View {
@@ -607,7 +607,7 @@ impl View {
         html! {
             div.page-head {
                 div { h1 { (title) } p { (sub) } }
-                @if !matches!(self.t, "shopping" | "settings" | "household" | "extras") && self.plugin().is_none() { (self.month_nav()) }
+                @if !matches!(self.t, "shopping" | "settings" | "household" | "plugins") && self.plugin().is_none() { (self.month_nav()) }
             }
         }
     }
@@ -624,7 +624,7 @@ impl View {
         }
     }
 
-    /// The extra whose page is on screen, if it is installed and switched on.
+    /// The plugin whose page is on screen, if it is installed and switched on.
     pub fn plugin(&self) -> Option<&'static plugins::Known> {
         self.plugins.iter().copied().find(|p| p.id == self.t)
     }
@@ -668,11 +668,11 @@ impl View {
                             @for &(id, label, ic) in tabs { (self.side_link(id, label, ic)) }
                         }
                     }
-                    // Always there: the marketplace, then the extras the house switched on.
-                    nav.side-nav aria-label="Extras" {
-                        span.side-label { "Extras" }
+                    // Always there: the marketplace, then the plugins the house switched on.
+                    nav.side-nav aria-label="Plugins" {
+                        span.side-label { "Plugins" }
                         @for p in &self.plugins { (self.side_link(p.id, p.name, p.icon)) }
-                        (self.side_link("extras", "Explorar extras", "puzzle"))
+                        (self.side_link("plugins", "Explorar plugins", "puzzle"))
                     }
                     nav.side-nav.side-bottom aria-label="Ajustes" { @let (id, label, ic) = TABS[5]; (self.side_link(id, label, ic)) }
                     div.side-user {
@@ -687,7 +687,7 @@ impl View {
                         @for p in &self.plugins {
                             a.icon-btn.mtop-plug.on[p.id == self.t] href=(self.link(p.id)) aria-label=(p.name) title=(p.name) { (icon(p.icon)) }
                         }
-                        a.icon-btn.mtop-plug.on[self.t == "extras"] href=(self.link("extras")) aria-label="Extras" title="Extras" { (icon("puzzle")) }
+                        a.icon-btn.mtop-plug.on[self.t == "plugins"] href=(self.link("plugins")) aria-label="Plugins" title="Plugins" { (icon("puzzle")) }
                         a.mtop-me href=(self.link("settings")) aria-label="Ajustes" { (self.avatars()) span.mtop-gear { (icon("settings")) } }
                     }
                     (content)
@@ -795,7 +795,7 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
         }
         v
     };
-    // An extra's page comes from its own program; the database is not locked meanwhile.
+    // A plugin's page comes from its own program; the database is not locked meanwhile.
     let plugin = match v.plugin() {
         Some(p) => {
             let people = plugins::people(&v.users.iter().map(|u| (u.id, u.name.as_str(), u.color.as_str(), u.photo)).collect::<Vec<_>>());
@@ -806,7 +806,7 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
 
     let title = match &plugin {
         Some((p, _)) => format!("{} · Nido", p.name),
-        None if v.t == "extras" => "Extras · Nido".to_string(),
+        None if v.t == "plugins" => "Plugins · Nido".to_string(),
         None => format!("{} {} · Nido", v.month_name(), v.year()),
     };
     let content = if let Some((_, page)) = plugin { page } else { match v.t {
@@ -814,7 +814,7 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
         "expenses" => expenses::render(&v),
         "settings" => settings::render(&v),
         "household" => settings::render_house(&v),
-        "extras" => plugins::marketplace(&v),
+        "plugins" => plugins::marketplace(&v),
         "shopping" => shopping::render(&v),
         "tasks" => tasks::render(&v),
         _ => home::render(&v),

@@ -63,7 +63,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-zigbuild
-      # The core and every extra (plugins/*/), each its own static binary: nido-<arch>, nido-<name>-<arch>.
+      # The core and every plugin (plugins/*/), each its own static binary: nido-<arch>, nido-<name>-<arch>.
       - env:
           NIDO_REPO: ${{ github.repository }}
         run: |
@@ -82,10 +82,28 @@ jobs:
     needs: [version, test, build]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      # Each plugin's own version and the oldest Nido it works with, for the Plugins page.
+      - run: |
+          {
+            echo "["
+            sep=""
+            for m in plugins/*/Cargo.toml; do
+              bin=$(sed -n 's/^name = "\(.*\)"/\1/p' "$m" | head -1)
+              ver=$(sed -n 's/^version = "\(.*\)"/\1/p' "$m" | head -1)
+              min=$(sed -n '/^\[package.metadata.nido\]/,/^\[/s/^min = "\(.*\)"/\1/p' "$m" | head -1)
+              printf '%s  {"bin": "%s", "version": "%s", "min": "%s"}' "$sep" "$bin" "$ver" "${min:-0.0.0}"
+              sep=",
+          "
+            done
+            echo
+            echo "]"
+          } > dist/plugins.json
+          cat dist/plugins.json
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}

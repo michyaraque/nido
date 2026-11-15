@@ -1,7 +1,7 @@
-//! nido-games: the "Juegos" extra of Nido, as a program of its own (see plugins/README.md).
+//! nido-games: the "Juegos" plugin of Nido, as a program of its own (see plugins/README.md).
 //!
 //! Board games for the house: everyone plays from their own phone against the others or against
-//! a robot. Nido starts this program, forwards `/x/games/<path>` to it as `/<path>`, and asks
+//! a robot. Nido starts this program, forwards `/plugins/games/<path>` to it as `/<path>`, and asks
 //! `GET /page` for the content area. Matches and the ranking live in its own database.
 use axum::{
     extract::{Query, Request, State},
@@ -161,7 +161,7 @@ async fn main() {
     }
     let env = |k: &str, default: &str| std::env::var(k).unwrap_or_else(|_| default.to_string());
     let key = std::env::var("NIDO_PLUGIN_KEY").unwrap_or_else(|_| {
-        eprintln!("nido-games lo arranca Nido (Extras); falta NIDO_PLUGIN_KEY");
+        eprintln!("nido-games lo arranca Nido (Plugins); falta NIDO_PLUGIN_KEY");
         std::process::exit(2);
     });
     let conn = Connection::open(env("NIDO_PLUGIN_DB", "games.db")).expect("no se pudo abrir la base de datos");

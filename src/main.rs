@@ -54,7 +54,7 @@ use text::*;
 use tickets::*;
 use ui::*;
 
-const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
+pub const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
 
 fn create_user(c: &Connection, name: &str) {
     let mut pass = String::new();

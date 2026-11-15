@@ -255,7 +255,7 @@ pub async fn add_items(State(db): State<Db>, h: HeaderMap, F(f): F<ItemsF>) -> R
     back(&m, Some("shopping"), "items_added")
 }
 
-/// Several products at once, from an extra's page (Recetas → Compra). Fields `item` (repeated) and
+/// Several products at once, from a plugin's page (Recetas → Compra). Fields `item` (repeated) and
 /// `next`, the Nido page to go back to. Then the toast says they are on the list.
 pub async fn add_many(State(db): State<Db>, h: HeaderMap, F(pairs): F<Vec<(String, String)>>) -> R {
     let c = lock(&db);

@@ -8,7 +8,7 @@ pub fn tab(t: Option<&str>) -> &'static str {
         Some("tasks") => "tasks",
         Some("settings") => "settings",
         Some("household") => "household",
-        Some("extras") => "extras",
+        Some("plugins") => "plugins",
         Some(t) => crate::plugins::find(t).map_or("home", |p| p.id),
         None => "home",
     }
@@ -69,9 +69,10 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "tg_test" => "Mensaje de prueba enviado",
         "tg_unlinked" => "Ya no recibirás avisos en Telegram",
         "plugin_on" => "Activado: ya lo tienes en el menú",
-        "plugin_off" => "Extra desactivado: sus datos se guardan",
+        "plugin_off" => "Plugin desactivado: sus datos se guardan",
         "plugin_installed" => "Instalado y activado: ya lo tienes en el menú",
         "plugin_removed" => "Desinstalado: sus datos se guardan por si vuelve",
+        "plugin_updated" => "Actualizado a la versión de este Nido",
         _ => return crate::plugins::flash(code),
     })
 }

@@ -198,23 +198,23 @@ fn archive(db: &Db, pass: &str) -> Result<(PathBuf, String), String> {
         c.execute("VACUUM INTO ?1", [snap.to_string_lossy()]).map_err(|e| e.to_string())?;
         c.query_row("SELECT strftime('%Y%m%d-%H%M%S','now','localtime')", [], |r| r.get(0)).map_err(|e| e.to_string())?
     };
-    // Extras' databases too, each copied the same consistent way while their programs keep running.
+    // Plugins' databases too, each copied the same consistent way while their programs keep running.
     let mut parts = vec!["nido.db"];
     if let Ok(found) = std::fs::read_dir(crate::plugins::data()) {
-        std::fs::create_dir_all(work.join("extras")).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(work.join("plugins").join("data")).map_err(|e| e.to_string())?;
         for path in found.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "db")) {
-            let copy = work.join("extras").join(path.file_name().unwrap_or_default());
+            let copy = work.join("plugins").join("data").join(path.file_name().unwrap_or_default());
             let c = Connection::open(&path).map_err(|e| e.to_string())?;
             c.execute("VACUUM INTO ?1", [copy.to_string_lossy()]).map_err(|e| e.to_string())?;
         }
-        parts.push("extras");
+        parts.push("plugins");
     }
     let tgz = work.join("nido.tar.gz");
     let mut tar = Command::new("tar");
     tar.arg("-czf").arg(&tgz).arg("-C").arg(&work).args(&parts);
-    let extra: Vec<&str> = ["tickets", "avatars"].into_iter().filter(|d| dir.join(d).is_dir()).collect();
-    if !extra.is_empty() {
-        tar.arg("-C").arg(&dir).args(&extra);
+    let photos: Vec<&str> = ["tickets", "avatars"].into_iter().filter(|d| dir.join(d).is_dir()).collect();
+    if !photos.is_empty() {
+        tar.arg("-C").arg(&dir).args(&photos);
     }
     run(&mut tar)?;
     let name = format!("nido-{stamp}{SUFFIX}");
@@ -227,7 +227,7 @@ fn archive(db: &Db, pass: &str) -> Result<(PathBuf, String), String> {
         .env("NIDO_BACKUP_PASS", pass))?;
     let _ = std::fs::remove_file(&tgz);
     let _ = std::fs::remove_file(&snap);
-    let _ = std::fs::remove_dir_all(work.join("extras"));
+    let _ = std::fs::remove_dir_all(work.join("plugins"));
     Ok((out, name))
 }
 

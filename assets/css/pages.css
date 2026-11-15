@@ -2191,6 +2191,22 @@ form:has(input[name=received]:checked) .received-on {
   margin-top: 2px;
 }
 
+.mk-title .mk-ver {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-ver b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.mk-needs {
+  font-family: var(--sans, inherit);
+  color: var(--warn, var(--mute));
+}
+
 .mk-desc {
   font-size: 14px;
   line-height: 1.55;

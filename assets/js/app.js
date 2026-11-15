@@ -528,7 +528,7 @@ document.addEventListener("click", (e) => {
   setTimeout(() => target.querySelector("input:not([type=hidden]):not([type=file]),textarea")?.focus(), 60);
 }, true); // capture: runs before in-place navigation
 
-/* ---------- notices from extras (an invitation to a game…): asked while the app is open ---------- */
+/* ---------- notices from plugins (an invitation to a game…): asked while the app is open ---------- */
 
 let asking = false;
 async function notices() {

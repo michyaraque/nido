@@ -1,4 +1,4 @@
--- Recetas (extra). Its own database, recipes.db: Nido's database never holds a recipe.
+-- Recetas (plugin). Its own database, recipes.db: Nido's database never holds a recipe.
 CREATE TABLE IF NOT EXISTS recipes (
   id          INTEGER PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS recipe_steps (
 ) WITHOUT ROWID;
 
 -- Uploaded and imported photos, apart so listing recipes never reads image bytes. Inside the
--- database of the extra. Catalog photos land here too, only if the house downloads them.
+-- database of the plugin. Catalog photos land here too, only if the house downloads them.
 CREATE TABLE IF NOT EXISTS recipe_photos (
   recipe_id INTEGER PRIMARY KEY REFERENCES recipes(id) ON DELETE CASCADE,
   webp      BLOB NOT NULL
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS recipe_hidden (
   source TEXT PRIMARY KEY
 );
 
--- Small preferences of the extra (like "photos_skip": the house said no to the catalog photos).
+-- Small preferences of the plugin (like "photos_skip": the house said no to the catalog photos).
 CREATE TABLE IF NOT EXISTS recipe_settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL

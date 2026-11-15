@@ -1,4 +1,4 @@
-//! The few pieces of Nido's look this extra needs, so its page reads like the rest of Nido.
+//! The few pieces of Nido's look this plugin needs, so its page reads like the rest of Nido.
 //! They mirror Nido's own helpers (src/ui.rs, src/products.rs, src/merchants.rs): same markup,
 //! same CSS classes, styled by Nido's stylesheet that is already on the page.
 use maud::{html, Markup, PreEscaped};

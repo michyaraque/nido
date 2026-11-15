@@ -231,10 +231,10 @@ pub fn render_house(v: &View) -> Markup {
                     }))
                 }
             }))
-            (sec("extras", "Extras", html! { "Secciones opcionales para toda la casa." }, html! {
+            (sec("plugins", "Plugins", html! { "Secciones opcionales para toda la casa." }, html! {
                 div.card.set-card {
-                    (item("Explorar extras", "Actívalos o desactívalos desde su página. Al apagar uno, sus datos se guardan.", html! {
-                        a.btn.outline.sm href=(v.link("extras")) { (icon("puzzle")) "Abrir Extras" }
+                    (item("Explorar plugins", "Actívalos o desactívalos desde su página. Al apagar uno, sus datos se guardan.", html! {
+                        a.btn.outline.sm href=(v.link("plugins")) { (icon("puzzle")) "Abrir Plugins" }
                     }))
                 }
             }))

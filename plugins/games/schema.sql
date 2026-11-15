@@ -1,4 +1,4 @@
--- Juegos (extra). Its own database: Nido's database never holds a match.
+-- Juegos (plugin). Its own database: Nido's database never holds a match.
 CREATE TABLE IF NOT EXISTS matches (
   id         INTEGER PRIMARY KEY,
   game       TEXT NOT NULL,                     -- ttt | c4 | fleet | oca | parchis | colores

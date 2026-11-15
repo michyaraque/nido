@@ -253,7 +253,7 @@
     clearInterval(ping);
     if (!id || !("WebSocket" in window)) return;
     const month = new URL(location.href).searchParams.get("month") || "";
-    const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/x/games/ws?month=${encodeURIComponent(month)}`;
+    const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/plugins/games/ws?month=${encodeURIComponent(month)}`;
     const s = new WebSocket(url);
     s.binaryType = "arraybuffer";
     ws = s;

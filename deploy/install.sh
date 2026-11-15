@@ -17,7 +17,7 @@ apt-get install -y -qq curl jq openssl tar udisks2 avahi-daemon avahi-utils cadd
 echo "· Usuario y carpetas"
 id nido >/dev/null 2>&1 || useradd --system --home-dir /var/lib/nido --shell /usr/sbin/nologin nido
 mkdir -p /opt/nido /var/lib/nido/models /var/lib/nido/tickets /var/lib/nido/plugins /etc/nido
-# Extras: Nido downloads them here from Extras, so the folder is its own.
+# Plugins: Nido downloads them here from its Plugins page, so the folder is its own.
 chown nido:nido /var/lib/nido/plugins
 chown -R nido:nido /var/lib/nido
 
@@ -125,6 +125,12 @@ for f in nido.db nido.db-wal nido.db-shm tickets avatars; do
 done
 mv "$TMP/nido.db" /var/lib/nido/
 for d in tickets avatars; do [ -d "$TMP/$d" ] && mv "$TMP/$d" /var/lib/nido/; done
+# Plugin databases: plugins/data/ in current backups, extras/ in older ones.
+[ -d /var/lib/nido/plugins/data ] && mv /var/lib/nido/plugins/data /var/lib/nido.before-restore/plugins-data
+mkdir -p /var/lib/nido/plugins/data
+for d in "$TMP/plugins/data" "$TMP/extras"; do
+  [ -d "$d" ] && find "$d" -maxdepth 1 -type f -exec mv {} /var/lib/nido/plugins/data/ \;
+done
 chown -R nido:nido /var/lib/nido
 systemctl start nido
 echo "Copia recuperada. Lo que había antes está en /var/lib/nido.before-restore."
@@ -142,8 +148,9 @@ install -m 755 "$SRC/nido" /opt/nido/nido.new
 if [ -d "$SRC/models" ]; then
   install -m 644 -o nido -g nido "$SRC"/models/* /var/lib/nido/models/
 fi
-# Extras built at home (nido-<name>): the same place the marketplace downloads them to.
+# Plugins built at home (nido-<name>): the same place the marketplace downloads them to.
 install -d -o nido -g nido /var/lib/nido/plugins
+chown nido:nido /var/lib/nido/plugins # Nido downloads and updates plugins here
 for p in "$SRC"/plugins/nido-*; do
   [ -f "$p" ] || continue
   chmod 755 "$p" # copied from Windows it arrives without the execute bit

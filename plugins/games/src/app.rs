@@ -10,7 +10,7 @@ use axum::{
 
 pub const FLASHES: &[(&str, &str)] = &[("game_started", "¡A jugar!"), ("game_left", "Has abandonado la partida")];
 
-const CSS: &str = include_str!("../style.css");
+const CSS: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 const JS: &str = include_str!("../app.js");
 const BOT: [&str; 3] = ["#64748b", "#a16207", "#0d9488"];
 const SPARE: [&str; 4] = ["#d97706", "#0891b2", "#db2777", "#17803d"];
@@ -57,7 +57,7 @@ async fn script() -> Response {
 
 fn js_url() -> String {
     let h = JS.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
-    format!("/x/games/assets/app.js?v={h:x}")
+    format!("/plugins/games/assets/app.js?v={h:x}")
 }
 
 // ---------- robots, at a human pace ----------
@@ -620,7 +620,7 @@ fn new_match(v: &View, g: &Info) -> Markup {
                 span.gm-game-art.big { (icon(g.icon)) }
                 div { h1 { (g.name) } p { (g.blurb) } p.gm-game-meta { span { (icon("users")) (players_label(g)) } span { (icon("clock")) (g.minutes) } } }
             }
-            form.form method="post" action="/x/games/new" {
+            form.form method="post" action="/plugins/games/new" {
                 (v.ctx())
                 input type="hidden" name="game" value=(g.id);
                 div.field {
@@ -681,7 +681,7 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
         .prepare_cached("SELECT seat, emoji FROM reactions WHERE match_id=?1 AND at > strftime('%s','now') - 8 ORDER BY at")?
         .query_map([m.id], |r| Ok((r.get::<_, i64>(0)? as usize, r.get(1)?)))?
         .collect::<Result<_, _>>()?;
-    let action = |what: &str| format!("/x/games/m/{}/{what}", m.id);
+    let action = |what: &str| format!("/plugins/games/m/{}/{what}", m.id);
     let my_turn = !m.done && me == Some(m.turn);
     html_ok(html! {
         div #gm-live data-id=(m.id) data-v=(m.version) data-game=(m.game) data-sfx=(sfx(&m.game, log.last().map(|l| l.1.as_str())))
