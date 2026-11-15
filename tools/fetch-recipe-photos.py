@@ -1,4 +1,4 @@
-"""Photos for the catalog of the Recetas extra (plugins/recipes/catalog) from Wikimedia Commons.
+"""Photos for the catalog of the Recetas plugin (plugins/recipes/catalog) from Wikimedia Commons.
 
 For each recipe: the lead image of its Spanish Wikipedia article (or a hand-picked Commons file in
 PICK), only if its licence is free (CC BY, CC BY-SA, CC0, public domain). Saved as a small WebP

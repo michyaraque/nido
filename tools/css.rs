@@ -1,4 +1,4 @@
-// CSS minifier shared by the build scripts of Nido and its extras (`include!`d, no crate): the
+// CSS minifier shared by the build scripts of Nido and its plugins (`include!`d, no crate): the
 // stylesheets stay readable in the repository and ship compact. It drops comments, collapses
 // whitespace, removes it around `{ } ; ,` and after `:`, and drops the last `;` of a block.
 // Strings keep their spaces, and so do `( )` except next to commas (`calc(100% + 8px)` needs them).

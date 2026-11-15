@@ -2125,7 +2125,7 @@ form:has(input[name=received]:checked) .received-on {
   border-top: 1px solid var(--line);
 }
 
-/* Extras: the marketplace of built-in plugins */
+/* Plugins: the marketplace */
 .mk-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
