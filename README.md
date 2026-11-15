@@ -171,7 +171,7 @@ Los plugins son funciones opcionales que se instalan desde Plugins, en el menú.
 | Plugin | Descripción |
 |---|---|
 | Recetas | Recetario con 134 recetas, importación desde webs, editor por bloques, ajuste de raciones y envío de ingredientes a la lista de la compra. |
-| Juegos | Nueve juegos de mesa (parchís, oca, dominó, Memory…) para jugar entre los de casa, cada uno desde su móvil, o contra el ordenador. Ranking por juego. |
+| Juegos | Nueve juegos de mesa (parchís, oca, dominó, memoria…) para jugar entre los de casa, cada uno desde su móvil, o contra el ordenador. Ranking por juego. |
 | Domótica | Control local de enchufes, bombillas e interruptores Tuya (Smart Life, Gosund, Teckin, Woox, Lidl…) y de mandos infrarrojos Broadlink. Consumo eléctrico por aparato, escenas y programación horaria. |
 
 Detalles de Domótica:
