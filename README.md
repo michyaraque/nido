@@ -1,302 +1,291 @@
 # Nido
 
-**Lo de casa, en orden.** Cuentas comunes repartidas por sueldo, gastos del día a día, lista de la compra, tareas de casa con su calendario, tickets que se leen solos con una foto y avisos por Telegram. Todo en una Raspberry Pi de tu casa, para una persona o para toda la familia.
+Aplicación web para gestionar una casa desde una Raspberry Pi: cuentas comunes repartidas por sueldo, gastos, lista de la compra, tareas domésticas con calendario, lectura de tickets por foto y avisos por Telegram. Funciona para una persona o para varias, sin servicios en la nube.
 
 ![Nido en el ordenador y en el móvil](docs/screenshot.webp)
 
-## Hecho para gastar casi nada
+## Funciones
 
-Nido está pensado para vivir años en una Raspberry Pi sin que se note. Funciona hasta en una Pi Zero con 512 MB. Estas son las cifras en una Pi 3 B+:
+| Sección | Qué incluye |
+|---|---|
+| Resumen | Saldo previsto, gasto diario disponible, cuentas del mes con vencimientos y reparto del sueldo. |
+| Casa | Cuentas comunes repartidas en proporción al sueldo de cada persona (o pagadas por una sola) y balance de quién debe a quién. |
+| Gastos | Gastos diarios con logo y categoría para más de 200 comercios españoles, comentarios, filtros por persona y gasto por categoría. |
+| Compra | Lista compartida con iconos por producto y sugerencias según lo que más se compra. |
+| Tareas | Tareas con icono, color y frecuencia, ordenadas por urgencia. Calendario para asignarlas a alguien o dejarlas libres, y marcador mensual. |
+| Ajustes | Por persona: foto, sueldo, avisos y atajo de iPhone. De la casa: permisos, bot de Telegram, copias de seguridad y cuentas mensuales. |
+
+Además:
+
+- PWA instalable desde el navegador. La navegación no recarga la página y todo funciona también sin JavaScript.
+- Modo sin conexión: fuera de casa abre con los últimos datos vistos y guarda los cambios en el móvil; al volver a la red de casa los envía en orden.
+- Lectura de tickets: a partir de una foto obtiene comercio, fecha, total y líneas de producto. El resultado se revisa antes de guardarlo como gasto.
+- Avisos por Telegram: tareas asignadas, recordatorio diario con botón para marcarlas como hechas y resumen semanal.
+- Atajo de iPhone para registrar automáticamente cada pago con Apple Pay.
+- Copias de seguridad diarias cifradas a un disco USB, a almacenamiento compatible con S3 o a un servidor WebDAV.
+- Plugins: funciones opcionales que se instalan desde el menú (ver [Plugins](#plugins)).
+
+Ningún dato sale de la Raspberry salvo los avisos de Telegram, las copias cifradas y las peticiones que haga un plugin, si se usan. No hay cuentas en la nube, anuncios ni analítica.
+
+## Requisitos
+
+Cualquier Raspberry Pi con Raspberry Pi OS. El modelo solo influye en el tiempo de lectura de tickets; el resto de la aplicación responde igual en todos.
+
+Consumo medido en una Pi 3 B+:
 
 | | |
 |---|---|
-| **RAM en reposo** | **~7 MB**. Un navegador con una pestaña abierta gasta 20 veces más. |
-| **Programa** | Un único binario estático de ~8 MB. Lleva dentro los logos, los iconos, las fuentes, los estilos y el lector de tickets. |
-| **Cada página** | Unos 10 ms en la Pi. HTML generado en el servidor, sin frameworks ni JavaScript pesado. |
-| **Leer un ticket** | 4–5 s y ~100 MB solo mientras lee. Después la memoria vuelve a su sitio. |
-| **Fotos de tickets** | ~150 KB cada una (WebP en escala de grises), legibles al 100 %. |
-| **Dependencias en la Pi** | Ninguna para Nido. Caddy (HTTPS) y avahi (`nido.local`) los instala el instalador. |
+| RAM en reposo | ~7 MB, más ~40 MB de Caddy (HTTPS) |
+| RAM leyendo un ticket | ~100 MB adicionales, que se liberan al terminar |
+| Binario | ~8 MB, estático; incluye logos, iconos, fuentes, estilos y el lector de tickets |
+| Tiempo por página | ~10 ms |
+| Foto de ticket | ~150 KB (WebP en escala de grises) |
 
-Cómo se consigue:
-- Rust compilado con LTO.
-- Una sola conexión SQLite en modo WAL.
-- Plantillas compiladas (maud) y ningún runtime de JavaScript en el servidor.
-- El modelo de OCR solo se carga cuando llega la primera foto.
+Tiempo de lectura de un ticket por modelo:
 
-## ¿Qué Raspberry Pi sirve?
-
-Cualquiera, desde la primera Raspberry Pi. Lo único que cambia de un modelo a otro es lo que tarda en leer un ticket. Las páginas, las cuentas, la compra y las tareas van igual de rápido en todas.
-
-**Memoria que necesita Nido con todo:**
-- ~7 MB en reposo;
-- ~40 MB de Caddy, que da el HTTPS;
-- ~100 MB más, solo mientras lee un ticket.
-
-Con 512 MB sobra.
-
-| Modelo | Sistema | Versión de Nido | Leer un ticket |
+| Modelo | Sistema | Binario | Lectura |
 |---|---|---|---|
 | Pi 5, Pi 4, Pi 400, CM4 | 64 bits | `aarch64` | 1–3 s (estimado) |
-| Pi 3 B, 3 B+, 3 A+ | 64 bits | `aarch64` | **4–5 s** (medido en una 3 B+) |
+| Pi 3 B, 3 B+, 3 A+ | 64 bits | `aarch64` | 4–5 s (medido en 3 B+) |
 | Pi Zero 2 W | 64 bits | `aarch64` | 6–8 s (estimado) |
-| Pi 2, o cualquiera con sistema de 32 bits | 32 bits | `armv7` | ~15 s en una 3 B+ (medido); más en una Pi 2 |
-| Pi 1, Pi Zero, Pi Zero W | 32 bits | `armv6` | un minuto o más (estimado): tienen un solo núcleo |
+| Pi 2 o cualquier modelo con sistema de 32 bits | 32 bits | `armv7` | ~15 s en 3 B+ (medido) |
+| Pi 1, Pi Zero, Pi Zero W | 32 bits | `armv6` | más de un minuto (estimado) |
 
-El instalador elige la versión correcta solo. Consejos:
+El instalador elige el binario adecuado. Recomendaciones:
 
-- **Si tu Pi admite 64 bits** (de la 3 en adelante y la Zero 2 W), instala Raspberry Pi OS **(64-bit)**. El lector de tickets va unas 3 veces más rápido que con el sistema de 32 bits en la misma placa.
-- **Con 512 MB o menos** (Zero, Zero 2 W, 3 A+, Pi 1), usa la versión **Lite**, sin escritorio. El escritorio solo ya gasta más que Nido entero.
-- **Pi 1, Zero y Zero W:**
-  - La versión `armv6` está comprobada: solo usa instrucciones de esas placas y funciona en una 3 B+ en modo de 32 bits. Pero no se ha probado en esas placas en sí.
-  - Todo va bien salvo la lectura de tickets, que es lenta. Mientras lee puedes seguir usando Nido, y si no la usas no se nota.
-  - La Pi 1 y la Zero sin W no tienen wifi: necesitan cable o un adaptador.
-- **Tarjeta SD:** con 8 GB sobra. Nido y los modelos ocupan menos de 20 MB, y cada ticket unos 150 KB.
-
-## Qué hace
-
-| Sección | |
-|---|---|
-| **Resumen** | Saldo previsto, cuánto puedes gastar al día, las cuentas del mes con avisos de vencimiento y en qué se va tu sueldo. |
-| **Casa** | Las cuentas comunes repartidas según el sueldo de cada uno (o pagadas enteras por alguien) y quién debe a quién. |
-| **Gastos** | Gastos del día a día con el logo y la categoría de más de 200 comercios españoles, comentario opcional, filtros por persona y gasto por categoría. Escaneo de tickets. |
-| **Compra** | Lista compartida con iconos por producto y sugerencias con lo que más compráis. |
-| **Tareas** | Tareas de casa con icono, color y frecuencia, ordenadas por urgencia. Calendario para planificarlas para alguien o libres («La cojo»), y marcador del mes. |
-| **Ajustes** | *Mis ajustes*: foto, sueldo, avisos de Telegram, Atajo de iPhone y uso sin conexión. *La casa*: quién ve qué, el bot de Telegram, las copias de seguridad y las cuentas mensuales. |
-
-**Además:**
-- **App en el móvil (PWA):** se instala desde el navegador. Las páginas cambian sin recargarse, y sin JavaScript todo sigue funcionando.
-- **Sin conexión:** fuera de casa, Nido abre con lo último que viste y guarda en el móvil lo que apuntes. Al volver a la wifi de casa lo envía solo, en orden.
-- **Tickets:** una foto y Nido lee el comercio, la fecha, el total y cada producto. Lo revisas y se guarda como gasto. Todos en casa pueden verlo; solo quien lo subió lo edita.
-- **Avisos por Telegram:**
-  - cuando alguien te planifica una tarea;
-  - lo pendiente cada día a la hora que elijáis, con un botón «Hecha» en el propio mensaje;
-  - un resumen de la semana los domingos.
-- **Atajo de iPhone:** cada pago con Apple Pay se apunta solo.
-- **Copias de seguridad cifradas:** cada día, a un disco USB, a la nube (S3: Cloudflare R2, Backblaze B2…) o a un NAS por WebDAV. Se recuperan con un comando.
-- **Extras:** funciones opcionales que se instalan desde *Extras* en el menú. Cada una es un programa aparte con su propia base de datos, así que Nido no pesa más hasta que instalas una; si la quitas, sus datos se guardan. Cómo se hace un extra: [plugins/README.md](plugins/README.md).
-- **Privado:** nada sale de casa salvo los avisos de Telegram, las copias cifradas y lo que pidáis a un extra, si los usáis. Sin cuentas en la nube, sin anuncios y sin analítica.
-
-## Tecnologías
-
-| Parte | Qué se usa |
-|---|---|
-| Servidor | [Rust](https://www.rust-lang.org), [axum](https://github.com/tokio-rs/axum) y [tokio](https://tokio.rs) (un solo hilo) |
-| Base de datos | [SQLite](https://sqlite.org) (WAL) con [rusqlite](https://github.com/rusqlite/rusqlite), incluida en el binario |
-| Páginas | HTML generado en el servidor con [maud](https://maud.lambda.xyz), CSS propio y ~15 KB de JavaScript sin dependencias |
-| Iconos y fuentes | [Lucide](https://lucide.dev), Inter y Bricolage Grotesque, servidos desde el binario |
-| Lector de tickets | Modelos PP-OCRv6 Tiny de [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) ejecutados con [rten](https://github.com/robertknight/rten), en Rust puro |
-| Imágenes | [image](https://github.com/image-rs/image) y libwebp ([webp](https://github.com/jaredforth/webp)) |
-| Contraseñas | [argon2](https://github.com/RustCrypto/password-hashes) |
-| Sin conexión | Service worker, IndexedDB y caché del navegador |
-| HTTPS | [Caddy](https://caddyserver.com) con una autoridad de certificación propia de la casa |
-| Nombre en la red | avahi (mDNS): `nido.local` sin tocar el router |
-| Copias de seguridad | Copia en caliente de SQLite, `tar` y `openssl` (AES-256), subidas con `curl` a S3 (firma AWS v4) o WebDAV |
-| Avisos | [Bot API de Telegram](https://core.telegram.org/bots/api) con widgets HTML, a través de `curl` |
-| Compilación | [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) para ARM de 64 y 32 bits (`aarch64`, `armv7`, `armv6`; musl, estático) y GitHub Actions para las versiones |
+- En modelos que admiten 64 bits (Pi 3 en adelante y Zero 2 W), usa Raspberry Pi OS (64-bit): la lectura de tickets es unas tres veces más rápida que con 32 bits en la misma placa.
+- Con 512 MB de RAM o menos, usa la versión Lite, sin escritorio.
+- El binario `armv6` está verificado en una Pi 3 B+ en modo de 32 bits, pero no en una Pi 1 o Pi Zero reales. La Pi 1 y la Zero sin W necesitan cable de red o adaptador wifi.
+- Una tarjeta de 8 GB es suficiente: la aplicación y los modelos ocupan menos de 20 MB.
 
 ## Instalación
 
-Necesitas una Raspberry Pi ([cualquier modelo](#qué-raspberry-pi-sirve)) con Raspberry Pi OS Lite, conectada a la red de casa y con SSH activado. Lo más fácil es prepararla con [Raspberry Pi Imager](https://www.raspberrypi.com/software/): ahí eliges la wifi, el usuario y activas SSH.
+Prepara la Raspberry Pi con Raspberry Pi OS Lite, conexión a la red de casa y SSH activado. [Raspberry Pi Imager](https://www.raspberrypi.com/software/) permite configurar la wifi, el usuario y SSH antes de grabar la tarjeta.
 
-### 1. Instalar Nido
+### 1. Instalar
 
-**Con las versiones de GitHub** (se actualiza sola en cada versión nueva):
+Desde las releases de GitHub (con actualización automática):
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/michyaraque/nido/master/deploy/install.sh
 sudo sh install.sh michyaraque/nido
 ```
 
-**Sin GitHub**: copia a una carpeta de la Pi el binario `nido` (de [Releases](../../releases) o compilado por ti), `deploy/install.sh` y, si la tienes, la carpeta `models/`. Después ejecuta `sudo sh install.sh` en esa carpeta.
+Sin GitHub: copia a una carpeta de la Pi el binario `nido` (de [Releases](../../releases) o compilado), `deploy/install.sh` y, opcionalmente, la carpeta `models/`, y ejecuta `sudo sh install.sh` en esa carpeta.
 
-El instalador:
-- crea el servicio `nido`;
-- descarga los modelos del lector de tickets (~6 MB);
-- configura Caddy para HTTPS;
-- anuncia `nido.local` en la red, sin cambiar el nombre de la Pi.
+El instalador crea el servicio `nido`, descarga los modelos del lector de tickets (~6 MB), configura Caddy para HTTPS y publica `nido.local` en la red mediante mDNS. Se puede volver a ejecutar en cualquier momento.
 
-Puedes volver a ejecutarlo cuando quieras.
-
-### 2. Crear las personas de la casa
-
-Una por persona; cada una elige su contraseña:
+### 2. Crear usuarios
 
 ```sh
 sudo nido-user Natalia
 sudo nido-user Michael
 ```
 
-El mismo comando cambia la contraseña de alguien que ya existe.
+El mismo comando cambia la contraseña de un usuario existente.
 
-### 3. Entrar
+### 3. Acceder
 
-Abre **http://nido.local** desde cualquier dispositivo de la wifi de casa. Si tu dispositivo no resuelve nombres `.local`, usa la IP de la Pi.
+Abre `http://nido.local` desde cualquier dispositivo de la red. Si el dispositivo no resuelve nombres `.local`, usa la IP de la Pi.
 
-### 4. App en el móvil y uso sin conexión (una vez por móvil)
+### 4. App en el móvil y modo sin conexión
 
-El móvil solo guarda la app para usarla sin conexión si llega por HTTPS. Nido usa un certificado propio de la casa, así que primero hay que instalarlo. Los pasos también están en Nido, en **Ajustes → Mis ajustes → Usar sin conexión**.
+El modo sin conexión requiere HTTPS. Nido usa una autoridad de certificación propia, que hay que instalar una vez en cada móvil. Los pasos también aparecen en Ajustes → Mis ajustes → Usar sin conexión.
 
-**iPhone:**
-1. En **Safari** (no desde Chrome ni desde un icono ya instalado), abre `http://nido.local/nido.crt` y pulsa *Permitir*.
-2. Ve a Ajustes → General → *VPN y gestión de dispositivos* → *Nido · certificado de casa* → Instalar.
-3. Ve a Ajustes → General → Información → *Ajustes de confianza de certificados* y activa *Nido · certificado de casa*.
-4. Abre `https://nido.local`, entra, y en Compartir elige *Añadir a pantalla de inicio*.
+iPhone:
 
-**Android:**
+1. En Safari, abre `http://nido.local/nido.crt` y pulsa Permitir.
+2. Ajustes → General → VPN y gestión de dispositivos → Nido · certificado de casa → Instalar.
+3. Ajustes → General → Información → Ajustes de confianza de certificados → activa Nido · certificado de casa.
+4. Abre `https://nido.local`, inicia sesión y usa Compartir → Añadir a pantalla de inicio.
+
+Android:
+
 1. Descarga `http://nido.local/nido.crt`.
-2. Ve a Ajustes → Seguridad → *Cifrado y credenciales* → *Instalar un certificado* → *Certificado de CA*.
-3. Abre `https://nido.local` en Chrome y, en el menú, elige *Instalar aplicación*.
+2. Ajustes → Seguridad → Cifrado y credenciales → Instalar un certificado → Certificado de CA.
+3. Abre `https://nido.local` en Chrome y elige Instalar aplicación en el menú.
 
-`http://nido.local` sigue funcionando sin certificado, pero sin el modo sin conexión.
+`http://nido.local` sigue funcionando sin certificado, pero sin modo sin conexión.
 
-### 5. Avisos por Telegram (opcional)
+### 5. Telegram (opcional)
 
-1. En Telegram, abre [@BotFather](https://t.me/BotFather), escribe `/newbot` y elige un nombre. Te dará un *token*.
-2. En Nido, en **Ajustes → La casa → Bot de Telegram**, pega el token. Ahí mismo eliges la hora del recordatorio diario (20:00 por defecto).
-3. Cada persona, en **Ajustes → Mis ajustes → Tus avisos**, pulsa *Vincular mi Telegram* y luego *Iniciar* en el chat del bot.
+1. Crea un bot con [@BotFather](https://t.me/BotFather) (`/newbot`) y copia el token.
+2. Pégalo en Ajustes → La casa → Bot de Telegram y elige la hora del recordatorio diario (20:00 por defecto).
+3. Cada persona vincula su cuenta en Ajustes → Mis ajustes → Tus avisos → Vincular mi Telegram.
 
-**Qué llega:**
-- un aviso cuando alguien te planifica una tarea, o deja una libre;
-- cada día a la hora elegida, lo que queda pendiente, con un botón *Hecha* para apuntarla sin abrir Nido;
-- los domingos, el resumen de la semana: tareas de cada uno, tus gastos y en qué.
+Se envían tres tipos de aviso: tareas asignadas o liberadas, el recordatorio diario de pendientes (con un botón para marcarlas como hechas) y el resumen semanal de los domingos.
 
-**Para probarlo:**
-- Escribe cualquier cosa al bot y te contestará con lo pendiente de hoy.
-- En la Pi, `sudo -u nido NIDO_DB=/var/lib/nido/nido.db /opt/nido/nido avisos <nombre>` envía ya el recordatorio y el resumen de esa persona.
+Para probarlo, escribe cualquier mensaje al bot o ejecuta en la Pi:
 
-**Seguridad:**
-- Solo reciben avisos los chats vinculados desde Nido.
-- Cada enlace de vinculación es personal y de un solo uso.
-- La Pi es la que llama a Telegram (una conexión de espera, *long polling*): no hay que abrir ningún puerto del router.
+```sh
+sudo -u nido NIDO_DB=/var/lib/nido/nido.db /opt/nido/nido avisos <nombre>
+```
+
+Solo reciben avisos los chats vinculados desde Nido, y cada enlace de vinculación es de un solo uso. La Pi consulta a Telegram mediante long polling, así que no hay que abrir puertos en el router.
 
 ### 6. Atajo de iPhone (opcional)
 
-Sirve para apuntar cada pago con Apple Pay sin abrir la app. En Atajos → Automatización → **Transacción**, elige tus tarjetas y marca *Ejecutar inmediatamente*. Añade la acción **Obtener contenido de URL**:
+Registra cada pago con Apple Pay. En Atajos → Automatización → Transacción, elige las tarjetas, marca Ejecutar inmediatamente y añade la acción Obtener contenido de URL:
 
 | Campo | Valor |
 |---|---|
 | URL | `http://nido.local/api/expenses` |
 | Método | `POST` |
-| Cabecera | `Authorization: Bearer <tu token>` (en Ajustes → Mis ajustes → Atajo de iPhone) |
-| Cuerpo JSON | `amount` = *Importe*, `description` = *Comercio* |
+| Cabecera | `Authorization: Bearer <token>` (Ajustes → Mis ajustes → Atajo de iPhone) |
+| Cuerpo JSON | `amount` = Importe, `description` = Comercio |
 
-Responde `201` con `{"id", "description", "merchant", "category", "amount_cents", "amount_display", "month"}`. Errores: `401 invalid_token`, `400 invalid_json` y `422 invalid_amount`.
+Respuesta: `201` con `{"id", "description", "merchant", "category", "amount_cents", "amount_display", "month"}`. Errores: `401 invalid_token`, `400 invalid_json`, `422 invalid_amount`. El iPhone debe estar en la red de casa en ese momento.
 
-El iPhone tiene que llegar a la Pi en ese momento, es decir, estar en la wifi de casa.
+### 7. Copias de seguridad
 
-### 7. Copias de seguridad (muy recomendable)
+Se configuran en Ajustes → La casa → Copias de seguridad:
 
-Las tarjetas SD acaban fallando. En **Ajustes → La casa → Copias de seguridad**:
+1. Define una contraseña para las copias y guárdala fuera de Nido. Sin ella no es posible restaurar ninguna copia.
+2. Añade uno o varios destinos. Cada uno conserva un número de copias (14 por defecto) y tiene un botón Probar que sube, lista y borra un archivo de prueba.
+3. Elige la hora de la copia diaria (4:00 por defecto). Hacer copia ahora la lanza en el momento.
 
-1. Elegid una **contraseña para las copias** y guardadla fuera de Nido, en un gestor de contraseñas o en papel. **Sin ella no se puede recuperar ninguna copia.**
-2. Añadid uno o varios **destinos**. Cada destino tiene su número de copias que guardar (14 por defecto) y un botón **Probar**, que sube, lista y borra un archivo de prueba.
-3. Elegid la hora (las 4:00 por defecto). Cada día, Nido hace la copia y la envía a todos los destinos. Con **Hacer copia ahora** se lanza en el momento.
-
-| Destino | Para qué | Qué pide |
+| Destino | Uso | Configuración |
 |---|---|---|
-| **Carpeta o disco USB** | Un disco conectado a la Pi | La ruta, dentro de `/media` o `/mnt`. Dad permiso a Nido con `sudo chown nido /media/usb/nido` |
-| **Compatible con S3** | En la nube: Cloudflare R2 y Backblaze B2 (gratis hasta 10 GB), Wasabi, AWS S3, Hetzner, MinIO… | Endpoint, bucket, región (`auto` en R2), access key y secret key |
-| **WebDAV** | Nextcloud, Synology, Owncloud o cualquier NAS con WebDAV | La dirección de la carpeta, el usuario y una contraseña de aplicación |
+| Carpeta o disco USB | Disco conectado a la Pi | Ruta dentro de `/media` o `/mnt`, con permisos para el usuario `nido` (`sudo chown nido /media/usb/nido`) |
+| Compatible con S3 | Cloudflare R2, Backblaze B2, Wasabi, AWS S3, Hetzner, MinIO… | Endpoint, bucket, región (`auto` en R2), access key y secret key |
+| WebDAV | Nextcloud, Synology, ownCloud u otro NAS | URL de la carpeta, usuario y contraseña de aplicación |
 
-**Qué se guarda:**
-- La base de datos, con una copia en caliente consistente sin parar Nido.
-- Las fotos de los tickets y las de perfil.
-- Todo comprimido y **cifrado en la Pi con AES-256** antes de salir.
+Cada copia incluye la base de datos (copia en caliente, sin detener el servicio), las fotos de tickets y de perfil, y las bases de datos de los plugins. Se comprime y se cifra con AES-256 en la Pi antes de enviarse. Si una copia falla, el destino muestra el error y, si Telegram está configurado, se envía un aviso.
 
-Cada copia ocupa poco: unos cientos de KB más ~150 KB por ticket. Si una copia falla, os llega un aviso por Telegram (si está activado) y el destino lo muestra en rojo con el motivo.
-
-**Recuperar una copia** (en la Pi, con la contraseña de las copias):
+Para restaurar:
 
 ```sh
 sudo nido-restore nido-20261113-040000.tar.gz.enc
 ```
 
-Para y vuelve a arrancar Nido. Lo que había antes se guarda en `/var/lib/nido.before-restore`.
-
-Las copias son archivos `openssl` normales, así que también se pueden abrir sin Nido:
+El servicio se detiene y se reinicia; los datos anteriores se guardan en `/var/lib/nido.before-restore`. Las copias son archivos `openssl` estándar y se pueden abrir sin Nido:
 
 ```sh
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in nido-….tar.gz.enc | tar -xz
 ```
 
+## Plugins
+
+Los plugins son funciones opcionales que se instalan desde Plugins, en el menú. Cada uno es un programa independiente con su propia base de datos: no ocupan memoria hasta que se activan y, al desinstalarlos, sus datos se conservan.
+
+| Plugin | Descripción |
+|---|---|
+| Recetas | Recetario con 134 recetas, importación desde webs, editor por bloques, ajuste de raciones y envío de ingredientes a la lista de la compra. |
+| Juegos | Siete juegos de mesa para jugar entre los de casa, cada uno desde su móvil, o contra el ordenador. Ranking por juego. |
+| Domótica | Control local de enchufes, bombillas e interruptores Tuya (Smart Life, Gosund, Teckin, Woox, Lidl…) y de mandos infrarrojos Broadlink. Consumo eléctrico por aparato, escenas y programación horaria. |
+
+Detalles de Domótica:
+
+- Los aparatos Tuya se controlan por la red local (protocolos 3.3, 3.4 y 3.5). Las claves locales se obtienen una vez con el inicio de sesión por QR de la app Smart Life o Tuya Smart, o con una cuenta de desarrollador de [iot.tuya.com](https://iot.tuya.com). La lista se sincroniza cada 15 minutos.
+- Los Broadlink (RM mini 3, RM4…) aprenden los botones de cualquier mando por infrarrojos. También se pueden añadir botones con su código NEC o con un código Broadlink en hex o base64.
+- El consumo se registra por horas para los aparatos con medidor, con histórico mensual, previsión y coste según el precio del kWh.
+- Las escenas combinan encender, apagar, pulsar botones de un mando, esperas y avisos, y se ejecutan a mano o a una hora en días concretos.
+
+La documentación para desarrollar plugins está en [plugins/README.md](plugins/README.md).
+
 ## Mantenimiento
 
-**Actualizar:**
-- **Con GitHub:** la Pi busca versiones nuevas cada 5 minutos y se actualiza sola.
-- **Sin GitHub:** copia el binario nuevo (y, si cambian, los modelos) a `~/nido-install` en la Pi y ejecuta `sudo nido-deploy`. El usuario que lanzó el instalador puede hacerlo sin contraseña.
-- **En los dos casos,** si la versión nueva no arranca, la Pi vuelve sola a la anterior.
+Actualización:
 
-**Datos:** todo está en `/var/lib/nido`: la base de datos `nido.db`, las fotos de los tickets y las de perfil. Para las copias, mirad el [paso 7](#7-copias-de-seguridad-muy-recomendable).
+- Con la instalación desde GitHub, la Pi comprueba si hay versiones nuevas cada 5 minutos y se actualiza sola.
+- Sin GitHub, copia el binario nuevo (y los modelos, si cambian) a `~/nido-install` y ejecuta `sudo nido-deploy`. El usuario que ejecutó el instalador puede hacerlo sin contraseña.
+- Si la versión nueva no arranca, se restaura la anterior automáticamente.
+- Los plugins no se actualizan solos. Cada uno tiene su propia versión y la mínima de Nido que necesita; la pantalla Plugins muestra la instalada y, si hay una nueva compatible, el botón para actualizar.
 
-**Registros:** `journalctl -u nido -f`.
+Los datos están en `/var/lib/nido`: `nido.db`, las fotos de tickets y de perfil, y `plugins/` con los plugins y sus bases de datos.
+
+Registros: `journalctl -u nido -f`.
 
 ## Desarrollo
 
-Necesitas Rust estable. Para compilar para la Pi, además, [Zig](https://ziglang.org) y `cargo install cargo-zigbuild`.
+Requiere Rust estable. Para compilar para la Pi, también [Zig](https://ziglang.org) y `cargo install cargo-zigbuild`.
 
 ```sh
 sh tools/fetch-models.sh              # modelos del lector de tickets en ./models (opcional)
 echo "1234" | cargo run -- user Natalia
 cargo run                             # http://localhost:8080
-cargo test
+cargo test --workspace
 
 cargo run --release -- ocr foto.jpg   # prueba el lector con una foto
-cargo zigbuild --release --target aarch64-unknown-linux-musl   # binario para la Pi (64 bits)
+cargo zigbuild --release --target aarch64-unknown-linux-musl
 ```
 
-| Variable | Por defecto | |
+| Variable | Por defecto | Descripción |
 |---|---|---|
 | `NIDO_DB` | `nido.db` | Base de datos. Las fotos se guardan junto a ella (`tickets/`, `avatars/`). |
-| `NIDO_ADDR` | `0.0.0.0:8080` | Dirección y puerto. En la Pi, `127.0.0.1:8080` detrás de Caddy. |
-| `NIDO_MODELS` | `models` | Carpeta con los modelos del lector de tickets. |
+| `NIDO_ADDR` | `0.0.0.0:8080` | Dirección de escucha. En la Pi, `127.0.0.1:8080` detrás de Caddy. |
+| `NIDO_MODELS` | `models` | Carpeta de los modelos del lector de tickets. |
+| `NIDO_PLUGINS` | `plugins/` junto a la base de datos | Carpeta de los binarios de los plugins. |
 
-| Comando | |
+| Comando | Descripción |
 |---|---|
-| `nido` | Arranca el servidor. |
-| `nido user <nombre>` | Crea una persona o cambia su contraseña (la lee de la entrada estándar). |
-| `nido ocr <foto>` | Lee un ticket y muestra lo que entiende, con tiempos. |
-| `nido avisos <nombre>` | Envía ya por Telegram el recordatorio y el resumen de esa persona. |
+| `nido` | Inicia el servidor. |
+| `nido user <nombre>` | Crea un usuario o cambia su contraseña (leída de la entrada estándar). |
+| `nido ocr <foto>` | Lee un ticket y muestra el resultado con tiempos. |
+| `nido avisos <nombre>` | Envía el recordatorio y el resumen de Telegram de esa persona. |
 
-**Publicar una versión:** sube `version` en `Cargo.toml` (por ejemplo, de `0.6.4` a `0.7.0`) y haz push a `master`. GitHub Actions compila las tres versiones para ARM y publica la versión `v0.7.0`, y las Pis con el instalador de GitHub se actualizan solas. Si el número no cambia, no se publica nada.
+Para publicar una versión, sube `version` en `Cargo.toml` y haz push a `master`. GitHub Actions compila los binarios para `aarch64`, `armv7` y `armv6`, incluidos los plugins, y publica la release. Si la versión no cambia, no se publica nada.
+
+Los estilos están en `assets/css/` (y en el `style.css` de cada plugin) en formato legible; `build.rs` los minifica al compilar con `tools/css.rs`.
+
+### Tecnologías
+
+| Parte | Tecnología |
+|---|---|
+| Servidor | [Rust](https://www.rust-lang.org), [axum](https://github.com/tokio-rs/axum), [tokio](https://tokio.rs) (un hilo) |
+| Base de datos | [SQLite](https://sqlite.org) en modo WAL con [rusqlite](https://github.com/rusqlite/rusqlite) |
+| Páginas | HTML generado en el servidor con [maud](https://maud.lambda.xyz), CSS propio y ~15 KB de JavaScript sin dependencias |
+| Iconos y fuentes | [Lucide](https://lucide.dev), Inter y Bricolage Grotesque |
+| Lector de tickets | PP-OCRv6 Tiny de [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) con [rten](https://github.com/robertknight/rten) |
+| Imágenes | [image](https://github.com/image-rs/image) y libwebp ([webp](https://github.com/jaredforth/webp)) |
+| Contraseñas | [argon2](https://github.com/RustCrypto/password-hashes) |
+| Sin conexión | Service worker, IndexedDB y Cache API |
+| HTTPS | [Caddy](https://caddyserver.com) con una autoridad de certificación local |
+| Red local | avahi (mDNS) para `nido.local` |
+| Copias de seguridad | Copia en caliente de SQLite, `tar` y `openssl` (AES-256), con subida por `curl` a S3 (firma AWS v4) o WebDAV |
+| Avisos | [Bot API de Telegram](https://core.telegram.org/bots/api) y Web Push (VAPID) |
+| Compilación | [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) (musl, estático) y GitHub Actions |
 
 ### Estructura
 
 ```
 src/
   main.rs          arranque, rutas y comandos
-  pages/           una pantalla por archivo: resumen, casa, gastos, compra, tareas, ajustes, ticket
+  pages/           una pantalla por archivo
   actions.rs       formularios
-  api.rs           API del Atajo de iPhone
-  chores.rs        tareas de casa y su calendario
-  notify.rs        avisos por Telegram (bot, recordatorio, resumen, botones «Hecha»)
-  backup.rs        copias de seguridad cifradas: disco, S3 y WebDAV
+  api.rs           API del atajo de iPhone
+  chores.rs        tareas y calendario
+  notify.rs        avisos por Telegram
+  push.rs          notificaciones Web Push
+  backup.rs        copias de seguridad: disco, S3 y WebDAV
   tickets.rs       subida y lectura de tickets en segundo plano
-  ocr.rs           lector de texto: detección, recorte y reconocimiento (PP-OCRv6 con rten)
-  receipt.rs       del texto del ticket a comercio, fecha, total y productos
-  merchants.rs     comercios españoles: nombre, logo y categoría
-  products.rs      icono de cada producto de la lista de la compra
-  profile.rs       fotos de perfil
-  auth.rs db.rs money.rs dates.rs text.rs ui.rs nav.rs assets.rs errors.rs
+  ocr.rs           detección y reconocimiento de texto (PP-OCRv6 con rten)
+  receipt.rs       extracción de comercio, fecha, total y productos
+  merchants.rs     comercios: nombre, logo y categoría
+  products.rs      iconos de productos de la lista de la compra
+  plugins/         catálogo, instalación y proxy de los plugins
 assets/
-  css/  fonts/  icons/  logos/  merchants.tsv
-  js/app.js        navegación sin recargas y cola de cambios sin conexión
-  js/sw.js         service worker: guarda páginas y archivos para abrir sin conexión
-  telegram/        widgets HTML de los avisos
+  css/ fonts/ icons/ logos/ merchants.tsv
+  js/app.js        navegación sin recarga y cola de cambios sin conexión
+  js/sw.js         service worker
+  telegram/        plantillas de los avisos
+plugins/           plugins: recipes, games, devices
 deploy/install.sh  instalador para la Raspberry Pi
-tools/             logos de comercios y modelos del lector
+tools/             minificador de CSS, logos de comercios y modelos del lector
 ```
 
 ### Añadir comercios
 
-1. Añade una línea a `assets/merchants.tsv` con la forma `slug|Nombre|dominio.es|categoría|palabras,clave`. Si una palabra clave debe coincidir con el texto completo, empiézala por `=` (por ejemplo `=dia`).
-2. Ejecuta `sh tools/fetch-logos.sh`. Descarga el icono de la marca y lo convierte a WebP; necesita Python con Pillow.
+1. Añade una línea a `assets/merchants.tsv` con el formato `slug|Nombre|dominio.es|categoría|palabras,clave`. Una palabra clave que empieza por `=` solo coincide con el texto completo (por ejemplo, `=dia`).
+2. Ejecuta `sh tools/fetch-logos.sh` para descargar el logo y convertirlo a WebP (requiere Python con Pillow).
 
 ## Licencia
 
 [MIT](LICENSE).
 
-**De terceros:**
+Componentes de terceros:
+
 - Iconos: [Lucide](https://lucide.dev) (ISC).
 - Fuentes: Inter y Bricolage Grotesque (SIL OFL 1.1).
-- Lector de tickets: modelos PP-OCRv6 de [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), publicados por [oar-ocr](https://github.com/GreatV/oar-ocr) (Apache-2.0) y ejecutados con [rten](https://github.com/robertknight/rten) (MIT/Apache-2.0). Los modelos se descargan al instalar.
-- Logos de comercios: pertenecen a sus marcas. Solo se usan para reconocer de un vistazo dónde fue cada gasto.
+- Lector de tickets: modelos PP-OCRv6 de [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), publicados por [oar-ocr](https://github.com/GreatV/oar-ocr) (Apache-2.0) y ejecutados con [rten](https://github.com/robertknight/rten) (MIT/Apache-2.0). Se descargan durante la instalación.
+- Logos de comercios y de apps: pertenecen a sus respectivas marcas y se usan solo para identificarlas.
