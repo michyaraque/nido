@@ -64,7 +64,7 @@ Prepara la Raspberry Pi con Raspberry Pi OS Lite, conexión a la red de casa y S
 
 ### 1. Instalar
 
-Desde las releases de GitHub (con actualización automática):
+Desde las releases de GitHub:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/michyaraque/nido/master/deploy/install.sh
@@ -187,7 +187,9 @@ La documentación para desarrollar plugins está en [plugins/README.md](plugins/
 
 Actualización:
 
-- Con la instalación desde GitHub, la Pi comprueba si hay versiones nuevas cada 5 minutos y se actualiza sola.
+- Nido no se actualiza solo. Cuando hay una versión nueva, el menú lateral muestra «Nido vX · Nueva» (en el móvil, un punto en el engranaje). Ajustes → La casa → Nido lleva a la misma pantalla, que enseña las novedades y los arreglos de esa versión.
+- Al pulsar Actualizar, Nido descarga la versión exacta para su placa, comprueba que arranca y guarda una copia de `nido.db` en `/var/lib/nido/update/`. Después, `nido-upgrade.path` (root) cambia el programa y reinicia Nido. La pantalla muestra cada paso mientras tanto.
+- En instalaciones anteriores a este actualizador, vuelve a ejecutar una vez `sudo sh install.sh` para instalarlo. Eso también quita la antigua actualización automática cada 5 minutos.
 - Sin GitHub, copia el binario nuevo (y los modelos, si cambian) a `~/nido-install` y ejecuta `sudo nido-deploy`. El usuario que ejecutó el instalador puede hacerlo sin contraseña.
 - Si la versión nueva no arranca, se restaura la anterior automáticamente.
 - Los plugins no se actualizan solos. Cada uno tiene su propia versión y la mínima de Nido que necesita; la pantalla Plugins muestra la instalada y, si hay una nueva compatible, el botón para actualizar.

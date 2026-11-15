@@ -412,6 +412,7 @@ function ready() {
   for (let d = target?.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
   if (target?.closest("details")) target.scrollIntoView({ block: "center" });
   sync();
+  updateWatch();
   clearTimeout(refreshTimer);
   // A backup in progress: say how it went once the page shows it finished.
   const copying = !!document.querySelector("#backups [data-refresh]");
@@ -424,6 +425,37 @@ function ready() {
   if (reading) refreshTimer = setTimeout(() => visit(location.href, {}, { keepScroll: true }), reading.dataset.refresh * 1000);
 }
 ready();
+
+/* ---------- updating Nido ----------
+   While it runs, the card is fetched again every moment. Nido restarts in the middle: failed
+   fetches mean it is coming back. Once it ends, a full reload brings the new version's files. */
+
+let updateTimer, updateDown = 0;
+function updateWatch() {
+  clearTimeout(updateTimer);
+  if (document.querySelector('[data-update="running"]')) updateTimer = setTimeout(updatePoll, 1500);
+}
+async function updatePoll() {
+  const box = document.querySelector('[data-update="running"]');
+  if (!box) return;
+  let next = null;
+  try {
+    const r = await fetch(location.href, { credentials: "same-origin", cache: "no-store" });
+    if (r.ok && !r.redirected) next = new DOMParser().parseFromString(await r.text(), "text/html").querySelector("[data-update]");
+    else if (r.redirected) return location.reload();
+  } catch {}
+  if (!next) {
+    updateDown++;
+    const say = box.querySelector(".upd-job-head span");
+    if (say) say.textContent = updateDown > 40 ? "Nido tarda en volver. Si no aparece en un par de minutos, mira la Raspberry." : "Nido se está reiniciando… Esta página se reconecta sola.";
+    updateTimer = setTimeout(updatePoll, 2000);
+    return;
+  }
+  updateDown = 0;
+  if (next.dataset.update !== "running") return location.reload();
+  box.replaceWith(next);
+  updateTimer = setTimeout(updatePoll, 1500);
+}
 
 /* ---------- concept suggestions ----------
    An input with data-concepts="<template id>" gets a list of past concepts (logo, name, category)

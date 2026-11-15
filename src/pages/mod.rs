@@ -607,7 +607,7 @@ impl View {
         html! {
             div.page-head {
                 div { h1 { (title) } p { (sub) } }
-                @if !matches!(self.t, "shopping" | "settings" | "household" | "plugins") && self.plugin().is_none() { (self.month_nav()) }
+                @if !matches!(self.t, "shopping" | "settings" | "household" | "plugins" | "update") && self.plugin().is_none() { (self.month_nav()) }
             }
         }
     }
@@ -674,7 +674,14 @@ impl View {
                         @for p in &self.plugins { (self.side_link(p.id, p.name, p.icon)) }
                         (self.side_link("plugins", "Explorar plugins", "puzzle"))
                     }
-                    nav.side-nav.side-bottom aria-label="Ajustes" { @let (id, label, ic) = TABS[5]; (self.side_link(id, label, ic)) }
+                    nav.side-nav.side-bottom aria-label="Ajustes" {
+                        @if let Some(r) = crate::update::available() {
+                            a.side-update.on[self.t == "update"] href=(self.link("update")) aria-current=[(self.t == "update").then_some("page")] {
+                                (icon("sparkles")) span.side-txt { "Nido " (r.tag) } span.count.accent { "Nueva" }
+                            }
+                        }
+                        @let (id, label, ic) = TABS[5]; (self.side_link(id, label, ic))
+                    }
                     div.side-user {
                         (self.avatar(self.me.id))
                         span.side-who { b { (self.me.name) } small { (self.users.len()) " en casa" } }
@@ -688,7 +695,10 @@ impl View {
                             a.icon-btn.mtop-plug.on[p.id == self.t] href=(self.link(p.id)) aria-label=(p.name) title=(p.name) { (icon(p.icon)) }
                         }
                         a.icon-btn.mtop-plug.on[self.t == "plugins"] href=(self.link("plugins")) aria-label="Plugins" title="Plugins" { (icon("puzzle")) }
-                        a.mtop-me href=(self.link("settings")) aria-label="Ajustes" { (self.avatars()) span.mtop-gear { (icon("settings")) } }
+                        @let fresh = crate::update::available();
+                        a.mtop-me href=(self.link(if fresh.is_some() { "update" } else { "settings" })) aria-label=(if fresh.is_some() { "Ajustes · hay una versión nueva de Nido" } else { "Ajustes" }) {
+                            (self.avatars()) span.mtop-gear { (icon("settings")) @if fresh.is_some() { span.mtop-dot {} } }
+                        }
                     }
                     (content)
                 }
@@ -807,6 +817,7 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
     let title = match &plugin {
         Some((p, _)) => format!("{} · Nido", p.name),
         None if v.t == "plugins" => "Plugins · Nido".to_string(),
+        None if v.t == "update" => "Actualizar · Nido".to_string(),
         None => format!("{} {} · Nido", v.month_name(), v.year()),
     };
     let content = if let Some((_, page)) = plugin { page } else { match v.t {
@@ -815,6 +826,7 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
         "settings" => settings::render(&v),
         "household" => settings::render_house(&v),
         "plugins" => plugins::marketplace(&v),
+        "update" => crate::update::render(&v),
         "shopping" => shopping::render(&v),
         "tasks" => tasks::render(&v),
         _ => home::render(&v),

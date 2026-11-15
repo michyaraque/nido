@@ -1,8 +1,9 @@
 #!/bin/sh
 # Installs Nido on a Raspberry Pi (Raspberry Pi OS / Debian). Run it again to update the setup.
 #   sudo sh install.sh                      # uses the "nido" binary next to this script
-#   sudo sh install.sh user/repo [token]    # downloads releases from GitHub and keeps them updated
+#   sudo sh install.sh user/repo [token]    # downloads the latest release from GitHub
 # The token is only needed for a private repository (fine-grained, read-only "Contents").
+# Later versions are installed from Nido itself (Ajustes → La casa → Nido), when you decide.
 set -eu
 
 REPO="${1:-}"
@@ -16,7 +17,7 @@ apt-get install -y -qq curl jq openssl tar udisks2 avahi-daemon avahi-utils cadd
 
 echo "· Usuario y carpetas"
 id nido >/dev/null 2>&1 || useradd --system --home-dir /var/lib/nido --shell /usr/sbin/nologin nido
-mkdir -p /opt/nido /var/lib/nido/models /var/lib/nido/tickets /var/lib/nido/plugins /etc/nido
+mkdir -p /opt/nido /var/lib/nido/models /var/lib/nido/tickets /var/lib/nido/plugins /var/lib/nido/update
 # Plugins: Nido downloads them here from its Plugins page, so the folder is its own.
 chown nido:nido /var/lib/nido/plugins
 chown -R nido:nido /var/lib/nido
@@ -33,51 +34,49 @@ for m in pp-ocrv6_tiny_det.onnx pp-ocrv6_tiny_rec.onnx ppocrv6_tiny_dict.txt; do
 done
 chown -R nido:nido /var/lib/nido/models
 
-umask 077
-printf 'REPO=%s\nTOKEN=%s\n' "$REPO" "$TOKEN" > /etc/nido/update.env
-umask 022
+# Updates used to install themselves every 5 minutes; now each house decides from Ajustes.
+systemctl disable --now nido-update.timer >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/nido-update.timer /etc/systemd/system/nido-update.service /opt/nido/update.sh /etc/nido/update.env
+rmdir /etc/nido 2>/dev/null || true
 
-cat > /opt/nido/update.sh <<'EOF'
+# Nido downloads and checks the new version into /var/lib/nido/update and writes "request";
+# this script (root) puts it in place, restarts Nido and goes back if it does not start.
+cat > /opt/nido/upgrade.sh <<'EOF'
 #!/bin/sh
-set -eu
-. /etc/nido/update.env
-[ -n "$REPO" ] || exit 0
-cd /opt/nido
-case "$(uname -m)" in
-  aarch64) ARCH=aarch64 ;;
-  armv7l)  ARCH=armv7 ;;
-  armv6l)  ARCH=armv6 ;;
-  *) echo "Arquitectura no soportada: $(uname -m)"; exit 1 ;;
-esac
-AUTH=""
-[ -n "${TOKEN:-}" ] && AUTH="Authorization: Bearer $TOKEN"
-
-REL=$(curl -fsSL -H "Accept: application/vnd.github+json" ${AUTH:+-H "$AUTH"} \
-  "https://api.github.com/repos/$REPO/releases/latest")
-TAG=$(printf '%s' "$REL" | jq -r .tag_name)
-[ "$TAG" = "$(cat VERSION 2>/dev/null || true)" ] && exit 0
-
-URL=$(printf '%s' "$REL" | jq -r --arg n "nido-$ARCH" '.assets[] | select(.name==$n) | .url')
-[ -n "$URL" ] || { echo "La versión $TAG no incluye nido-$ARCH"; exit 1; }
-curl -fsSL -H "Accept: application/octet-stream" ${AUTH:+-H "$AUTH"} -o nido.new "$URL"
-chmod +x nido.new
-./nido.new --version >/dev/null
-
-[ -f nido ] && mv nido nido.old
-mv nido.new nido
+set -u
+D=/var/lib/nido/update
+# Whatever touches the folder runs as nido: it is Nido's, so root never follows a link left there.
+say() { printf '%s\t%s\n' "$1" "$2" | runuser -u nido -- tee -a "$D/log" >/dev/null; }
+fail() { say fail "$1"; exit 1; }
+[ -f "$D/request" ] || exit 0
+TAG=$(runuser -u nido -- head -c 40 "$D/request" | tr -cd 'v0-9.')
+say sys "Instalador del sistema: instalando $TAG en /opt/nido"
+rm -f "$D/request"
+{ [ -f "$D/nido" ] && [ ! -L "$D/nido" ]; } || fail "No está la versión descargada. No se ha cambiado nada."
+GOT=$(runuser -u nido -- "$D/nido" --version 2>/dev/null) || fail "La versión descargada no arranca. No se ha cambiado nada."
+[ "$GOT" = "$TAG" ] || fail "Se esperaba $TAG y lo descargado es $GOT. No se ha cambiado nada."
+runuser -u nido -- cat "$D/nido" > /opt/nido/nido.new || fail "No se ha podido copiar a /opt/nido. No se ha cambiado nada."
+chmod 755 /opt/nido/nido.new
+[ -f /opt/nido/nido ] && cp /opt/nido/nido /opt/nido/nido.old
+mv /opt/nido/nido.new /opt/nido/nido
+say sys "Reiniciando Nido con la $TAG"
 systemctl restart nido
+up() { systemctl is-active --quiet nido && [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:8080/ping)" = 204 ]; }
+n=0
+while [ $n -lt 20 ] && ! up; do sleep 1; n=$((n + 1)); done
 sleep 3
-if systemctl is-active --quiet nido; then
-  echo "$TAG" > VERSION
-  echo "Actualizado a $TAG"
+if up; then
+  rm -f "$D/nido"
+  say ok "Nido $TAG en marcha"
 else
-  echo "$TAG no arranca: vuelvo a la versión anterior"
-  [ -f nido.old ] && mv nido.old nido
+  say sys "La $TAG no arranca: volviendo a la versión anterior"
+  journalctl -u nido -n 5 --no-pager -o cat 2>/dev/null | while IFS= read -r l; do say sys "  $l"; done
+  [ -f /opt/nido/nido.old ] && mv /opt/nido/nido.old /opt/nido/nido
   systemctl restart nido
-  exit 1
+  fail "La $TAG no ha arrancado y Nido ha vuelto a la versión anterior."
 fi
 EOF
-chmod 755 /opt/nido/update.sh
+chmod 755 /opt/nido/upgrade.sh
 
 cat > /usr/local/bin/nido-user <<'EOF'
 #!/bin/sh
@@ -265,42 +264,52 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-cat > /etc/systemd/system/nido-update.service <<'EOF'
+cat > /etc/systemd/system/nido-upgrade.service <<'EOF'
 [Unit]
-Description=Actualiza Nido desde GitHub Releases
-After=network-online.target
-Wants=network-online.target
+Description=Instala la versión de Nido pedida desde Ajustes
 
 [Service]
 Type=oneshot
-ExecStart=/opt/nido/update.sh
+ExecStart=/opt/nido/upgrade.sh
 EOF
 
-cat > /etc/systemd/system/nido-update.timer <<'EOF'
+cat > /etc/systemd/system/nido-upgrade.path <<'EOF'
 [Unit]
-Description=Busca actualizaciones de Nido cada 5 minutos
+Description=Espera a que Nido pida instalar una versión nueva
 
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=5min
+[Path]
+PathExists=/var/lib/nido/update/request
 
 [Install]
-WantedBy=timers.target
+WantedBy=multi-user.target
 EOF
 
 echo "· Programa"
 if [ -f "$HERE/nido" ]; then
   install -m 755 "$HERE/nido" /opt/nido/nido.new
+elif [ -n "$REPO" ] && [ ! -x /opt/nido/nido ]; then
+  case "$(uname -m)" in
+    aarch64) ARCH=aarch64 ;;
+    armv7l)  ARCH=armv7 ;;
+    armv6l)  ARCH=armv6 ;;
+    *) echo "Arquitectura no soportada: $(uname -m)"; exit 1 ;;
+  esac
+  AUTH=""
+  [ -n "$TOKEN" ] && AUTH="Authorization: Bearer $TOKEN"
+  URL=$(curl -fsSL -H "Accept: application/vnd.github+json" ${AUTH:+-H "$AUTH"} "https://api.github.com/repos/$REPO/releases/latest" \
+    | jq -r --arg n "nido-$ARCH" '.assets[] | select(.name==$n) | .url')
+  [ -n "$URL" ] || { echo "La última versión de $REPO no incluye nido-$ARCH"; exit 1; }
+  curl -fsSL -H "Accept: application/octet-stream" ${AUTH:+-H "$AUTH"} -o /opt/nido/nido.new "$URL"
+  chmod 755 /opt/nido/nido.new
+fi
+if [ -f /opt/nido/nido.new ]; then
   /opt/nido/nido.new --version >/dev/null
   mv /opt/nido/nido.new /opt/nido/nido
 fi
 
 systemctl daemon-reload
 systemctl enable --now nido-mdns.service >/dev/null
-if [ -n "$REPO" ]; then
-  systemctl enable --now nido-update.timer >/dev/null
-  /opt/nido/update.sh || echo "Todavía no hay versiones publicadas en GitHub: se instalará sola cuando la haya."
-fi
+systemctl enable --now nido-upgrade.path >/dev/null
 [ -x /opt/nido/nido ] || { echo "Falta el programa: copia el binario 'nido' junto a este script o indica un repositorio."; exit 1; }
 systemctl enable nido.service caddy >/dev/null
 systemctl restart nido.service caddy

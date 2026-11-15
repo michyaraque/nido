@@ -10,7 +10,7 @@ Un plugin es una función opcional que se ejecuta como un programa independiente
 
 - Instalar descarga el binario a `/var/lib/nido/plugins/`: de la última release si esa versión del plugin funciona con el Nido instalado, y si no, de la release de la versión de Nido.
 - Cada plugin tiene su propia versión (la de su `Cargo.toml`) y declara la versión mínima de Nido que necesita. La release publica ambas en `plugins.json`.
-- Las actualizaciones automáticas solo sustituyen el binario de Nido. Cuando hay una versión nueva de un plugin que funciona con ese Nido, Plugins muestra «v0.1.0 → v0.2.0» y la casa decide cuándo pulsar Actualizar.
+- Actualizar Nido solo sustituye su binario. Cuando hay una versión nueva de un plugin que funciona con ese Nido, Plugins muestra «v0.1.0 → v0.2.0» y la casa decide cuándo pulsar Actualizar.
 - Activar lo arranca. Nido le asigna un puerto y un secreto, y le reenvía las peticiones que le corresponden.
 - Desactivar lo detiene. Desinstalar borra el binario y conserva su base de datos.
 

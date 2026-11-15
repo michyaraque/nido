@@ -9,6 +9,7 @@ pub fn tab(t: Option<&str>) -> &'static str {
         Some("settings") => "settings",
         Some("household") => "household",
         Some("plugins") => "plugins",
+        Some("update") => "update",
         Some(t) => crate::plugins::find(t).map_or("home", |p| p.id),
         None => "home",
     }
@@ -73,6 +74,9 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "plugin_installed" => "Instalado y activado: ya lo tienes en el menú",
         "plugin_removed" => "Desinstalado: sus datos se guardan por si vuelve",
         "plugin_updated" => "Actualizado a la versión de este Nido",
+        "update_found" => "Hay una versión nueva de Nido",
+        "update_none" => "Ya tienes la última versión",
+        "update_offline" => "No se ha podido preguntar a GitHub. Revisa que Nido tenga internet.",
         _ => return crate::plugins::flash(code),
     })
 }

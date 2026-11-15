@@ -23,6 +23,7 @@ mod receipt;
 mod tickets;
 mod text;
 mod ui;
+mod update;
 
 use actions::*;
 use api::*;
@@ -192,6 +193,7 @@ async fn main() {
         .merge(assets::routes())
         .merge(plugins::routes())
         .merge(push::routes())
+        .merge(update::routes())
         .with_state(db);
 
     let addr = std::env::var("NIDO_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());

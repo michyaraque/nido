@@ -571,7 +571,20 @@ a.row-main:hover .row-title {
 }
 
 .mtop-gear {
+  position: relative;
+  display: grid;
   color: var(--mute);
+}
+
+.mtop-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
 }
 
 @media (max-width: 767px) {
@@ -2253,4 +2266,219 @@ form:has(input[name=received]:checked) .received-on {
   .mk-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ---------- updating Nido ---------- */
+
+.count.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.side-update .i {
+  color: var(--accent);
+}
+
+.upd .set-list {
+  gap: 20px;
+}
+
+.upd-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.upd-new {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.upd-new>div {
+  flex: 1;
+  min-width: 0;
+}
+
+.upd-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.upd-ico.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.upd-muted {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.upd-muted a {
+  color: var(--accent);
+}
+
+.upd-log {
+  margin-top: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.upd-log h3 {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+
+.upd-log ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.upd-scope {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mute);
+}
+
+.upd-go {
+  margin-top: 20px;
+}
+
+.upd-how {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  list-style: none;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.upd-how li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upd-how .i {
+  width: 15px;
+  height: 15px;
+}
+
+.upd-card .backup-status {
+  margin-top: 18px;
+}
+
+.upd-job-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upd-job-head>.i {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+}
+
+.upd-job-head div {
+  display: grid;
+  gap: 2px;
+}
+
+.upd-job-head b {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.upd-job-head span {
+  font-size: 13px;
+  color: var(--mute);
+}
+
+[data-update="ok"] .upd-job-head>.i {
+  color: var(--ok);
+}
+
+[data-update="fail"] {
+  border-color: var(--bad);
+}
+
+[data-update="fail"] .upd-job-head>.i,
+[data-update="fail"] .upd-job-head b {
+  color: var(--bad);
+}
+
+.upd-meter {
+  margin-top: 16px;
+}
+
+.upd-bytes {
+  font-variant-numeric: tabular-nums;
+}
+
+.upd-steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.upd-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.upd-steps .i {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--ok);
+}
+
+.upd-steps li:last-child:not(.ok):not(.fail) .i {
+  color: var(--accent);
+}
+
+.upd-steps .fail,
+.upd-steps .fail .i {
+  color: var(--bad);
+}
+
+.upd-steps .ok {
+  font-weight: 600;
+  color: var(--ok);
+}
+
+[data-update="running"] .upd-steps li:last-child .i:not(.spinning) {
+  color: var(--accent);
 }

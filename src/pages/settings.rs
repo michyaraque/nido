@@ -246,6 +246,19 @@ pub fn render_house(v: &View) -> Markup {
             @if let Some(b) = &v.backups {
                 (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir de la Pi." }, backups(v, b)))
             }
+            (sec("nido", "Nido", html! { "El programa de la Raspberry. Se actualiza solo cuando lo decidís." }, html! {
+                div.card.set-card {
+                    @if let Some(r) = crate::update::available() {
+                        (item(&format!("Versión {VERSION}"), &format!("Ya está la {}. Mira qué trae antes de actualizar.", r.tag), html! {
+                            a.btn.primary.sm href=(v.link("update")) { (icon("sparkles")) "Ver la " (r.tag) }
+                        }))
+                    } @else {
+                        (item(&format!("Versión {VERSION}"), "Es la última que conocemos.", html! {
+                            a.btn.outline.sm href=(v.link("update")) { (icon("refresh-cw")) "Buscar actualizaciones" }
+                        }))
+                    }
+                }
+            }))
         }))
     }
 }
