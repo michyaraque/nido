@@ -134,6 +134,32 @@ fn face(u: &Face, class: &str) -> Markup {
     }
 }
 
+fn wallpaper() -> Markup {
+    static SVG: OnceLock<String> = OnceLock::new();
+    let svg = SVG.get_or_init(|| {
+        const ROWS: [[&str; 4]; 3] = [
+            ["house", "coffee", "sprout", "key-round"],
+            ["sofa", "shopping-cart", "lamp", "utensils"],
+            ["heart", "washing-machine", "carrot", "bed"],
+        ];
+        const TILT: [i32; 6] = [-12, 8, -4, 14, -8, 4];
+        let mut tile = String::new();
+        for (r, row) in ROWS.iter().enumerate() {
+            for (k, name) in row.iter().enumerate() {
+                let inner = merchants::ICONS.iter().find(|(n, _)| n == name).map_or("", |(_, s)| *s);
+                let x = k * 72 + if r % 2 == 1 { 36 } else { 0 } + 24;
+                let y = r * 72 + 24;
+                let t = TILT[(r * 4 + k) % TILT.len()];
+                tile.push_str(&format!(r#"<g transform="translate({x} {y}) rotate({t} 12 12)">{inner}</g>"#));
+            }
+        }
+        format!(
+            r#"<svg class="login-bg" aria-hidden="true" focusable="false"><defs><pattern id="login-tile" width="288" height="216" patternUnits="userSpaceOnUse" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">{tile}</pattern></defs><rect width="100%" height="100%" fill="url(#login-tile)"/></svg>"#
+        )
+    });
+    PreEscaped(svg.clone())
+}
+
 #[derive(Deserialize)]
 pub struct LoginQ {
     u: Option<i64>,
@@ -166,8 +192,12 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
     let me = q.u.and_then(|id| people.iter().position(|u| u.id == id)).or(only);
     let wait = q.wait.filter(|w| *w > 0);
     let body = html! {
+        (wallpaper())
         main.login {
-            div.brand.center { (brand()) }
+            header.login-brand {
+                img src="/icon.png" alt="" width="72" height="72";
+                div { h2 { "Nido" } p { "Lo de casa, en orden" } }
+            }
             @if let Some(i) = me {
                 @let u = &people[i];
                 form.card.login-card.login-me method="post" action="/login" accept-charset="utf-8" style={ "--pc:" (u.color) } {

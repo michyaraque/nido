@@ -92,11 +92,60 @@
   padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
 }
 
+.login-body>.offline-bar {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  translate: -50% 0;
+  z-index: 10;
+  max-width: calc(100vw - 32px);
+}
+
+.login-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--line-strong);
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, #000 80%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, #000 80%);
+}
+
 .login {
+  position: relative;
   width: 100%;
   max-width: 400px;
   display: grid;
   gap: 24px;
+}
+
+.login-brand {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.login-brand img {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-float);
+}
+
+.login-brand h2 {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+}
+
+.login-brand p {
+  margin-top: 2px;
+  color: var(--mute);
+  font-size: 14px;
 }
 
 .login-card {
