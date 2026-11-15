@@ -105,6 +105,8 @@ document.addEventListener("click", (e) => {
   visit(a.href, {}, { keepScroll: tabOf(a.href) === tabOf(location.href) && !a.hash });
 });
 
+const actionOf = (form) => new URL(form.getAttribute("action") || location.href, location.href).href;
+
 document.addEventListener("submit", async (e) => {
   const form = e.target;
   if (e.defaultPrevented || form.method.toLowerCase() !== "post") return;
@@ -112,17 +114,18 @@ document.addEventListener("submit", async (e) => {
   const inSheet = form.closest(".modal.open");
   if (inSheet) {
     form.querySelectorAll("button").forEach((b) => (b.disabled = true));
-    fillSheet(inSheet, fetch(form.action, { method: "POST", body: new URLSearchParams(new FormData(form)), credentials: "same-origin" }));
+    fillSheet(inSheet, fetch(actionOf(form), { method: "POST", body: new URLSearchParams(new FormData(form)), credentials: "same-origin" }));
     return;
   }
   const data = new FormData(form, e.submitter);
   const multipart = form.enctype === "multipart/form-data";
   form.querySelectorAll("button").forEach((b) => (b.disabled = true));
-  const path = new URL(form.action).pathname;
+  const url = actionOf(form);
+  const path = new URL(url).pathname;
   const sameView = !(path === "/login" || path === "/logout" || path === "/tickets");
   if (path === "/logout") self.caches?.delete("pages"); // what was saved for offline belongs to this person
   const body = multipart ? data : new URLSearchParams(data);
-  const done = await visit(form.action, { method: "POST", body }, { keepScroll: sameView, push: !sameView });
+  const done = await visit(url, { method: "POST", body }, { keepScroll: sameView, push: !sameView });
   if (done === OFFLINE) later(form, data, multipart);
 });
 
@@ -287,7 +290,7 @@ function labelOf(form) {
 async function later(form, data, multipart) {
   try {
     await outbox("readwrite", (s) =>
-      s.add({ url: form.action, multipart, body: multipart ? [...data] : new URLSearchParams(data).toString(), label: labelOf(form) }));
+      s.add({ url: actionOf(form), multipart, body: multipart ? [...data] : new URLSearchParams(data).toString(), label: labelOf(form) }));
   } catch {
     toast("Sin conexión y no se ha podido guardar en el móvil. Inténtalo en casa.", true);
     return;

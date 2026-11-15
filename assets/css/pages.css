@@ -88,30 +88,185 @@
 .login-body {
   display: grid;
   place-items: center;
-  padding: 24px 16px;
-  position: relative;
-  overflow: hidden;
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
 }
 
 .login {
-  position: relative;
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   display: grid;
-  gap: 20px;
+  gap: 24px;
 }
 
 .login-card {
   display: grid;
-  gap: 14px;
-  padding: 28px;
+  gap: 20px;
+  padding: 32px 24px;
+  border-radius: 24px;
+  box-shadow: var(--shadow-float);
+}
+
+.login-head {
+  display: grid;
+  gap: 4px;
+  text-align: center;
 }
 
 .login-card h1 {
   font-family: var(--display);
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+
+.who-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.login-who {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 14px 8px 12px;
+  border-radius: 18px;
+  color: var(--ink);
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: background-color .2s var(--ease-out);
+}
+
+.login-who:hover {
+  background: var(--hover);
+}
+
+.login-who:focus-visible {
+  outline: 2px solid var(--pc);
+  outline-offset: 2px;
+}
+
+.login-who .face {
+  transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out);
+}
+
+.login-who:hover .face,
+.login-who:focus-visible .face {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--pc), var(--shadow-float);
+}
+
+.login-who:active .face {
+  transform: scale(.96);
+}
+
+.who-name {
+  font-size: 15px;
+  font-weight: 500;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.face {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 600;
+  background: var(--frame);
+  box-shadow: 0 0 0 3px var(--surface), var(--shadow-card);
+}
+
+.face.md {
+  width: 72px;
+  height: 72px;
+  font-size: 28px;
+}
+
+.face.lg {
+  width: 88px;
+  height: 88px;
+  font-size: 34px;
+  justify-self: center;
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--pc), var(--shadow-float);
+}
+
+.login-me .input {
+  height: 48px;
+  font-size: 16px;
+}
+
+.btn.lg {
+  height: 48px;
+  font-size: 15px;
+  border-radius: 14px;
+}
+
+.field-error {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--bad);
+  font-size: 13px;
+}
+
+.field-error .i {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: none;
+}
+
+.not-me {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: var(--mute);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.not-me:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.not-me .i {
+  width: 16px;
+  height: 16px;
+}
+
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-who .face {
+    transition: none;
+  }
+  .login-who:hover .face,
+  .login-who:focus-visible .face,
+  .login-who:active .face {
+    transform: none;
+  }
 }
 
 .back {

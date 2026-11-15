@@ -63,11 +63,7 @@ pub async fn delete_avatar(State(db): State<Db>, h: HeaderMap) -> R {
     back(&month(&c, None)?, Some("settings"), "photo_removed")
 }
 
-pub async fn avatar(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>) -> R {
-    {
-        let c = lock(&db);
-        require_user!(c, h);
-    }
+pub async fn avatar(Path(id): Path<i64>) -> R {
     match std::fs::read(path(id)) {
         Ok(b) => Ok(([(header::CONTENT_TYPE, "image/jpeg"), (header::CACHE_CONTROL, "private, max-age=31536000, immutable")], b).into_response()),
         Err(_) => Ok(StatusCode::NOT_FOUND.into_response()),

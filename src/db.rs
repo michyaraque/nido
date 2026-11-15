@@ -31,6 +31,22 @@ pub fn migrate(c: &Connection) {
     add_column(c, "users", "carry", "INTEGER NOT NULL DEFAULT 0"); // add up what is left from month to month
     add_column(c, "users", "carry_since", "TEXT");
     add_column(c, "users", "carry_start", "INTEGER NOT NULL DEFAULT 0"); // cents I had when carrying started // % of shared bills, for the "custom" split
+    hash_sessions(c);
+}
+
+fn hash_sessions(c: &Connection) {
+    let done: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM settings WHERE key='sessions_hashed')", [], |r| r.get(0)).expect("schema");
+    if done {
+        return;
+    }
+    let tokens: Vec<String> = c
+        .prepare("SELECT token FROM sessions")
+        .and_then(|mut s| s.query_map([], |r| r.get(0))?.collect())
+        .expect("sessions");
+    for t in tokens {
+        c.execute("UPDATE sessions SET token=?2 WHERE token=?1", params![t, auth::token_hash(&t)]).expect("migration");
+    }
+    c.execute("INSERT INTO settings(key,value) VALUES('sessions_hashed','1')", []).expect("migration");
 }
 
 fn add_column(c: &Connection, table: &str, column: &str, decl: &str) {
