@@ -1,5 +1,7 @@
 use std::{env, fs, path::Path};
 
+include!("tools/css.rs");
+
 fn files(dir: &Path, ext: Option<&str>) -> Vec<(String, String)> {
     let mut v: Vec<(String, String)> = fs::read_dir(dir)
         .map(|rd| {
@@ -17,6 +19,8 @@ fn files(dir: &Path, ext: Option<&str>) -> Vec<(String, String)> {
 fn main() {
     println!("cargo:rerun-if-changed=assets/logos");
     println!("cargo:rerun-if-changed=assets/icons");
+    println!("cargo:rerun-if-changed=assets/css");
+    println!("cargo:rerun-if-changed=tools/css.rs");
     let root = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("assets");
     let out = Path::new(&env::var("OUT_DIR").unwrap()).to_path_buf();
 
@@ -35,6 +39,12 @@ fn main() {
         s += &format!("    ({name:?}, {inner:?}),\n");
     }
     fs::write(out.join("icons.rs"), s + "];\n").unwrap();
+
+    let css: String = ["tokens", "base", "layout", "components", "pages"]
+        .iter()
+        .map(|n| fs::read_to_string(root.join("css").join(format!("{n}.css"))).unwrap())
+        .collect();
+    fs::write(out.join("style.css"), minify_css(&css)).unwrap();
 
     // Board family, as release assets name it: extras are downloaded for the same one.
     let target = env::var("TARGET").unwrap();

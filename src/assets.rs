@@ -1,12 +1,7 @@
 use super::*;
 
-pub const CSS: &str = concat!(
-    include_str!("../assets/css/tokens.css"),
-    include_str!("../assets/css/base.css"),
-    include_str!("../assets/css/layout.css"),
-    include_str!("../assets/css/components.css"),
-    include_str!("../assets/css/pages.css"),
-);
+/// assets/css/*.css, joined and minified by build.rs.
+pub const CSS: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 pub const JS: &str = include_str!("../assets/js/app.js");
 const SW: &str = include_str!("../assets/js/sw.js");
 const ICON: &[u8] = include_bytes!("icon.png");
@@ -42,5 +37,20 @@ async fn logo(Path(file): Path<String>) -> Response {
     match merchants::logo(file.trim_end_matches(".webp")) {
         Some(b) => ([(header::CONTENT_TYPE, merchants::mime(b)), (header::CACHE_CONTROL, "public, max-age=604800")], b).into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    include!("../tools/css.rs");
+
+    #[test]
+    fn minify() {
+        let css = "/* c */\n.a .b:hover,\n.c > .d {\n  width: calc(100% + 8px);\n  font-family: \"A  B\", sans-serif;\n}\n\n@media (max-width: 720px) {\n  .a { grid-template-columns: repeat(2, 1fr); }\n}\n";
+        assert_eq!(
+            minify_css(css),
+            ".a .b:hover,.c > .d{width:calc(100% + 8px);font-family:\"A  B\",sans-serif}@media (max-width:720px){.a{grid-template-columns:repeat(2,1fr)}}"
+        );
+        assert!(super::CSS.len() > 10_000 && !super::CSS.contains("\n  "));
     }
 }

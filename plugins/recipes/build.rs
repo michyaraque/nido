@@ -1,7 +1,15 @@
-//! The extra draws its icons with the same Lucide set as Nido (assets/icons), so its page fits in.
+//! The plugin draws its icons with the same Lucide set as Nido (assets/icons), so its page fits in.
 use std::{env, fs, path::Path};
 
+include!("../../tools/css.rs");
+
 fn main() {
+    let dir = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).to_path_buf();
+    println!("cargo:rerun-if-changed={}", dir.join("style.css").display());
+    println!("cargo:rerun-if-changed={}", dir.join("../../tools/css.rs").display());
+    let css = fs::read_to_string(dir.join("style.css")).unwrap();
+    fs::write(Path::new(&env::var("OUT_DIR").unwrap()).join("style.css"), minify_css(&css)).unwrap();
+
     let icons = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../assets/icons");
     println!("cargo:rerun-if-changed={}", icons.display());
     let mut list: Vec<_> = fs::read_dir(&icons)
