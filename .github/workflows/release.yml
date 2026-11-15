@@ -83,6 +83,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -104,6 +106,16 @@ jobs:
             echo "]"
           } > dist/plugins.json
           cat dist/plugins.json
+      # What each version brought (the commits up to its "chore: release"), so the updater shows it without asking the GitHub API.
+      - run: |
+          git log --format=%s | jq -R -s '
+            split("\n") | map(select(length > 0))
+            | reduce .[] as $s ({cur: null, out: []};
+                if ($s | test("^chore: release [0-9]")) then .cur = ($s | sub("^chore: release "; "")) | .out += [{v: .cur, commits: []}]
+                elif .cur then .out[-1].commits += [$s]
+                else . end)
+            | .out[:40]' > dist/changelog.json
+          head -c 600 dist/changelog.json
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}

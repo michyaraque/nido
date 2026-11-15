@@ -19,6 +19,7 @@ pub struct Release {
     pub tag: String,
     pub size: u64,
     pub date: String,
+    pub log: Vec<(String, Vec<String>)>,
 }
 
 #[derive(Clone)]
@@ -53,13 +54,26 @@ fn curl(url: &str, api: bool) -> Option<Vec<u8>> {
 
 fn fetch_latest() -> Option<Release> {
     let tag = latest_tag()?;
-    let mut rel = Release { tag: tag.clone(), size: 0, date: String::new() };
+    let mut rel = Release { tag: tag.clone(), size: 0, date: String::new(), log: Vec::new() };
     if let Some(j) = curl(&format!("https://api.github.com/repos/{REPO}/releases/tags/{tag}"), true)
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
     {
         rel.date = j["published_at"].as_str().unwrap_or("").chars().take(10).collect();
         let name = format!("nido-{ARCH}");
         rel.size = j["assets"].as_array().into_iter().flatten().find(|a| a["name"] == name.as_str()).and_then(|a| a["size"].as_u64()).unwrap_or(0);
+    }
+    if let Some(j) = curl(&format!("https://github.com/{REPO}/releases/download/{tag}/changelog.json"), false)
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+    {
+        rel.log = j
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|e| {
+                let commits = e["commits"].as_array()?.iter().filter_map(|c| c.as_str().map(String::from)).collect();
+                Some((e["v"].as_str()?.to_string(), commits))
+            })
+            .collect();
     }
     Some(rel)
 }
@@ -126,8 +140,21 @@ fn fetch_changes(from: &str, to: &str) -> Option<Vec<Change>> {
     Some(out)
 }
 
+fn from_log(log: &[(String, Vec<String>)], from: &str, to: &str) -> Option<Vec<Change>> {
+    let (lo, hi) = (semver(from), semver(to));
+    log.iter().any(|(v, _)| semver(v) == hi).then(|| {
+        log.iter()
+            .filter(|(v, _)| semver(v) > lo && semver(v) <= hi)
+            .flat_map(|(_, commits)| commits.iter().filter_map(|m| change(m)))
+            .collect()
+    })
+}
+
 /// What changed from one version to another, newest first; None while it is still being asked.
 pub fn changes(from: &str, to: &str) -> Option<Vec<Change>> {
+    if let Some(c) = LATEST.lock().unwrap_or_else(|e| e.into_inner()).1.as_ref().and_then(|r| from_log(&r.log, from, to)) {
+        return Some(c);
+    }
     let key = format!("{from}..{to}");
     let mut m = CHANGES.lock().unwrap_or_else(|e| e.into_inner());
     let m = m.get_or_insert_with(HashMap::new);
@@ -507,6 +534,14 @@ mod tests {
         assert!(change("docs: count the new games").is_none());
         assert!(change("Merge branch").is_none());
         assert_eq!(date("2026-11-15T03:10:00Z"), "15 de noviembre");
+        let log = vec![
+            ("0.20.0".to_string(), vec!["feat(auth): pick your photo".to_string(), "chore: tidy".to_string()]),
+            ("0.19.1".to_string(), vec!["fix(ui): start the app last".to_string()]),
+            ("0.19.0".to_string(), vec!["feat(update): update from the app".to_string()]),
+        ];
+        let got: Vec<String> = from_log(&log, "v0.19.0", "v0.20.0").unwrap().into_iter().map(|c| c.text).collect();
+        assert_eq!(got, ["Pick your photo", "Start the app last"]);
+        assert!(from_log(&log, "v0.20.0", "v0.21.0").is_none());
         assert_eq!(mb(9_085_392), "9,0 MB");
     }
 }
