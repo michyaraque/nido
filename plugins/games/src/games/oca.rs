@@ -5,18 +5,55 @@ use serde::{Deserialize, Serialize};
 
 const OCAS: [u8; 13] = [5, 9, 14, 18, 23, 27, 32, 36, 41, 45, 50, 54, 59];
 const END: u8 = 63;
+/// `skip` of whoever is in the well: they wait there until someone else falls in and rescues them.
+const WELL: u8 = u8::MAX;
 
 #[derive(Serialize, Deserialize)]
 pub struct Oca {
     pos: Vec<u8>,
-    skip: Vec<u8>, // turns each player still has to wait
+    skip: Vec<u8>, // turns each player still has to wait, or WELL
     turn: usize,
     die: Option<u8>,
     moved: Option<usize>, // who moved last, to mark them
     #[serde(default)]
+    call: Option<u8>, // special square the last move landed on
+    #[serde(default)]
+    rolls: u32,
+    #[serde(default)]
     path: Vec<u8>, // squares of the last move, start to end (with the jump of a goose, bridge…), to animate it
     winner: Option<usize>,
     log: Vec<(usize, String)>,
+}
+
+/// Inner markup of 64×64 SVGs.
+pub const GOOSE: &str = r##"<ellipse cx="34" cy="58" rx="18" ry="2.5" fill="#000" opacity=".12"/><path d="M28 50l-2 6h5M38 50l-1 6h5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 40c0-8 8-12 18-12s20 4 22 10c1 4-2 9-8 11-8 3-20 3-26 0-4-2-6-5-6-9z" fill="#fff" stroke="#94a3b8" stroke-width="2"/><path d="M28 36c6-2 14-1 18 3-4 4-12 5-18 2z" fill="#e2e8f0"/><path d="M18 38c-2-6-1-14 3-19 3-4 9-4 11 0 1 3 0 5-3 6s-4 5-3 10" fill="#fff" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round"/><path d="M31 18l8 2.5-8 3z" fill="#f59e0b"/><circle cx="25.5" cy="19.5" r="1.8" fill="#1f2937"/>"##;
+const BRIDGE: &str = r##"<path d="M14 55c3-2 5-2 8 0s5 2 8 0 5-2 8 0 5 2 8 0" fill="none" stroke="#93c5fd" stroke-width="2.5" stroke-linecap="round"/><path d="M6 46h52" stroke="#60a5fa" stroke-width="5" stroke-linecap="round"/><path d="M6 30h52v8c-6 0-10 4-11 10H17c-1-6-5-10-11-10z" fill="#d6a46c" stroke="#a16207" stroke-width="2" stroke-linejoin="round"/><path d="M12 30v-6M22 30v-6M32 30v-6M42 30v-6M52 30v-6M9 24h46" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><path d="M6 30h52" stroke="#92400e" stroke-width="3" stroke-linecap="round"/>"##;
+const DICE: &str = r##"<ellipse cx="32" cy="58" rx="20" ry="2.5" fill="#000" opacity=".12"/><g transform="rotate(-12 21 37)"><rect x="8" y="24" width="26" height="26" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="2"/><circle cx="15" cy="31" r="2.6" fill="#ef4444"/><circle cx="21" cy="37" r="2.6" fill="#ef4444"/><circle cx="27" cy="43" r="2.6" fill="#ef4444"/></g><g transform="rotate(10 43 29)"><rect x="30" y="16" width="26" height="26" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="2"/><circle cx="37" cy="23" r="2.6" fill="#1f2937"/><circle cx="49" cy="23" r="2.6" fill="#1f2937"/><circle cx="37" cy="35" r="2.6" fill="#1f2937"/><circle cx="49" cy="35" r="2.6" fill="#1f2937"/></g>"##;
+const INN: &str = r##"<path d="M50 6a6 6 0 1 0 7 8 5 5 0 0 1-7-8z" fill="#fde047"/><rect x="14" y="28" width="36" height="26" rx="2" fill="#fde68a" stroke="#b45309" stroke-width="2"/><path d="M8 31 32 11l24 20" fill="none" stroke="#9a3412" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="18" y="34" width="8" height="8" rx="1.5" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/><rect x="38" y="34" width="8" height="8" rx="1.5" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/><rect x="28" y="41" width="8" height="13" rx="2" fill="#92400e"/>"##;
+const WELL_ART: &str = r##"<path d="M13 19 32 8l19 11z" fill="#dc2626" stroke="#991b1b" stroke-width="2" stroke-linejoin="round"/><path d="M18 19v18M46 19v18" stroke="#78350f" stroke-width="3.5" stroke-linecap="round"/><path d="M32 19v9" stroke="#a8a29e" stroke-width="1.5"/><path d="M28 28h8l-1 6h-6z" fill="#78716c"/><path d="M12 37h40v13a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4z" fill="#a8a29e" stroke="#57534e" stroke-width="2"/><path d="M12 45h40M22 37v8M38 37v8M30 45v9M44 45v9M18 45v9" stroke="#78716c" stroke-width="1.5"/><ellipse cx="32" cy="37" rx="20" ry="4" fill="#3b82f6" stroke="#57534e" stroke-width="2"/>"##;
+const MAZE: &str = r##"<rect x="10" y="10" width="44" height="44" rx="9" fill="#ecfccb" stroke="#4d7c0f" stroke-width="2.5"/><path d="M18 18h28v28H24V24h16v16h-8v-8" fill="none" stroke="#65a30d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="3" fill="#ef4444"/>"##;
+const JAIL: &str = r##"<rect x="10" y="12" width="44" height="42" rx="6" fill="#e2e8f0" stroke="#475569" stroke-width="2.5"/><path d="M20 12v42M29 12v42M38 12v42M47 12v42" stroke="#475569" stroke-width="3.5"/><path d="M10 24h44" stroke="#475569" stroke-width="3"/><path d="M28 36v-3a4 4 0 0 1 8 0v3" fill="none" stroke="#92400e" stroke-width="2.5"/><rect x="25" y="36" width="14" height="11" rx="2.5" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>"##;
+const SKULL: &str = r##"<path d="M32 9c-12 0-20 8-20 19 0 6 3 10 7 12v7a3 3 0 0 0 3 3h20a3 3 0 0 0 3-3v-7c4-2 7-6 7-12 0-11-8-19-20-19z" fill="#f8fafc" stroke="#475569" stroke-width="2.5"/><circle cx="24" cy="29" r="5" fill="#1f2937"/><circle cx="40" cy="29" r="5" fill="#1f2937"/><path d="M32 35l-3 5h6z" fill="#1f2937"/><path d="M26 50v-5M32 50v-5M38 50v-5" stroke="#475569" stroke-width="2"/>"##;
+const START: &str = r##"<ellipse cx="22" cy="56" rx="10" ry="2.5" fill="#000" opacity=".12"/><path d="M19 12h27l-6 8 6 8H19z" fill="#22c55e" stroke="#15803d" stroke-width="2" stroke-linejoin="round"/><path d="M18 55V10" stroke="#475569" stroke-width="3.5" stroke-linecap="round"/>"##;
+
+fn art(n: u8) -> Option<&'static str> {
+    Some(match n {
+        0 => START,
+        6 | 12 => BRIDGE,
+        19 => INN,
+        26 | 53 => DICE,
+        31 => WELL_ART,
+        42 => MAZE,
+        52 => JAIL,
+        58 => SKULL,
+        END => GOOSE,
+        n if OCAS.contains(&n) => GOOSE,
+        _ => return None,
+    })
+}
+
+fn art_at(art: &str, x: f64, y: f64, size: f64) -> String {
+    format!(r#"<svg class="art" x="{x:.1}" y="{y:.1}" width="{size:.1}" height="{size:.1}" viewBox="0 0 64 64">{art}</svg>"#)
 }
 
 /// (icon, name) of a special square.
@@ -80,17 +117,17 @@ fn spot(count: usize, slot: usize) -> (f64, f64) {
     }
 }
 
-/// What each special square does, for the legend under the board.
-const RULES: [(&str, &str, &str); 9] = [
-    ("bird", "Oca · 5, 9, 14…", "De oca a oca y tiro porque me toca"),
-    ("landmark", "Puente · 6 y 12", "Cruzas al otro puente y vuelves a tirar"),
-    ("dices", "Dados · 26 y 53", "Saltas al otro dado y vuelves a tirar"),
-    ("bed", "Posada · 19", "Descansas: un turno sin tirar"),
-    ("droplets", "Pozo · 31", "Te caes: dos turnos sin tirar"),
-    ("refresh-cw", "Laberinto · 42", "Te pierdes y vuelves a la 30"),
-    ("lock", "Cárcel · 52", "Dos turnos encerrado"),
-    ("skull", "Calavera · 58", "Vuelta a empezar desde la salida"),
-    ("trophy", "Jardín · 63", "Hay que llegar justo; si te pasas, rebotas"),
+/// What each special square does, for the legend under the board: (square, name, rule).
+const RULES: [(u8, &str, &str); 9] = [
+    (5, "Oca · 5, 9, 14…", "De oca a oca y tiro porque me toca"),
+    (6, "Puente · 6 y 12", "Cruzas al otro puente y vuelves a tirar"),
+    (26, "Dados · 26 y 53", "Saltas al otro dado y vuelves a tirar"),
+    (19, "Posada · 19", "Descansas: un turno sin tirar"),
+    (31, "Pozo · 31", "Te quedas hasta que otro caiga y te rescate"),
+    (42, "Laberinto · 42", "Te pierdes y vuelves a la 30"),
+    (52, "Cárcel · 52", "Dos turnos encerrado"),
+    (58, "Calavera · 58", "Vuelta a empezar desde la salida"),
+    (END, "Jardín · 63", "Hay que llegar justo; si te pasas, rebotas"),
 ];
 
 /// Grass, the river between the laps and the garden in the middle: drawn once, under the squares.
@@ -149,10 +186,6 @@ fn esc(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-fn icon_at(name: &str, x: f64, y: f64, size: f64) -> String {
-    icon_at_color(name, x, y, size, "currentColor")
-}
-
 fn icon_at_color(name: &str, x: f64, y: f64, size: f64, color: &str) -> String {
     let inner = crate::kit::ICONS.iter().find(|(n, _)| *n == name).map_or("", |(_, s)| *s);
     format!(r#"<svg class="ico" x="{x:.1}" y="{y:.1}" width="{size:.1}" height="{size:.1}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{inner}</svg>"#)
@@ -166,21 +199,48 @@ impl Oca {
         let n = self.pos.len();
         loop {
             self.turn = (self.turn + 1) % n;
-            if self.skip[self.turn] == 0 {
-                return;
+            match self.skip[self.turn] {
+                0 => return,
+                WELL => push_log(&mut self.log, self.turn, "sigue en el pozo".into()),
+                _ => {
+                    self.skip[self.turn] -= 1;
+                    push_log(&mut self.log, self.turn, "pierde el turno".into());
+                }
             }
-            self.skip[self.turn] -= 1;
-            push_log(&mut self.log, self.turn, "pierde el turno".into());
         }
     }
 }
 
 impl Game for Oca {
     fn new(players: usize, _: &str, _: &mut Rng) -> Self {
-        Oca { pos: vec![0; players], skip: vec![0; players], turn: 0, die: None, moved: None, path: Vec::new(), winner: None, log: Vec::new() }
+        Oca { pos: vec![0; players], skip: vec![0; players], turn: 0, die: None, moved: None, call: None, rolls: 0, path: Vec::new(), winner: None, log: Vec::new() }
     }
     fn turn(&self) -> usize {
         self.turn
+    }
+    fn again(&self, seat: usize) -> bool {
+        self.winner.is_none() && self.turn == seat && self.moved == Some(seat)
+    }
+    fn rolls(&self) -> u32 {
+        self.rolls
+    }
+    fn call(&self) -> Option<Call> {
+        let (seat, sq) = (self.moved?, self.call?);
+        let (text, good) = match sq {
+            END => ("¡Al jardín de la oca!", true),
+            6 | 12 => ("¡De puente a puente y tiro porque me lleva la corriente!", true),
+            26 | 53 => ("¡De dado a dado y tiro porque me ha tocado!", true),
+            19 => ("A la posada: un turno sin tirar", false),
+            31 => ("¡Al pozo! Hasta que otro te rescate", false),
+            42 => ("¡Perdido en el laberinto! Vuelta a la 30", false),
+            52 => ("¡A la cárcel! Dos turnos encerrado", false),
+            58 => ("¡La calavera! Vuelta a empezar", false),
+            _ => ("¡De oca a oca y tiro porque me toca!", true),
+        };
+        Some(Call { seat, art: art(sq).unwrap_or(""), text: text.into(), own: Some(text.into()), to: None, good })
+    }
+    fn hint(&self, seat: usize) -> String {
+        if self.again(seat) { "Vuelves a tirar".into() } else { String::new() }
     }
     fn outcome(&self) -> Option<Outcome> {
         self.winner.map(Outcome::Win)
@@ -194,7 +254,9 @@ impl Game for Oca {
         }
         let d = rng.die();
         self.die = Some(d);
+        self.rolls += 1;
         self.moved = Some(seat);
+        self.call = None;
         let mut walk = vec![self.pos[seat]];
         let mut back = false;
         for _ in 0..d {
@@ -211,6 +273,12 @@ impl Game for Oca {
             END => {
                 self.winner = Some(seat);
                 "¡llega al jardín de la oca!".to_string()
+            }
+            // Bouncing back onto a goose sends you to the one before, never on to the garden.
+            n if back && OCAS.contains(&n) => {
+                p = OCAS.iter().copied().rev().find(|&o| o < n).unwrap_or(n);
+                again = true;
+                format!("rebota a una oca ({n} → {p}) y tiro porque me toca")
             }
             n if OCAS.contains(&n) => {
                 p = OCAS.iter().copied().find(|&o| o > n).unwrap_or(END);
@@ -235,8 +303,14 @@ impl Game for Oca {
                 "cae en la posada: un turno sin tirar".into()
             }
             31 => {
-                self.skip[seat] = 2;
-                "cae en el pozo: dos turnos sin tirar".into()
+                for o in 0..self.skip.len() {
+                    if o != seat && self.skip[o] == WELL {
+                        self.skip[o] = 0;
+                        push_log(&mut self.log, o, "sale del pozo".into());
+                    }
+                }
+                self.skip[seat] = WELL;
+                "cae en el pozo: espera a que otro le rescate".into()
             }
             42 => {
                 p = 30;
@@ -252,6 +326,10 @@ impl Game for Oca {
             }
             n => format!("avanza a la {n}"),
         };
+        let landed = *walk.last().unwrap_or(&p);
+        if special(landed).is_some() && landed != 0 {
+            self.call = Some(landed);
+        }
         if walk.last() != Some(&p) {
             walk.push(p);
         }
@@ -278,9 +356,9 @@ impl Game for Oca {
             let kind = kind(n);
             let h = TILE / 2.0;
             svg += &format!(r#"<g class="sq {kind}"><rect x="{:.1}" y="{:.1}" width="{TILE}" height="{TILE}" rx="12"/><rect class="tex" x="{:.1}" y="{:.1}" width="{TILE}" height="{TILE}" rx="12"/><text x="{:.1}" y="{:.1}">{n}</text>"#, x - h, y - h, x - h, y - h, x - h + 7.0, y - h + 16.0);
-            if let Some((ic, name)) = special(n) {
+            if let Some((_, name)) = special(n) {
                 svg += &format!(r#"<title>{name}</title>"#);
-                svg += &icon_at(ic, x - 11.0, y - 13.0, 22.0);
+                svg += &art_at(art(n).unwrap_or(""), x - 16.0, y - 19.0, 32.0);
                 if n != 0 {
                     svg += &format!(r#"<text class="nm" x="{x:.1}" y="{:.1}">{name}</text>"#, y + h - 6.0);
                 }
@@ -288,7 +366,7 @@ impl Game for Oca {
             svg += "</g>";
         }
         // The garden: the goal, big in the middle.
-        svg += &format!(r##"<g class="sq end garden"><rect x="291" y="291" width="218" height="218" rx="34"/><rect class="tex" x="291" y="291" width="218" height="218" rx="34"/><text x="306" y="318">63</text>{}<text class="nm big" x="400" y="490">Jardín de la oca</text><title>Jardín de la oca</title></g>"##, icon_at("bird", 352.0, 340.0, 96.0));
+        svg += &format!(r##"<g class="sq end garden"><rect x="291" y="291" width="218" height="218" rx="34"/><rect class="tex" x="291" y="291" width="218" height="218" rx="34"/><text x="306" y="318">63</text>{}<text class="nm big" x="400" y="490">Jardín de la oca</text><title>Jardín de la oca</title></g>"##, art_at(GOOSE, 340.0, 322.0, 120.0));
         // Tokens: alone in the middle of the square, or sharing it in a little group.
         let mut tokens = String::new();
         for s in 0..self.pos.len() {
@@ -330,15 +408,21 @@ impl Game for Oca {
         html! {
             div.gm-oca-wrap {
                 svg.gm-oca-board viewBox="-10 -10 820 820" role="img" aria-label="Tablero de la oca" { (PreEscaped(svg)) }
-                ul.gm-oca-rules {
-                    @for (ic, name, rule) in RULES {
-                        li { span.gm-oca-rule-ico { (crate::kit::icon(ic)) } span { b { (name) } (rule) } }
-                    }
-                }
                 div.gm-dice-bar {
                     @if let Some(d) = self.die { (die_face(d)) }
                     @if playing && cx.my_turn(self.turn) {
                         button.btn.primary type="submit" name="m" value="roll" { (crate::kit::icon("dices")) "Tirar el dado" }
+                    }
+                }
+                details.gm-oca-help {
+                    summary { (crate::kit::icon("info")) "Qué hace cada casilla" }
+                    ul.gm-oca-rules {
+                        @for (sq, name, rule) in RULES {
+                            li {
+                                span.gm-oca-rule-ico { svg viewBox="0 0 64 64" aria-hidden="true" { (PreEscaped(art(sq).unwrap_or(""))) } }
+                                span { b { (name) } (rule) }
+                            }
+                        }
                     }
                 }
             }
@@ -387,6 +471,35 @@ mod tests {
         assert_eq!(g.path, vec![3, 4, 5, 9]);
         let g = land(60, 6); // up to 63 and back
         assert_eq!(g.path, vec![60, 61, 62, 63, 62, 61, 60]);
+        let g = land(61, 6); // 67 bounces to the goose at 59: back to 54 and again, no win
+        assert_eq!((g.pos[0], g.winner, g.turn), (54, None, 0));
+        assert!(g.again(0));
+        let g = land(3, 2);
+        assert!(g.call().is_some_and(|c| c.text.contains("De oca a oca") && c.good));
+        let g = land(29, 2);
+        assert!(g.call().is_some_and(|c| c.text.contains("pozo") && !c.good));
+        let g = land(1, 2);
+        assert!(g.call().is_none(), "a plain square is not announced");
+    }
+
+    #[test]
+    fn the_well_holds_you_until_someone_falls_in() {
+        let mut g = Oca::new(3, "", &mut Rng::seeded(1));
+        g.skip[1] = WELL;
+        g.next_turn();
+        assert_eq!(g.turn, 2, "the one in the well does not play");
+        g.next_turn();
+        g.next_turn();
+        assert_eq!((g.turn, g.skip[1]), (2, WELL), "still waiting, round after round");
+        g.pos[2] = 29;
+        let mut seed = 1;
+        while Rng::seeded(seed).die() != 2 {
+            seed += 1;
+        }
+        g.play(2, "roll", &mut Rng::seeded(seed)).unwrap();
+        assert_eq!((g.skip[1], g.skip[2], g.turn), (0, WELL, 0), "rescued by the one who falls in");
+        g.next_turn();
+        assert_eq!(g.turn, 1);
     }
 
     #[test]
