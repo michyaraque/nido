@@ -4,6 +4,7 @@
 (() => {
   // ---------- the protocol: same packets as src/net.rs ----------
   const OP = { HELLO: 0x01, MOVE: 0x02, REACT: 0x03, PING: 0x04, VIEW: 0x81, REACTION: 0x82, ERROR: 0x83, PONG: 0x84 };
+  const FLAG = { MY_TURN: 1, WIN: 4, LOSE: 8 };
   const enc = new TextEncoder(), dec = new TextDecoder();
 
   /// Builds packets: u32 length (LE) · u8 opcode · payload.
@@ -13,8 +14,17 @@
       const body = [];
       const w = {
         u8: (v) => body.push(Uint8Array.of(v)),
-        u32: (v) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v >>> 0, true); body.push(b); },
-        str: (s) => { const t = enc.encode(s).slice(0, 65535); const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, t.length, true); body.push(b, t); },
+        u32: (v) => {
+          const b = new Uint8Array(4);
+          new DataView(b.buffer).setUint32(0, v >>> 0, true);
+          body.push(b);
+        },
+        str: (s) => {
+          const t = enc.encode(s).slice(0, 65535);
+          const b = new Uint8Array(2);
+          new DataView(b.buffer).setUint16(0, t.length, true);
+          body.push(b, t);
+        },
       };
       w.u8(op);
       write?.(w);
@@ -48,7 +58,11 @@
   let ac = null;
   const muted = () => { try { return localStorage.getItem("gm-mute") === "1"; } catch { return false; } };
   const audio = () => {
-    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); }
+    if (!ac) {
+      const A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return null;
+      ac = new A();
+    }
     if (ac.state === "suspended") ac.resume();
     return ac;
   };
@@ -160,11 +174,15 @@
 
   function feelNow(sound, flags, mineBefore, walked) {
     const name = SOUNDS[sound] || "tap";
-    if (flags & 4) { play("win"); confetti(); return; }
-    if (flags & 8) { play("lose"); return; }
+    if (flags & FLAG.WIN) {
+      play("win");
+      confetti();
+      return;
+    }
+    if (flags & FLAG.LOSE) return play("lose");
     if (!(walked && name === "dice")) play(name);
     if (name === "hit" || name === "sink" || name === "eat") shake();
-    if (flags & 1 && !mineBefore) setTimeout(() => play("turn"), 280);
+    if (flags & FLAG.MY_TURN && !mineBefore) setTimeout(() => play("turn"), 280);
   }
 
   // ---------- Colors: cards fly from where they come to where they go ----------
@@ -220,7 +238,10 @@
     if (next?.id !== "gm-live" || +next.dataset.v < +old.dataset.v) return null;
     const picked = old.querySelector("input[name=k]:checked")?.value;
     old.replaceWith(next);
-    if (picked) { const r = next.querySelector(`input[name=k][value="${picked}"]`); if (r) r.checked = true; }
+    if (picked) {
+      const r = next.querySelector(`input[name=k][value="${picked}"]`);
+      if (r) r.checked = true;
+    }
     cardsMoved(old, next);
     if (next.dataset.turn) document.title = document.hidden ? "• " + document.title.replace(/^• /, "") : document.title;
     init();
@@ -229,7 +250,9 @@
   function toast(msg) {
     document.querySelector(".toast")?.remove();
     const t = document.createElement("div");
-    t.className = "toast error"; t.setAttribute("role", "alert"); t.textContent = String(msg).slice(0, 160);
+    t.className = "toast error";
+    t.setAttribute("role", "alert");
+    t.textContent = String(msg).slice(0, 160);
     document.body.append(t);
   }
   function bubble(seat, html) {
@@ -238,7 +261,8 @@
     p.querySelector(".gm-bubble")?.remove();
     const b = document.createElement("span");
     b.className = "gm-bubble" + (html.startsWith("<") ? "" : " emoji");
-    if (html.startsWith("<")) b.innerHTML = html; else b.textContent = html;
+    if (html.startsWith("<")) b.innerHTML = html;
+    else b.textContent = html;
     p.append(b);
     setTimeout(() => b.remove(), 3300);
   }
@@ -249,7 +273,9 @@
     const el = box();
     const id = el?.dataset.live ? +el.dataset.id : null;
     if (id === wsFor && ws && ws.readyState <= 1) return;
-    ws?.close(); ws = null; wsFor = id;
+    ws?.close();
+    ws = null;
+    wsFor = id;
     clearInterval(ping);
     if (!id || !("WebSocket" in window)) return;
     const month = new URL(location.href).searchParams.get("month") || "";
@@ -284,7 +310,9 @@
             play("pop");
           }
         } else if (op === OP.ERROR) {
-          toast(m.str()); play("error"); unlock();
+          toast(m.str());
+          play("error");
+          unlock();
         }
         m.p = end;
       }
@@ -299,6 +327,12 @@
   const unlock = () => document.querySelectorAll("#gm-live form.gm-move button").forEach((b) => (b.disabled = false));
 
   // ---------- moves and reactions: over the socket, or over HTTP if it is not open ----------
+  /// The HTTP answer has no packet header: the sound and the outcome come as data-* on the new view.
+  function flagsOf(view) {
+    if (view.dataset.end === "win") return FLAG.WIN;
+    if (view.dataset.end === "lose") return FLAG.LOSE;
+    return view.dataset.turn ? FLAG.MY_TURN : 0;
+  }
   document.addEventListener("submit", async (e) => {
     const f = e.target;
     if (!f.matches?.("form.gm-live-form")) return;
@@ -309,20 +343,32 @@
     let value = e.submitter?.value ?? "";
     if (value.includes("{k}")) value = value.replace("{k}", f.querySelector("input[name=k]:checked")?.value ?? "0");
     f.closest("details")?.removeAttribute("open");
-    const react = f.action.endsWith("/react");
+    const action = new URL(f.getAttribute("action"), location.href).href;
+    const react = action.endsWith("/react");
     if (ws?.readyState === 1 && id) {
-      if (!react) { play("tap"); document.querySelectorAll("#gm-live form.gm-move button").forEach((b) => (b.disabled = true)); }
+      if (!react) {
+        play("tap");
+        document.querySelectorAll("#gm-live form.gm-move button").forEach((b) => (b.disabled = true));
+      }
       ws.send(new Out().packet(react ? OP.REACT : OP.MOVE, (w) => { w.u32(id); w.str(value); }).bytes());
       return;
     }
     const body = new URLSearchParams(new FormData(f, e.submitter));
     body.set("m", value);
     try {
-      const r = await fetch(f.action + "?partial=1", { method: "POST", body, credentials: "same-origin" });
+      const r = await fetch(action + "?partial=1", { method: "POST", body, credentials: "same-origin" });
       const html = await r.text();
-      if (r.ok) { const mine = !!box()?.dataset.turn; const n = swap(html); if (n) feel(SOUNDS.indexOf(n.dataset.sfx), n.dataset.end === "win" ? 4 : n.dataset.end === "lose" ? 8 : n.dataset.turn ? 1 : 0, mine); }
-      else { toast(html || "No se ha podido hacer"); play("error"); }
-    } catch { location.reload(); }
+      if (!r.ok) {
+        toast(html || "No se ha podido hacer");
+        play("error");
+        return;
+      }
+      const mine = !!box()?.dataset.turn;
+      const next = swap(html);
+      if (next) feel(SOUNDS.indexOf(next.dataset.sfx), flagsOf(next), mine);
+    } catch {
+      location.reload();
+    }
   }, true);
 
   // ---------- dominó: drag a tile from the hand to the end of the line where it goes ----------
@@ -453,7 +499,8 @@
       try { lock = await navigator.wakeLock?.request("screen"); } catch {} // the screen stays on while playing
     } else {
       if (document.fullscreenElement) try { await document.exitFullscreen(); } catch {}
-      lock?.release?.(); lock = null;
+      lock?.release?.();
+      lock = null;
     }
   }
   document.addEventListener("click", (e) => {
@@ -467,7 +514,10 @@
   function announceTurn() {
     const el = box();
     if (!el || el.dataset.live !== "1") return;
-    if (!el.dataset.turn) { if (poppedFor === el.dataset.id) poppedFor = null; return; }
+    if (!el.dataset.turn) {
+      if (poppedFor === el.dataset.id) poppedFor = null;
+      return;
+    }
     if (poppedFor === el.dataset.id) return;
     poppedFor = el.dataset.id;
     const pop = el.querySelector(".gm-pop");
@@ -479,7 +529,11 @@
   function init() {
     announceTurn();
     if (!document.querySelector(".gm-stage.full")) document.documentElement.classList.remove("gm-noscroll");
-    document.querySelectorAll(".gm-mute").forEach((b) => { b.classList.toggle("off", muted()); b.setAttribute("aria-pressed", String(muted())); });
+    const off = muted();
+    for (const b of document.querySelectorAll(".gm-mute")) {
+      b.classList.toggle("off", off);
+      b.setAttribute("aria-pressed", String(off));
+    }
     connect();
   }
   (window.nidoPlugins ||= {}).games = init;
