@@ -1,11 +1,11 @@
 [package]
 name = "nido-recipes"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Recetas, un plugin de Nido que va en su propio programa"
 
 [package.metadata.nido]
-min = "0.18.0"
+min = "0.21.0"
 
 [dependencies]
 axum = { version = "0.8", features = ["multipart"] }
