@@ -109,6 +109,8 @@
     win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.24, { type: "triangle", vol: 0.14, at: i * 0.1 })),
     lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.3, { type: "triangle", vol: 0.12, at: i * 0.15 })),
     pop: () => tone(880, 0.08, { vol: 0.12, slide: 1.5 }),
+    good: () => [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.16, { type: "triangle", vol: 0.12, at: i * 0.08 })),
+    bad: () => { tone(330, 0.22, { type: "sawtooth", vol: 0.06, slide: 0.7 }); tone(220, 0.34, { type: "sawtooth", vol: 0.06, at: 0.2, slide: 0.6 }); },
     step: () => tone(1250, 0.035, { type: "triangle", vol: 0.05 }),
     error: () => tone(160, 0.18, { type: "square", vol: 0.06 }),
   };
@@ -123,6 +125,39 @@
     if (!el || calm.matches) return;
     el.classList.remove("gm-shake"); void el.offsetWidth; el.classList.add("gm-shake");
   }
+  function streamers() {
+    if (calm.matches) return;
+    const box = document.createElement("div");
+    box.className = "gm-confetti";
+    const colors = ["#e53935", "#f2b705", "#43a047", "#1e6fd9", "#7c3aed", "#ec4899"];
+    for (let i = 0; i < 16; i++) {
+      const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      s.setAttribute("viewBox", "0 0 20 120");
+      s.setAttribute("class", "gm-streamer");
+      s.style.left = Math.random() * 100 + "vw";
+      s.innerHTML = `<path d="M10 0q9 10 0 20t0 20 0 20 0 20 0 20 0 20" fill="none" stroke="${colors[i % colors.length]}" stroke-width="4" stroke-linecap="round"/>`;
+      box.append(s);
+      const sway = (Math.random() - 0.5) * 160;
+      s.animate(
+        [
+          { transform: `translate(0, -140px) rotate(${(Math.random() - 0.5) * 40}deg)` },
+          { transform: `translate(${sway}px, ${innerHeight + 140}px) rotate(${(Math.random() - 0.5) * 120}deg)` },
+        ],
+        { duration: 2600 + Math.random() * 1600, delay: Math.random() * 500, easing: "cubic-bezier(.25,.5,.45,1)", fill: "forwards" },
+      );
+    }
+    document.body.append(box);
+    setTimeout(() => box.remove(), 5000);
+  }
+
+  function celebrate() {
+    const win = document.querySelector("#gm-live .gm-win");
+    if (!win) return;
+    win.classList.add("show");
+    streamers();
+    confetti();
+  }
+
   function confetti() {
     if (calm.matches) return;
     const box = document.createElement("div");
@@ -141,14 +176,68 @@
     document.body.append(box);
     setTimeout(() => box.remove(), 3400);
   }
+  const stepMs = (n) => Math.min(260, 2400 / n);
+  const pathOf = (g) => g.dataset.steps.trim().split(" ").map((p) => p.split(",").map(Number));
+
+  function walkTime(root) {
+    if (calm.matches) return 0;
+    let longest = 0;
+    for (const g of root.querySelectorAll("[data-steps]")) {
+      const n = pathOf(g).length - 1;
+      if (n > 0) longest = Math.max(longest, stepMs(n) * n);
+    }
+    return longest;
+  }
+
+  const ROLL_MS = 1000;
+  let rolled = false; // the view just swapped in comes from a roll of the dice
+  const TOP = { 1: [90, 0], 6: [-90, 0], 2: [0, -90], 5: [0, 90], 3: [0, 0], 4: [180, 0] };
+
+  /// The dice jump, tumble over in 3D and land with the rolled value on top.
+  function rollDice() {
+    const dice = [...document.querySelectorAll("#gm-live .gm-dice-bar .gm-die")];
+    if (!dice.length || calm.matches) return 0;
+    for (const [k, die] of dice.entries()) {
+      const cube = die.querySelector(".gm-cube");
+      const [a, c] = TOP[cube?.dataset.v] || [0, 0];
+      const way = k % 2 ? -1 : 1;
+      const at = (y, x, z, spin) => `translateY(${y}px) rotateX(-58deg) rotateY(-45deg) rotateX(${a + x}deg) rotateZ(${c + z}deg) rotateY(${spin}deg)`;
+      const slot = die.closest(".gm-die-slot.used");
+      slot?.classList.remove("used");
+      if (slot) setTimeout(() => slot.classList.add("used"), ROLL_MS + k * 80);
+      const timing = { duration: ROLL_MS, delay: k * 80, easing: "cubic-bezier(.33,.7,.4,1)", fill: "backwards" };
+      cube?.animate(
+        [
+          { transform: at(0, way * -540, 360, way * 90) },
+          { transform: at(-58, way * -200, 140, way * 40), offset: 0.42 },
+          { transform: at(0, 0, 0, 0), offset: 0.74 },
+          { transform: at(-9, way * 8, 0, 0), offset: 0.86 },
+          { transform: at(0, 0, 0, 0) },
+        ],
+        timing,
+      );
+      die.animate(
+        [
+          { transform: "scale(1)", opacity: 1 },
+          { transform: "scale(.55)", opacity: 0.45, offset: 0.42 },
+          { transform: "scale(1)", opacity: 1, offset: 0.74 },
+          { transform: "scale(.85)", opacity: 0.8, offset: 0.86 },
+          { transform: "scale(1)", opacity: 1 },
+        ],
+        { ...timing, pseudoElement: "::after" },
+      );
+    }
+    return ROLL_MS + (dice.length - 1) * 80;
+  }
+
   /// The moved pawn walks its path square by square with a little hop (parchís).
-  function walk() {
+  function walk(delay = 0) {
     if (calm.matches) return 0;
     let longest = 0;
     for (const g of document.querySelectorAll("#gm-live [data-steps]")) {
-      const pts = g.dataset.steps.trim().split(" ").map((p) => p.split(",").map(Number));
+      const pts = pathOf(g);
       if (pts.length < 2) continue;
-      const n = pts.length - 1, each = Math.min(180, 1000 / n), frames = [];
+      const n = pts.length - 1, each = stepMs(n), frames = [];
       pts.forEach(([x, y], i) => {
         if (i > 0) {
           const [px, py] = pts[i - 1];
@@ -156,56 +245,101 @@
         }
         frames.push({ transform: `translate(${x}px, ${y}px)`, offset: i / n });
       });
-      g.animate(frames, { duration: each * n, easing: "linear", fill: "backwards" });
-      for (let i = 1; i <= n; i++) setTimeout(() => play("step"), each * i);
+      g.animate(frames, { duration: each * n, delay, easing: "linear", fill: "backwards" });
+      for (let i = 1; i <= n; i++) setTimeout(() => play("step"), delay + each * i);
       longest = Math.max(longest, each * n);
     }
     return longest;
   }
 
   function feel(sound, flags, mineBefore) {
-    const walking = walk();
-    if (walking) {
-      // Let the pawn arrive before the capture or the win sounds.
-      return setTimeout(() => feelNow(sound, flags, mineBefore, true), walking);
-    }
+    const rolling = rolled ? rollDice() : 0;
+    if (rolling) play("dice");
+    const walking = walk(rolling);
+    const wait = rolling + walking;
+    if (wait) return setTimeout(() => feelNow(sound, flags, mineBefore, true), wait);
     feelNow(sound, flags, mineBefore, false);
+  }
+
+  const CALL_MS = 2400;
+  function announce() {
+    const c = document.querySelector("#gm-live .gm-call");
+    if (!c) return;
+    c.classList.add("show");
+    play(c.classList.contains("bad") ? "bad" : "good");
+    setTimeout(() => c.classList.remove("show"), CALL_MS);
   }
 
   function feelNow(sound, flags, mineBefore, walked) {
     const name = SOUNDS[sound] || "tap";
+    announce();
     if (flags & FLAG.WIN) {
       play("win");
-      confetti();
-      return;
+      return celebrate();
     }
-    if (flags & FLAG.LOSE) return play("lose");
+    if (flags & FLAG.LOSE) {
+      play("lose");
+      return celebrate();
+    }
+    if (box()?.dataset.end) return celebrate();
     if (!(walked && name === "dice")) play(name);
     if (name === "hit" || name === "sink" || name === "eat") shake();
-    if (flags & FLAG.MY_TURN && !mineBefore) setTimeout(() => play("turn"), 280);
+    const called = document.querySelector("#gm-live .gm-call") ? CALL_MS : 0;
+    if (flags & FLAG.MY_TURN && (!mineBefore || called)) setTimeout(() => play("turn"), 280 + called);
   }
 
   // ---------- Colors: cards fly from where they come to where they go ----------
   let clicked = null; // the card I just tapped, so mine leaves from my hand
   const rect = (el) => el?.getBoundingClientRect();
+  /// Animations end on the card's resting transform (its tilt on the pile), or it snaps when they end.
+  const restOf = (el) => getComputedStyle(el).transform;
+
   function fly(el, from, { rotate = 0, delay = 0 } = {}) {
     const to = rect(el);
     if (!el || !from || !to || calm.matches) return;
     const dx = from.left + from.width / 2 - (to.left + to.width / 2), dy = from.top + from.height / 2 - (to.top + to.height / 2);
     const s = from.width / to.width || 1;
     el.animate(
-      [{ transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(${rotate}deg)`, opacity: 0.9 }, { transform: "none", opacity: 1 }],
+      [{ transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(${rotate}deg)`, opacity: 0.9 }, { transform: restOf(el), opacity: 1 }],
       { duration: 420, delay, easing: "cubic-bezier(.2,.9,.25,1.15)", fill: "backwards" },
     );
   }
-  function cardsMoved(old, next) {
+
+  function toss(el, from, spin) {
+    const to = rect(el);
+    if (!el || !from || !to || calm.matches) return;
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2), dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const s = from.width / to.width || 1;
+    const lift = Math.min(90, Math.abs(dy) * 0.45 + 30);
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(0deg)`, offset: 0 },
+        { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - lift}px) scale(1.15) rotate(${spin}deg)`, offset: 0.5 },
+        { transform: restOf(el), offset: 1 },
+      ],
+      { duration: 520, easing: "cubic-bezier(.3,.7,.3,1)", fill: "backwards" },
+    );
+  }
+  /// Measured before the old view leaves the page: a detached element measures 0,0.
+  function tablePlaces(view) {
+    const at = new Map();
+    const deck = view.querySelector(".gm-deck");
+    if (deck) at.set(".gm-deck", rect(deck));
+    for (const o of view.querySelectorAll(".gm-other[data-seat]")) {
+      const backs = o.querySelector(".gm-backs");
+      if (backs) at.set(`.gm-other[data-seat="${o.dataset.seat}"] .gm-backs`, rect(backs));
+    }
+    return at;
+  }
+
+  function cardsMoved(old, next, places) {
     const t = next.querySelector(".gm-colores");
     if (!t || !old.querySelector(".gm-colores")) return;
     const act = t.dataset.act, seat = t.dataset.seat, me = t.dataset.me;
-    const was = (sel) => rect(old.querySelector(sel));
+    const was = (sel) => places.get(sel);
     if (act === "play") {
       const from = seat === me ? clicked : was(`.gm-other[data-seat="${seat}"] .gm-backs`);
-      fly(next.querySelector(".gm-pile-card.top"), from || was(".gm-deck"), { rotate: seat === me ? -12 : 18 });
+      toss(next.querySelector(".gm-pile-card.top"), from || was(".gm-deck"), seat === me ? -16 : 16);
     } else if (act === "draw") {
       const deck = was(".gm-deck");
       if (seat === me) fly(next.querySelector(".gm-hand > :last-child"), deck, { rotate: 10 });
@@ -237,14 +371,16 @@
     const next = t.content.firstElementChild;
     if (next?.id !== "gm-live" || +next.dataset.v < +old.dataset.v) return null;
     const picked = old.querySelector("input[name=k]:checked")?.value;
+    const places = tablePlaces(old);
+    rolled = next.dataset.roll !== old.dataset.roll && next.dataset.roll !== "0";
     old.replaceWith(next);
     if (picked) {
       const r = next.querySelector(`input[name=k][value="${picked}"]`);
       if (r) r.checked = true;
     }
-    cardsMoved(old, next);
+    cardsMoved(old, next, places);
     if (next.dataset.turn) document.title = document.hidden ? "• " + document.title.replace(/^• /, "") : document.title;
-    init();
+    init(true);
     return next;
   }
   function toast(msg) {
@@ -255,15 +391,36 @@
     t.textContent = String(msg).slice(0, 160);
     document.body.append(t);
   }
+  function seatFace(seat) {
+    const live = box();
+    const chip = live?.querySelectorAll(".gm-player")[seat];
+    if (!chip) return null;
+    const table = live.querySelector(".gm-colores");
+    const at = chip.classList.contains("me")
+      ? table?.querySelector(".gm-mine .gm-face")
+      : table?.querySelector(`.gm-other[data-seat="${seat}"] .gm-face`);
+    return { el: at || chip.querySelector(".avatar") || chip, color: chip.style.getPropertyValue("--c") };
+  }
+
+  /// In the stage, which outlives the view swaps, so a move right after does not wipe it.
   function bubble(seat, html) {
-    const p = document.querySelectorAll("#gm-live .gm-player")[seat];
-    if (!p) return;
-    p.querySelector(".gm-bubble")?.remove();
-    const b = document.createElement("span");
-    b.className = "gm-bubble" + (html.startsWith("<") ? "" : " emoji");
-    if (html.startsWith("<")) b.innerHTML = html;
-    else b.textContent = html;
-    p.append(b);
+    const stage = document.querySelector(".gm-stage");
+    const face = seatFace(seat);
+    if (!stage || !face) return;
+    stage.querySelector(`.gm-said[data-seat="${seat}"]`)?.remove();
+    const r = face.el.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    const b = document.createElement("div");
+    b.className = "gm-said";
+    b.dataset.seat = seat;
+    b.style.setProperty("--c", face.color);
+    b.style.left = r.left - s.left + stage.scrollLeft + r.width / 2 + "px";
+    b.style.top = r.top - s.top + stage.scrollTop + "px";
+    const what = document.createElement("span");
+    what.className = "gm-said-what" + (html.startsWith("<") ? "" : " emoji");
+    if (html.startsWith("<")) what.innerHTML = html;
+    else what.textContent = html;
+    b.append(what);
+    stage.append(b);
     setTimeout(() => b.remove(), 3300);
   }
 
@@ -365,7 +522,11 @@
       }
       const mine = !!box()?.dataset.turn;
       const next = swap(html);
-      if (next) feel(SOUNDS.indexOf(next.dataset.sfx), flagsOf(next), mine);
+      if (next && react) {
+        const seat = [...next.querySelectorAll(".gm-player")].findIndex((p) => p.classList.contains("me"));
+        const tpl = next.querySelector(`.gm-emojis button[value="${CSS.escape(value)}"]`);
+        if (seat >= 0) bubble(seat, tpl ? tpl.innerHTML : value);
+      } else if (next) feel(SOUNDS.indexOf(next.dataset.sfx), flagsOf(next), mine);
     } catch {
       location.reload();
     }
@@ -473,6 +634,7 @@
 
   // The comodín picker closes when you tap outside the diamond.
   document.addEventListener("click", (e) => {
+    if (e.target.closest?.(".gm-win-close")) e.target.closest(".gm-win").classList.remove("show");
     const picker = e.target.closest?.(".gm-picker");
     if (picker && !e.target.closest(".gm-diamond")) picker.closest("details")?.removeAttribute("open");
     const mute = e.target.closest?.(".gm-mute");
@@ -511,23 +673,30 @@
 
   // ---------- "¡Te toca!": a big card for a moment when the turn becomes mine ----------
   let poppedFor = null; // the match whose current turn of mine was already announced
-  function announceTurn() {
+  let poppedAt = null; // version that showed it: playing again after a +2 shows it once more
+  function announceTurn(fresh) {
     const el = box();
     if (!el || el.dataset.live !== "1") return;
     if (!el.dataset.turn) {
       if (poppedFor === el.dataset.id) poppedFor = null;
       return;
     }
-    if (poppedFor === el.dataset.id) return;
+    const again = el.dataset.again && poppedAt !== el.dataset.v;
+    if (poppedFor === el.dataset.id && !again) return;
     poppedFor = el.dataset.id;
+    poppedAt = el.dataset.v;
     const pop = el.querySelector(".gm-pop");
     if (!pop) return;
-    pop.classList.add("show");
-    setTimeout(() => pop.classList.remove("show"), calm.matches ? 1400 : 1900);
+    const roll = rolled && el.querySelector(".gm-dice-bar .gm-die") ? ROLL_MS : 0;
+    const wait = fresh ? roll + walkTime(el) + (el.querySelector(".gm-call") ? CALL_MS : 0) : 0;
+    setTimeout(() => {
+      pop.classList.add("show");
+      setTimeout(() => pop.classList.remove("show"), calm.matches ? 1400 : 1900);
+    }, wait);
   }
 
-  function init() {
-    announceTurn();
+  function init(fresh = false) {
+    announceTurn(fresh);
     if (!document.querySelector(".gm-stage.full")) document.documentElement.classList.remove("gm-noscroll");
     const off = muted();
     for (const b of document.querySelectorAll(".gm-mute")) {

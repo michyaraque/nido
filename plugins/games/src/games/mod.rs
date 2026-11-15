@@ -94,6 +94,18 @@ impl Ctx<'_> {
     }
 }
 
+pub struct Call {
+    pub seat: usize,
+    /// Inner markup of a 64×64 drawing, or empty.
+    pub art: &'static str,
+    pub text: String,
+    /// What whoever moved reads; None when it would only tell them what they just did.
+    pub own: Option<String>,
+    pub to: Option<(usize, String)>,
+    /// Good or bad news for whoever moved: picks the sound.
+    pub good: bool,
+}
+
 pub trait Game: Serialize + DeserializeOwned {
     /// A new match; `opt` is one of the game's `Info::options` (or empty when it has none).
     fn new(players: usize, opt: &str, rng: &mut Rng) -> Self;
@@ -104,6 +116,17 @@ pub trait Game: Serialize + DeserializeOwned {
     /// What `seat` has to do now, when it is more precise than the game's `Info::hint`.
     fn hint(&self, _seat: usize) -> String {
         String::new()
+    }
+    /// `seat` plays again right after its own move, so "¡Te toca!" shows although the turn never left.
+    fn again(&self, _seat: usize) -> bool {
+        false
+    }
+    fn call(&self) -> Option<Call> {
+        None
+    }
+    /// How many times the dice have been rolled: when it grows, the page rolls them.
+    fn rolls(&self) -> u32 {
+        0
     }
     fn turn(&self) -> usize;
     fn outcome(&self) -> Option<Outcome>;
@@ -250,6 +273,28 @@ pub fn turn_hint(game: &str, state: &str, seat: usize) -> String {
     if own.is_empty() { info(game).map_or("", |g| g.hint).to_string() } else { own }
 }
 
+impl Call {
+    pub fn for_seat(&self, me: Option<usize>) -> Option<&str> {
+        match (me, &self.to) {
+            (Some(m), _) if m == self.seat => self.own.as_deref(),
+            (Some(m), Some((t, text))) if m == *t => Some(text),
+            _ => Some(&self.text),
+        }
+    }
+}
+
+pub fn call(game: &str, state: &str) -> Option<Call> {
+    with_game!(game, G, serde_json::from_str::<G>(state).ok().and_then(|g| g.call())).flatten()
+}
+
+pub fn rolls(game: &str, state: &str) -> u32 {
+    with_game!(game, G, serde_json::from_str::<G>(state).map_or(0, |g| g.rolls())).unwrap_or(0)
+}
+
+pub fn again(game: &str, state: &str, seat: usize) -> bool {
+    with_game!(game, G, serde_json::from_str::<G>(state).is_ok_and(|g| g.again(seat))).unwrap_or(false)
+}
+
 /// One robot move, if it is a robot's turn: `Some(None)` when a person has to play (or it is over).
 /// The app plays these one at a time with a pause, so everyone can follow what the robots do.
 pub fn robot_step(game: &str, state: &str, bots: &[bool], rng: &mut Rng) -> Option<Option<Status>> {
@@ -296,17 +341,27 @@ pub fn push_log(log: &mut Vec<(usize, String)>, seat: usize, text: String) {
 }
 
 /// A die face with its pips (3x3 grid), for oca and parchís.
-pub fn die_face(d: u8) -> Markup {
-    let on: &[usize] = match d {
+fn pips(d: u8) -> &'static [usize] {
+    match d {
         1 => &[4],
         2 => &[0, 8],
         3 => &[0, 4, 8],
         4 => &[0, 2, 6, 8],
         5 => &[0, 2, 4, 6, 8],
         _ => &[0, 2, 3, 5, 6, 8],
-    };
+    }
+}
+
+/// A 3D die resting with `d` on top. Opposite faces add up to seven, as on a real one.
+pub fn die_face(d: u8) -> Markup {
     maud::html! {
-        span.gm-die aria-label={ "Dado: " (d) } { @for i in 0..9 { i.on[on.contains(&i)] {} } }
+        span.gm-die role="img" aria-label={ "Dado: " (d) } {
+            span.gm-cube data-v=(d) {
+                @for side in [1u8, 6, 2, 5, 3, 4] {
+                    span class={ "gm-side s" (side) } { @for i in 0..9 { i.on[pips(side).contains(&i)] {} } }
+                }
+            }
+        }
     }
 }
 

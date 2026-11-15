@@ -25,6 +25,8 @@ pub struct Parchis {
     rolled: bool,
     #[serde(default)]
     dice: [u8; 2],
+    #[serde(default)]
+    rolls: u32,
     pending: Vec<(u8, bool)>, // amounts still to move this turn: (amount, it is a die)
     sixes: u8,                // doubles in a row
     last: Option<(usize, usize)>,
@@ -235,7 +237,10 @@ impl Game for Parchis {
             3 => vec![0, 1, 2],
             _ => vec![0, 1, 2, 3],
         };
-        Parchis { pawns: vec![[-1; 4]; colors.len()], colors, turn: 0, rolled: false, dice: [0, 0], pending: Vec::new(), sixes: 0, last: None, from: None, log: Vec::new(), winner: None }
+        Parchis { pawns: vec![[-1; 4]; colors.len()], colors, turn: 0, rolled: false, dice: [0, 0], rolls: 0, pending: Vec::new(), sixes: 0, last: None, from: None, log: Vec::new(), winner: None }
+    }
+    fn rolls(&self) -> u32 {
+        self.rolls
     }
     fn turn(&self) -> usize {
         self.turn
@@ -252,6 +257,7 @@ impl Game for Parchis {
                 return Err("Ya has tirado: mueve una ficha");
             }
             let (a, b) = (rng.die(), rng.die());
+            self.rolls += 1;
             self.dice = [a, b];
             self.from = None; // a roll moves nothing: no walk to replay
             if a == b {

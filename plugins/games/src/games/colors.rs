@@ -95,7 +95,7 @@ fn card_face(card: Card, shown: u8) -> Markup {
         SKIP => icon("ban"),
         TURN => icon("refresh-cw"),
         TWO => html! { b { "+2" } },
-        WILD => html! { span.gm-wild-face { i.q0 {} i.q1 {} i.q2 {} i.q3 {} } },
+        WILD => html! { span.gm-wild-face { @for q in 0..4u8 { i class={ "q" (q) @if q == shown { " on" } } {} } } },
         n => html! { b { (n) } },
     };
     let corner = match card.v {
@@ -106,7 +106,7 @@ fn card_face(card: Card, shown: u8) -> Markup {
         n => html! { (n) },
     };
     html! {
-        span class={ "gm-card k" (c) @if card.v == WILD { " wild" } } {
+        span class={ "gm-card k" (c) @if card.v == WILD { " wild" @if shown < ANY { " chosen" } } } {
             span.gm-card-tab { (corner) }
             span.gm-card-mid { (mid) }
         }
@@ -137,6 +137,30 @@ impl Game for Colors {
     }
     fn outcome(&self) -> Option<Outcome> {
         self.winner.map(Outcome::Win)
+    }
+    fn again(&self, seat: usize) -> bool {
+        self.turn == seat && self.skipped.is_some() && matches!(&self.act, Some((s, k)) if *s == seat && k == "play")
+    }
+    fn hint(&self, seat: usize) -> String {
+        if self.again(seat) { "El otro pierde el turno: juegas otra vez".into() } else { String::new() }
+    }
+    fn call(&self) -> Option<Call> {
+        let seat = match &self.act {
+            Some((s, k)) if k == "play" && self.winner.is_none() => *s,
+            _ => return None,
+        };
+        let card = *self.pile.last()?;
+        let hit = |text: &str| self.skipped.map(|s| (s, text.to_string()));
+        let (text, to) = match card.v {
+            TWO => ("¡+2! Roba dos y pierde el turno".to_string(), hit("¡+2 para ti! Robas dos y pierdes el turno")),
+            SKIP => ("¡Salta! Pierde el turno".to_string(), hit("¡Te saltan! Pierdes el turno")),
+            TURN if self.hands.len() == 2 => ("¡Gira! Vuelve a jugar".to_string(), hit("¡Gira! Pierdes el turno")),
+            TURN => ("¡Cambio de sentido!".to_string(), None),
+            WILD => (format!("¡Comodín! Ahora va {}", NAMES[card.c as usize]), None),
+            _ if self.hands[seat].len() == 1 => ("¡Le queda una!".to_string(), None),
+            _ => return None,
+        };
+        Some(Call { seat, art: "", text, own: None, to, good: true })
     }
     fn play(&mut self, s: usize, mv: &str, rng: &mut Rng) -> Result<(), &'static str> {
         if s != self.turn {
@@ -209,10 +233,9 @@ impl Game for Colors {
                 }
                 match card.v {
                     SKIP => self.end_turn(1),
-                    TURN if self.hands.len() == 2 => self.end_turn(1), // with two, turning around is skipping
                     TURN => {
                         self.dir = -self.dir;
-                        self.end_turn(0);
+                        self.end_turn(if self.hands.len() == 2 { 1 } else { 0 });
                     }
                     TWO => {
                         let next = self.step(s, 1);
@@ -369,5 +392,31 @@ mod tests {
         g.play(2, "play:0:3", &mut rng).unwrap();
         assert_eq!((g.color, g.turn), (3, 0));
         assert!(g.play(0, "play:0", &mut rng).is_err(), "green 5 does not follow blue");
+    }
+
+    #[test]
+    fn plays_again_after_blocking_the_other() {
+        let mut rng = Rng::seeded(7);
+        let mut g = Colors::new(2, "", &mut rng);
+        g.color = 0;
+        g.pile.push(Card { c: 0, v: 3 });
+        g.hands[0] = vec![Card { c: 0, v: SKIP }, Card { c: 0, v: 4 }, Card { c: 2, v: 5 }];
+        g.play(0, "play:0", &mut rng).unwrap();
+        assert_eq!(g.turn, 0);
+        assert!(g.again(0) && !g.again(1));
+        g.play(0, "play:0", &mut rng).unwrap(); // a plain number: the turn moves on
+        assert!(!g.again(0) && !g.again(1));
+
+        let mut g = Colors::new(2, "", &mut rng);
+        g.color = 0;
+        g.pile.push(Card { c: 0, v: 3 });
+        g.hands[0] = vec![Card { c: 0, v: TURN }, Card { c: 2, v: 5 }];
+        let dir = g.dir;
+        g.play(0, "play:0", &mut rng).unwrap();
+        assert_eq!((g.dir, g.turn), (-dir, 0), "Gira between two: the arrows turn and I play again");
+        let c = g.call().unwrap();
+        assert_eq!(c.for_seat(Some(0)), None, "nothing to tell the one who played it");
+        assert_eq!(c.for_seat(Some(1)), Some("¡Gira! Pierdes el turno"));
+        assert_eq!(c.for_seat(None), Some("¡Gira! Vuelve a jugar"));
     }
 }

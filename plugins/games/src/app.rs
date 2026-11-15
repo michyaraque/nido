@@ -87,8 +87,10 @@ pub fn robots(db: Db, id: i64) {
                 let c = lock(&db);
                 match load(&c, id) {
                     Ok(Some(m)) if !m.done && m.players.get(m.turn) == Some(&0) => match m.game.as_str() {
-                        "parchis" | "oca" => 1100,
-                        "colores" | "fleet" => 900,
+                        "oca" => 4700,
+                        "parchis" => 3200,
+                        "colores" => 1600,
+                        "fleet" => 900,
                         _ => 650,
                     },
                     _ => break,
@@ -689,6 +691,8 @@ fn match_page(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
     })
 }
 
+const TROPHY: &str = r##"<ellipse cx="32" cy="58" rx="16" ry="2.5" fill="#000" opacity=".12"/><path d="M20 14h-6a7 7 0 0 0 7 11M44 14h6a7 7 0 0 1-7 11" fill="none" stroke="#b45309" stroke-width="3" stroke-linecap="round"/><path d="M20 9h24v15a12 12 0 0 1-24 0z" fill="#facc15" stroke="#b45309" stroke-width="2.5" stroke-linejoin="round"/><path d="M25 13v9" stroke="#fef9c3" stroke-width="3" stroke-linecap="round"/><path d="M32 13l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8-3.5-3.4 4.8-.7z" fill="#fff7cc"/><path d="M29 36h6v8h-6z" fill="#eab308" stroke="#b45309" stroke-width="2"/><rect x="19" y="44" width="26" height="9" rx="2.5" fill="#a16207" stroke="#78350f" stroke-width="2"/>"##;
+
 /// Everything that changes during a match. The socket sends it again, drawn for each viewer,
 /// whenever `version` grows.
 fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
@@ -703,9 +707,12 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
     let action = |what: &str| format!("/plugins/games/m/{}/{what}", m.id);
     let my_turn = !m.done && me == Some(m.turn);
     let hint = games::turn_hint(&m.game, &m.state, m.turn);
+    let again = my_turn && games::again(&m.game, &m.state, m.turn);
+    let call = if again { "¡Otra vez tú!" } else { "¡Te toca!" };
     html_ok(html! {
         div #gm-live data-id=(m.id) data-v=(m.version) data-game=(m.game) data-sfx=(sfx(&m.game, log.last().map(|l| l.1.as_str())))
-            data-live=[(!m.done).then_some("1")] data-turn=[my_turn.then_some("1")]
+            data-live=[(!m.done).then_some("1")] data-turn=[my_turn.then_some("1")] data-again=[again.then_some("1")]
+            data-roll=(games::rolls(&m.game, &m.state))
             data-end=[m.done.then(|| if me.is_some() && m.winner == me { "win" } else if me.is_some() { "lose" } else { "end" })] {
             div.gm-players {
                 @for (i, s) in seats.iter().enumerate() {
@@ -740,7 +747,7 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
                     }
                 } @else if my_turn {
                     span.gm-turn.you {
-                        span.gm-turn-txt { b { "¡Te toca!" } small { (hint) } }
+                        span.gm-turn-txt { b { (call) } small { (hint) } }
                     }
                     @if let Some((s, text)) = log.last() {
                         span.gm-last style={ "--c:" (cx.color(*s)) } { i {} b { (cx.name(*s)) } " " (text) }
@@ -758,9 +765,41 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
                     }
                 }
             }
+            // Shown by the script only when the match ends live, never on a later visit.
+            @if m.done {
+                div.gm-win.mine[me.is_some() && m.winner == me] role="dialog" aria-label="Fin de la partida" {
+                    div.gm-win-card {
+                        svg.gm-win-cup viewBox="0 0 64 64" aria-hidden="true" { (PreEscaped(TROPHY)) }
+                        @if let Some(w) = m.winner { span.gm-win-face style={ "--c:" (cx.color(w)) } { (cx.face(w)) } }
+                        b.gm-win-title {
+                            @match m.winner {
+                                Some(w) if Some(w) == me => "¡Has ganado!",
+                                Some(w) => { "¡Gana " (seats[w].name) "!" }
+                                None => "Empate",
+                            }
+                        }
+                        @if !m.note.is_empty() { span.gm-win-note { (m.note) } }
+                        div.gm-win-actions {
+                            @if me.is_some() {
+                                form method="post" action=(action("again")) { (v.ctx()) button.btn.primary { (icon("refresh-cw")) "Revancha" } }
+                            }
+                            button.btn.outline.gm-win-close type="button" { "Ver el tablero" }
+                        }
+                    }
+                }
+            }
+            @if let Some(call) = games::call(&m.game, &m.state) {
+                @if let Some(text) = call.for_seat(me) {
+                    div.gm-call.bad[!call.good] style={ "--c:" (cx.color(call.seat)) } aria-hidden="true" {
+                        @if !call.art.is_empty() { svg.gm-call-art viewBox="0 0 64 64" { (PreEscaped(call.art)) } }
+                        span.gm-call-who { (cx.face(call.seat)) (cx.name(call.seat)) }
+                        b.gm-call-text { (text) }
+                    }
+                }
+            }
             @if my_turn {
-                div.gm-pop aria-hidden="true" {
-                    b.gm-pop-title { @for (i, ch) in "¡Te toca!".chars().enumerate() { span style={ "--i:" (i) } { (ch) } } }
+                div.gm-pop.again[again] aria-hidden="true" {
+                    b.gm-pop-title { @for (i, ch) in call.chars().enumerate() { span style={ "--i:" (i) } { (ch) } } }
                     span.gm-pop-hint { (hint) }
                 }
             }

@@ -811,6 +811,62 @@
   box-shadow: none;
 }
 
+/* With the script, reactions show as .gm-said bubbles instead */
+.js .gm-player .gm-bubble {
+  display: none;
+}
+
+.gm-stage {
+  position: relative;
+}
+
+.gm-said {
+  position: absolute;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+  height: 52px;
+  padding: 0 8px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 2px solid var(--c, var(--line));
+  box-shadow: var(--shadow-float);
+  translate: -50% calc(-100% - 10px);
+  pointer-events: none;
+  animation: gm-bubble 3.2s var(--gm-spring) forwards;
+}
+
+.gm-said::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 12px;
+  height: 12px;
+  translate: -50% 0;
+  rotate: 45deg;
+  background: var(--surface);
+  border-right: 2px solid var(--c, var(--line));
+  border-bottom: 2px solid var(--c, var(--line));
+}
+
+.gm-said-what {
+  display: grid;
+  place-items: center;
+  color: var(--r, var(--ink));
+}
+
+.gm-said-what .i {
+  width: 24px;
+  height: 24px;
+}
+
+.gm-said-what.emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
 /* the bar: always one line tall, whatever it says */
 .gm-bar {
   display: flex;
@@ -971,6 +1027,10 @@
   display: inline-block;
   white-space: pre;
   opacity: 0;
+}
+
+.gm-pop.again .gm-pop-title {
+  font-size: clamp(38px, 10vw, 84px);
 }
 
 .gm-pop.show .gm-pop-title span {
@@ -1218,7 +1278,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 500;
+  z-index: 1300;
   overflow: hidden;
 }
 
@@ -1262,25 +1322,99 @@
 }
 
 .gm-die {
-  width: 48px;
-  height: 48px;
-  padding: 8px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 3px;
-  border-radius: 13px;
-  background: #fff;
-  border: 1px solid var(--line);
-  box-shadow: 0 6px 0 -2px var(--line-strong), var(--shadow-card);
-  animation: gm-roll .55s var(--gm-spring);
+  --ds: 46px;
+  position: relative;
+  display: block;
+  width: var(--ds);
+  height: var(--ds);
+  perspective: 420px;
 }
 
-.gm-die i {
+.gm-die::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -9px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / .22);
+  filter: blur(3px);
+}
+
+.gm-cube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  --a: 0deg;
+  --c: 0deg;
+  transform: translateY(0) rotateX(-58deg) rotateY(-45deg) rotateX(var(--a)) rotateZ(var(--c)) rotateY(0deg);
+}
+
+/* Seen from above at a corner; each value is turned to the top */
+.gm-cube[data-v="1"] {
+  --a: 90deg;
+}
+
+.gm-cube[data-v="6"] {
+  --a: -90deg;
+}
+
+.gm-cube[data-v="2"] {
+  --c: -90deg;
+}
+
+.gm-cube[data-v="5"] {
+  --c: 90deg;
+}
+
+.gm-cube[data-v="4"] {
+  --a: 180deg;
+}
+
+.gm-side {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 18%;
+  border-radius: 22%;
+  background: radial-gradient(circle at 32% 28%, #fff, #e9ecf1);
+  box-shadow: inset 0 0 0 1px #d4d9e1, inset 0 -3px 6px rgb(0 0 0 / .06);
+  backface-visibility: hidden;
+}
+
+.gm-side i {
   border-radius: 50%;
 }
 
-.gm-die i.on {
-  background: #1f2937;
+.gm-side i.on {
+  background: radial-gradient(circle at 40% 35%, #475569, #111827);
+}
+
+.s1 {
+  transform: translateZ(calc(var(--ds) / 2));
+}
+
+.s6 {
+  transform: rotateY(180deg) translateZ(calc(var(--ds) / 2));
+}
+
+.s2 {
+  transform: rotateY(90deg) translateZ(calc(var(--ds) / 2));
+}
+
+.s5 {
+  transform: rotateY(-90deg) translateZ(calc(var(--ds) / 2));
+}
+
+.s3 {
+  transform: rotateX(90deg) translateZ(calc(var(--ds) / 2));
+}
+
+.s4 {
+  transform: rotateX(-90deg) translateZ(calc(var(--ds) / 2));
 }
 
 .gm-choices {
@@ -1904,11 +2038,53 @@ button.gm-water:hover::before {
   filter: drop-shadow(0 4px 4px rgb(0 0 0 / .15));
 }
 
+.gm-oca-help {
+  margin-top: 14px;
+}
+
+.gm-oca-help>summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: var(--mute);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.gm-oca-help>summary::-webkit-details-marker {
+  display: none;
+}
+
+.gm-oca-help>summary .i {
+  width: 16px;
+  height: 16px;
+}
+
+.gm-oca-help>summary:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.gm-stage.full .gm-oca-wrap,
+.gm-stage.full .gm-parchis-wrap {
+  width: 100%;
+  max-width: min(900px, calc(100dvh - 250px));
+}
+
+.gm-stage.full .gm-oca-help {
+  display: none;
+}
+
 .gm-oca-rules {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 6px 14px;
-  margin: 14px 0 0;
+  margin: 6px 0 0;
   padding: 14px 16px;
   list-style: none;
   border-radius: 16px;
@@ -1945,6 +2121,319 @@ button.gm-water:hover::before {
 .gm-oca-rule-ico .i {
   width: 15px;
   height: 15px;
+}
+
+.gm-oca-rule-ico svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* ---------- the end of the match ---------- */
+.gm-win {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 42%, rgb(40 28 70 / .82), rgb(6 8 20 / .94) 70%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .3s, visibility 0s .3s;
+}
+
+.gm-win.show {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity .35s;
+}
+
+.gm-win::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 1100px;
+  height: 1100px;
+  translate: -50% -50%;
+  background: repeating-conic-gradient(from 0deg, rgb(253 224 71 / .1) 0deg 8deg, transparent 9deg 24deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 62%);
+  mask-image: radial-gradient(circle, #000 0, transparent 62%);
+  animation: gm-rays 24s linear infinite;
+}
+
+.gm-win:not(.mine)::before {
+  opacity: .55;
+}
+
+.gm-win-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(100%, 420px);
+  text-align: center;
+}
+
+.gm-win-cup {
+  width: 150px;
+  height: 150px;
+  filter: drop-shadow(0 0 28px rgb(250 204 21 / .55)) drop-shadow(0 12px 18px rgb(0 0 0 / .35));
+  translate: 0 -40px;
+  opacity: 0;
+}
+
+.gm-win.show .gm-win-cup {
+  animation: gm-win-drop .8s var(--gm-spring) .1s forwards;
+}
+
+.gm-win-face {
+  margin-top: -6px;
+  opacity: 0;
+}
+
+.gm-win.show .gm-win-face {
+  animation: gm-win-rise .5s var(--gm-spring) .45s forwards;
+}
+
+.gm-win-face .avatar {
+  width: 76px;
+  height: 76px;
+  font-size: 30px;
+  border: 4px solid var(--c, #fff);
+  box-shadow: 0 0 0 6px rgb(255 255 255 / .12), 0 10px 24px rgb(0 0 0 / .4);
+}
+
+.gm-win-title {
+  font-family: var(--gm-round);
+  font-size: clamp(38px, 11vw, 56px);
+  font-weight: 700;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 6px 24px rgb(0 0 0 / .45);
+  opacity: 0;
+}
+
+.gm-win.mine .gm-win-title {
+  background: linear-gradient(180deg, #fef9c3 0%, #fde047 45%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 18px rgb(245 158 11 / .45));
+  text-shadow: none;
+}
+
+.gm-win.show .gm-win-title {
+  animation: gm-win-rise .55s var(--gm-spring) .6s forwards;
+}
+
+.gm-win-note {
+  color: rgb(255 255 255 / .75);
+  font-size: 15px;
+}
+
+.gm-win-actions {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  opacity: 0;
+}
+
+.gm-win.show .gm-win-actions {
+  animation: gm-win-rise .5s var(--gm-spring) .85s forwards;
+}
+
+.gm-win-actions .btn.primary {
+  height: 52px;
+  padding: 0 30px;
+  border-radius: 99px;
+  border: 0;
+  background: linear-gradient(180deg, #fde047, #f59e0b);
+  color: #422006;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 10px 26px rgb(245 158 11 / .45), inset 0 -3px 0 rgb(0 0 0 / .15);
+}
+
+.gm-win-actions .btn.primary:hover {
+  filter: brightness(1.06);
+}
+
+.gm-win-actions .btn.outline {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(255 255 255 / .8);
+}
+
+.gm-win-actions .btn.outline:hover {
+  color: #fff;
+  background: rgb(255 255 255 / .1);
+}
+
+@keyframes gm-rays {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes gm-win-drop {
+  0% {
+    translate: 0 -60px;
+    scale: .4;
+    opacity: 0;
+  }
+  60% {
+    translate: 0 6px;
+    scale: 1.08;
+    opacity: 1;
+  }
+  100% {
+    translate: 0 0;
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes gm-win-rise {
+  0% {
+    translate: 0 18px;
+    scale: .85;
+    opacity: 0;
+  }
+  100% {
+    translate: 0 0;
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-win::before {
+    animation: none;
+  }
+  .gm-win.show .gm-win-cup,
+  .gm-win.show .gm-win-face,
+  .gm-win.show .gm-win-title,
+  .gm-win.show .gm-win-actions {
+    animation: none;
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+.gm-streamer {
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 90px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-win-card,
+  .gm-win.show .gm-win-card {
+    scale: 1;
+  }
+  .gm-win.show .gm-win-cup {
+    animation: none;
+  }
+}
+
+/* ---------- announcements: the saying of the square, big, for a moment ---------- */
+.gm-call {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  z-index: 31;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(92%, 460px);
+  padding: 18px 22px 20px;
+  border-radius: 24px;
+  border: 3px solid var(--c, var(--accent));
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  text-align: center;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  translate: -50% -50%;
+  scale: .6;
+  transition: opacity .2s, scale .2s, visibility 0s .2s;
+}
+
+.gm-call.show {
+  visibility: visible;
+  opacity: 1;
+  scale: 1;
+  transition: opacity .25s, scale .45s var(--gm-spring), visibility 0s;
+}
+
+.gm-call-art {
+  width: 84px;
+  height: 84px;
+}
+
+.gm-call.show .gm-call-art {
+  animation: gm-call-hop .9s var(--gm-spring) .1s;
+}
+
+.gm-call-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mute);
+}
+
+.gm-call-who .avatar {
+  width: 24px;
+  height: 24px;
+}
+
+.gm-call-text {
+  font-family: var(--gm-round);
+  font-size: clamp(22px, 5.4vw, 32px);
+  line-height: 1.15;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.gm-call.bad .gm-call-text {
+  color: var(--bad);
+}
+
+@keyframes gm-call-hop {
+  0% {
+    transform: translateY(0) rotate(0);
+  }
+  35% {
+    transform: translateY(-14px) rotate(-8deg);
+  }
+  70% {
+    transform: translateY(0) rotate(5deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-call,
+  .gm-call.show {
+    scale: 1;
+    transition: opacity .2s, visibility 0s;
+  }
+  .gm-call.show .gm-call-art {
+    animation: none;
+  }
 }
 
 .gm-oca-board .sq .ico {
@@ -2042,6 +2531,27 @@ button.gm-water:hover::before {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* One line of fixed height whatever it holds, so rolling never moves the board */
+.gm-parchis-wrap .gm-dice-bar {
+  flex-wrap: nowrap;
+  height: 64px;
+}
+
+.gm-parchis-wrap .gm-choices-t {
+  width: auto;
+  min-width: 0;
+  max-width: 220px;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.gm-stage.full[data-game=parchis] {
+  background-color: #efdfc8;
+  background-image:
+    repeating-linear-gradient(0deg, rgb(185 28 28 / .17) 0 28px, transparent 28px 56px),
+    repeating-linear-gradient(90deg, rgb(185 28 28 / .17) 0 28px, transparent 28px 56px);
 }
 
 .gm-parchis .sq {
@@ -2156,8 +2666,8 @@ button.gm-water:hover::before {
 }
 
 .gm-die-slot.used {
-  opacity: .35;
-  filter: grayscale(1);
+  opacity: .7;
+  filter: grayscale(1) brightness(.85);
   transform: scale(.88);
 }
 
@@ -2583,21 +3093,21 @@ button.gm-deck {
   border-color: rgb(255 255 255/.2);
 }
 
+/* No scroll box: it would clip a lifted card and the one flying in from the deck */
 .gm-hand {
   display: flex;
-  justify-content: safe center;
-  padding: 14px 4px 4px 30px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.gm-hand::-webkit-scrollbar {
-  display: none;
+  justify-content: center;
+  width: 100%;
+  padding-top: 16px;
 }
 
 .gm-hand>* {
   flex: none;
-  margin-left: -30px;
+  position: relative;
+}
+
+.gm-hand>*+* {
+  margin-left: clamp(calc(var(--cw) * -.78), calc((100cqw - var(--n) * var(--cw)) / (var(--n) - 1)), calc(var(--cw) * -.22));
 }
 
 .gm-card-btn {
@@ -2725,6 +3235,17 @@ button.gm-card-btn:hover,
   border-radius: 38%;
 }
 
+.gm-card.chosen .gm-wild-face i {
+  opacity: .6;
+  scale: .8;
+}
+
+.gm-card.chosen .gm-wild-face i.on {
+  opacity: 1;
+  scale: 1.15;
+  box-shadow: 0 0 0 3px #fff, 0 3px 8px rgb(0 0 0 / .35);
+}
+
 .q0 {
   background: #e53935;
 }
@@ -2796,16 +3317,6 @@ button.gm-card-btn:hover,
   }
   .gm-pile {
     --cw: 80px;
-  }
-  .gm-hand>* {
-    margin-left: -26px;
-  }
-  /* many cards on a phone: they overlap more, so the whole hand fits */
-  .gm-hand>* {
-    margin-left: calc(var(--cw)*-.5);
-  }
-  .gm-stage.full[data-game=colores] .gm-hand>* {
-    margin-left: calc(var(--cw)*-.55);
   }
   .gm-fleet {
     grid-template-columns: minmax(0, 1fr);
@@ -2922,18 +3433,16 @@ button.gm-card-btn:hover,
 }
 
 .gm-mine {
+  container-type: inline-size;
   display: grid;
   justify-items: center;
   gap: 6px;
-  margin: 0 -14px -20px;
-  padding: 4px 14px 14px;
-  border-radius: 0 0 24px 24px;
-  transition: background .4s, box-shadow .4s;
+  padding: 4px 0 14px;
+  transition: background .4s;
 }
 
 .gm-mine.on {
-  background: radial-gradient(120% 140% at 50% 120%, rgb(30 111 217/.45), transparent 70%);
-  box-shadow: inset 0 -3px 0 #1e6fd9;
+  background: radial-gradient(55% 75% at 50% 100%, rgb(45 212 191/.28), transparent 75%);
 }
 
 .gm-me-who {
@@ -3073,10 +3582,6 @@ html.gm-noscroll body {
   height: clamp(220px, 32vw, 340px);
 }
 
-.gm-stage.full[data-game=colores] .gm-hand>* {
-  margin-left: calc(var(--cw)*-.42);
-}
-
 .gm-stage.full[data-game=colores] .gm-player {
   background: rgb(255 255 255/.08);
   border-color: rgb(255 255 255/.14);
@@ -3168,18 +3673,6 @@ html.gm-noscroll body {
   40%,
   60% {
     transform: translateX(7px);
-  }
-}
-
-@keyframes gm-roll {
-  0% {
-    transform: rotate(-200deg) scale(.6);
-  }
-  70% {
-    transform: rotate(12deg) scale(1.08);
-  }
-  100% {
-    transform: none;
   }
 }
 
