@@ -56,9 +56,9 @@ pub static ALL: &[Known] = &[
         name: "Juegos",
         icon: "gamepad-2",
         tagline: "Juegos de mesa para jugar en casa",
-        blurb: "Parchís, la oca, cartas de colores, hundir la flota, 4 en raya y tres en raya. Cada uno juega desde su móvil, o contra el robot.",
+        blurb: "Parchís, la oca, dominó, Memory, cartas de colores, hundir la flota, 4 en raya y más. Cada uno juega desde su móvil, o contra el robot.",
         features: &[
-            "Siete juegos de mesa clásicos",
+            "Nueve juegos de mesa clásicos",
             "Partidas entre los de casa, cada uno en su móvil",
             "Un robot para jugar cuando no hay nadie",
             "Ranking de la casa por juego",

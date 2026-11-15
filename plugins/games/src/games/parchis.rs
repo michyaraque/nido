@@ -229,7 +229,7 @@ fn star(x: f64, y: f64) -> String {
 }
 
 impl Game for Parchis {
-    fn new(players: usize, _: &mut Rng) -> Self {
+    fn new(players: usize, _: &str, _: &mut Rng) -> Self {
         let colors = match players {
             2 => vec![0, 2],
             3 => vec![0, 1, 2],
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn rules() {
-        let mut g = Parchis::new(2, &mut Rng::seeded(1)); // yellow (start 5) vs red (start 39)
+        let mut g = Parchis::new(2, "", &mut Rng::seeded(1)); // yellow (start 5) vs red (start 39)
         // Out only with a 5.
         assert!(g.targets(0, 4, true).is_empty());
         assert_eq!(g.targets(0, 5, true), vec![(0, 0), (1, 0), (2, 0), (3, 0)]);
@@ -554,7 +554,7 @@ mod tests {
     #[test]
     fn two_dice_pick_per_pawn() {
         let mut rng = Rng::seeded(3);
-        let mut g = Parchis::new(2, &mut rng);
+        let mut g = Parchis::new(2, "", &mut rng);
         g.pawns[0] = [0, 10, -1, -1];
         g.rolled = true;
         g.dice = [2, 5];

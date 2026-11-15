@@ -114,7 +114,7 @@ fn card_face(card: Card, shown: u8) -> Markup {
 }
 
 impl Game for Colors {
-    fn new(players: usize, rng: &mut Rng) -> Self {
+    fn new(players: usize, _: &str, rng: &mut Rng) -> Self {
         let mut deck = Vec::with_capacity(100);
         for c in 0..4 {
             for v in 1..=TWO {
@@ -352,11 +352,11 @@ mod tests {
     #[test]
     fn deck_and_actions() {
         let mut rng = Rng::seeded(5);
-        let g = Colors::new(3, &mut rng);
+        let g = Colors::new(3, "", &mut rng);
         assert_eq!(g.deck.len() + g.pile.len() + g.hands.iter().map(Vec::len).sum::<usize>(), 100);
         assert!(g.top().v <= 9, "starts on a number");
 
-        let mut g = Colors::new(3, &mut rng);
+        let mut g = Colors::new(3, "", &mut rng);
         g.color = 0;
         g.pile.push(Card { c: 0, v: 3 });
         g.hands[0] = vec![Card { c: 0, v: TWO }, Card { c: 2, v: 5 }];

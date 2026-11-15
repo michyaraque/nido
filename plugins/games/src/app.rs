@@ -12,6 +12,8 @@ pub const FLASHES: &[(&str, &str)] = &[("game_started", "¡A jugar!"), ("game_le
 
 const CSS: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 const JS: &str = include_str!("../app.js");
+/// Fredoka (SIL OFL 1.1, fonts/OFL.txt), latin subset: the rounded letters of the big game messages.
+const FONT: &[u8] = include_bytes!("../fonts/fredoka.woff2");
 const BOT: [&str; 3] = ["#64748b", "#a16207", "#0d9488"];
 const SPARE: [&str; 4] = ["#d97706", "#0891b2", "#db2777", "#17803d"];
 /// Reactions during a match: (id, icon, colour, label). Icons, never emoji: they look the same on every phone.
@@ -47,12 +49,17 @@ pub fn routes() -> Router<Db> {
         .route("/m/{id}/leave", post(leave))
         .route("/m/{id}/again", post(again))
         .route("/assets/app.js", get(script))
+        .route("/assets/fredoka.woff2", get(font))
         .route("/notices", get(notices))
         .route("/notices/late", get(late))
 }
 
 async fn script() -> Response {
     ([(header::CONTENT_TYPE, "text/javascript; charset=utf-8"), (header::CACHE_CONTROL, "private, max-age=31536000")], JS).into_response()
+}
+
+async fn font() -> Response {
+    ([(header::CONTENT_TYPE, "font/woff2"), (header::CACHE_CONTROL, "public, max-age=31536000")], FONT).into_response()
 }
 
 fn js_url() -> String {
@@ -240,8 +247,9 @@ async fn create(State(db): State<Db>, h: HeaderMap, F(f): F<Pairs>) -> R {
     if players.len() > g.players.1 {
         return bad("Sobran jugadores para este juego");
     }
+    let opt = field(&f, "opt").filter(|o| g.options.iter().any(|x| x.0 == *o)).or(g.options.first().map(|x| x.0)).unwrap_or("");
     let c = lock(&db);
-    let st = games::create(g.id, &bots(&players), &mut Rng::new()).ok_or("juego")?;
+    let st = games::create(g.id, &bots(&players), opt, &mut Rng::new()).ok_or("juego")?;
     c.execute(
         "INSERT INTO matches(game,players,state,turn,created_by) VALUES(?1,?2,?3,?4,?5)",
         params![g.id, serde_json::to_string(&players)?, st.state, st.turn as i64, me.id],
@@ -376,7 +384,8 @@ async fn again(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, F(f): F<
     }
     let mut players = m.players.clone();
     players.rotate_left(1);
-    let st = games::create(&m.game, &bots(&players), &mut Rng::new()).ok_or("juego")?;
+    let opt = games::option_of(&m.game, &m.state);
+    let st = games::create(&m.game, &bots(&players), &opt, &mut Rng::new()).ok_or("juego")?;
     c.execute(
         "INSERT INTO matches(game,players,state,turn,created_by) VALUES(?1,?2,?3,?4,?5)",
         params![m.game, serde_json::to_string(&players)?, st.state, st.turn as i64, me.id],
@@ -646,6 +655,16 @@ fn new_match(v: &View, g: &Info) -> Markup {
                             }
                         }
                     }
+                    @if !g.options.is_empty() {
+                        div.field.gm-level {
+                            label { "Dificultad" }
+                            div.gm-levels {
+                                @for (i, (val, label)) in g.options.iter().enumerate() {
+                                    label.gm-level-opt { input type="radio" name="opt" value=(val) checked[i == 0]; span { (label) } }
+                                }
+                            }
+                        }
+                    }
                     p.hint {
                         "Empiezas tú. Los demás ven la partida en Juegos y juegan desde su móvil cuando les toca."
                     }
@@ -683,6 +702,7 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
         .collect::<Result<_, _>>()?;
     let action = |what: &str| format!("/plugins/games/m/{}/{what}", m.id);
     let my_turn = !m.done && me == Some(m.turn);
+    let hint = games::turn_hint(&m.game, &m.state, m.turn);
     html_ok(html! {
         div #gm-live data-id=(m.id) data-v=(m.version) data-game=(m.game) data-sfx=(sfx(&m.game, log.last().map(|l| l.1.as_str())))
             data-live=[(!m.done).then_some("1")] data-turn=[my_turn.then_some("1")]
@@ -718,11 +738,30 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
                     @if me.is_some() {
                         form.gm-again method="post" action=(action("again")) { (v.ctx()) button.btn.primary.sm { (icon("refresh-cw")) "Revancha" } }
                     }
-                } @else {
-                    span.gm-turn { @if my_turn { "Te toca" } @else { "Le toca a " (seats.get(m.turn).map_or("?", |s| s.name.as_str())) } }
+                } @else if my_turn {
+                    span.gm-turn.you {
+                        span.gm-turn-txt { b { "¡Te toca!" } small { (hint) } }
+                    }
                     @if let Some((s, text)) = log.last() {
                         span.gm-last style={ "--c:" (cx.color(*s)) } { i {} b { (cx.name(*s)) } " " (text) }
                     }
+                } @else {
+                    span.gm-turn.them style={ "--c:" (cx.color(m.turn)) } {
+                        (cx.face(m.turn))
+                        span.gm-turn-txt {
+                            b { "Turno de " (cx.name(m.turn)) }
+                            small.gm-think { @if seats.get(m.turn).is_some_and(|s| s.bot) { "pensando" } @else { "esperando su jugada" } i {} i {} i {} }
+                        }
+                    }
+                    @if let Some((s, text)) = log.last() {
+                        span.gm-last style={ "--c:" (cx.color(*s)) } { i {} b { (cx.name(*s)) } " " (text) }
+                    }
+                }
+            }
+            @if my_turn {
+                div.gm-pop aria-hidden="true" {
+                    b.gm-pop-title { @for (i, ch) in "¡Te toca!".chars().enumerate() { span style={ "--i:" (i) } { (ch) } } }
+                    span.gm-pop-hint { (hint) }
                 }
             }
             form.gm-move.gm-live-form method="post" action=(action("move")) { (v.ctx()) (board) }
@@ -765,6 +804,10 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
 fn sfx(game: &str, last: Option<&str>) -> &'static str {
     let t = last.unwrap_or("");
     match () {
+        _ if t.contains("encuentra la pareja") => "reveal",
+        _ if t.contains("no encuentra") => "skip",
+        _ if t.contains("pone el") => "card",
+        _ if t.contains("pasa") && game == "domino" => "skip",
         _ if t.contains("ronda") => "reveal",
         _ if t.contains("le queda una") => "one",
         _ if t.contains("roba dos") => "two",
@@ -817,7 +860,7 @@ mod tests {
         c.execute_batch(include_str!("../schema.sql")).unwrap();
         let mut rng = Rng::seeded(4);
         let players = vec![1i64, 2];
-        let st = games::create("ttt", &bots(&players), &mut rng).unwrap();
+        let st = games::create("ttt", &bots(&players), "", &mut rng).unwrap();
         c.execute("INSERT INTO matches(id,game,players,state,turn) VALUES(1,'ttt','[1,2]',?1,0)", [&st.state]).unwrap();
         // Ana: 0,1,2 on the top row; Leo: 3,4.
         for (seat, cell) in [(0, "0"), (1, "3"), (0, "1"), (1, "4"), (0, "2")] {

@@ -65,7 +65,7 @@ pub fn mark(seat: usize, color: &str) -> Markup {
 }
 
 impl Game for Ttt {
-    fn new(_: usize, _: &mut Rng) -> Self {
+    fn new(_: usize, _: &str, _: &mut Rng) -> Self {
         Ttt { cells: vec![0; 9], turn: 0, last: None, order: Vec::new() }
     }
     fn turn(&self) -> usize {
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn the_fourth_mark_replaces_the_oldest() {
         let mut rng = Rng::seeded(1);
-        let mut g = Ttt::new(2, &mut rng);
+        let mut g = Ttt::new(2, "", &mut rng);
         for (seat, i) in [(0, "0"), (1, "4"), (0, "8"), (1, "2"), (0, "6"), (1, "3")] {
             g.play(seat, i, &mut rng).unwrap();
         }

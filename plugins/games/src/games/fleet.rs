@@ -226,7 +226,7 @@ pub fn boat(k: usize, len: usize, across: bool) -> String {
 }
 
 impl Game for Fleet {
-    fn new(_: usize, rng: &mut Rng) -> Self {
+    fn new(_: usize, _: &str, rng: &mut Rng) -> Self {
         Fleet { ships: vec![place(rng), place(rng)], shots: vec![vec![0; N * N]; 2], turn: 0, last: None, log: Vec::new(), ready: [false; 2] }
     }
     fn turn(&self) -> usize {
@@ -363,6 +363,9 @@ impl Game for Fleet {
     fn log(&self) -> Vec<(usize, String)> {
         self.log.clone()
     }
+    fn hint(&self, seat: usize) -> String {
+        if self.ready.get(seat) == Some(&false) { "Coloca tus barcos y dale a Listo".into() } else { String::new() }
+    }
 }
 
 #[cfg(test)]
@@ -372,7 +375,7 @@ mod tests {
     #[test]
     fn arranging_moves_and_turns() {
         let mut rng = Rng::new();
-        let mut g = Fleet::new(2, &mut rng);
+        let mut g = Fleet::new(2, "", &mut rng);
         g.ships[0] = vec![vec![0, 1, 2, 3], vec![16, 17, 18], vec![32, 33, 34], vec![48, 49], vec![60, 61]];
         assert!(g.play(0, "fire:0", &mut rng).is_err(), "no shots while arranging");
         g.play(0, "to:3:7", &mut rng).unwrap(); // sticks out on the right: pulled back to A7-A8

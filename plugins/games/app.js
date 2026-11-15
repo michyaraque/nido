@@ -325,6 +325,66 @@
     } catch { location.reload(); }
   }, true);
 
+  // ---------- dominó: drag a tile from the hand to the end of the line where it goes ----------
+  let tile = null;
+  document.addEventListener("pointerdown", (e) => {
+    const pick = e.target.closest?.("#gm-live .gm-dom-pick");
+    if (!pick || e.button > 0) return;
+    tile = { pick, btn: e.target.closest("button"), id: e.pointerId, x: e.clientX, y: e.clientY, ghost: null, over: null };
+    // With a mouse the browser would start selecting or its own drag and cancel ours; taps are pressed in dropTile.
+    e.preventDefault();
+    try { pick.setPointerCapture(e.pointerId); } catch {}
+  }, true);
+  document.addEventListener("dragstart", (e) => { if (e.target.closest?.("#gm-live .gm-dom-pick")) e.preventDefault(); }, true);
+  document.addEventListener("pointermove", (e) => {
+    if (!tile || e.pointerId !== tile.id) return;
+    if (!tile.ghost) {
+      if (Math.hypot(e.clientX - tile.x, e.clientY - tile.y) < 8) return;
+      const svg = tile.pick.querySelector(".gm-tile"), r = svg.getBoundingClientRect();
+      const g = svg.cloneNode(true);
+      g.classList.add("gm-dom-ghost");
+      g.style.width = r.width + "px";
+      g.style.height = r.height + "px";
+      tile.dx = e.clientX - r.left;
+      tile.dy = e.clientY - r.top;
+      document.body.append(g);
+      tile.ghost = g;
+      tile.pick.classList.add("lifted");
+      box()?.classList.add("gm-dom-dragging");
+      box()?.querySelectorAll(".gm-dom-drop").forEach((z) => z.classList.toggle("ok", tile.pick.dataset[z.dataset.side] === "1"));
+    }
+    e.preventDefault();
+    tile.ghost.style.transform = `translate(${e.clientX - tile.dx}px, ${e.clientY - tile.dy}px) rotate(-6deg)`;
+    const z = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".gm-dom-drop.ok") || null;
+    if (z !== tile.over) { tile.over?.classList.remove("hot"); z?.classList.add("hot"); tile.over = z; }
+  }, { passive: false });
+  function dropTile(e) {
+    if (!tile || e.pointerId !== tile.id) return;
+    const t = tile;
+    tile = null;
+    if (!t.ghost) {
+      // A tap. The captured pointer lands on the tile, not on its button: press that button here.
+      if (e.type === "pointerup" && t.btn && !t.btn.disabled) t.btn.form?.requestSubmit(t.btn);
+      return;
+    }
+    t.ghost.remove();
+    t.pick.classList.remove("lifted");
+    t.over?.classList.remove("hot");
+    box()?.classList.remove("gm-dom-dragging");
+    if (e.type !== "pointerup" || !t.over) return;
+    const form = box()?.querySelector("form.gm-move");
+    if (!form) return;
+    const b = Object.assign(document.createElement("button"), { type: "submit", name: "m", value: `lay:${t.pick.dataset.i}:${t.over.dataset.side}`, hidden: true });
+    form.append(b);
+    form.requestSubmit(b);
+    b.remove();
+  }
+  document.addEventListener("pointerup", dropTile);
+  document.addEventListener("pointercancel", dropTile);
+  document.addEventListener("click", (e) => {
+    if (e.target.closest?.("#gm-live .gm-dom-pick") && e.detail > 0) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
   // ---------- hundir la flota: drag a ship with the finger (or mouse); tap a picked ship to turn it ----------
   let drag = null;
   document.addEventListener("pointerdown", (e) => {
@@ -402,7 +462,22 @@
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.querySelector(".gm-stage.full")) full(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.querySelector(".gm-stage.full")) full(false); });
 
+  // ---------- "¡Te toca!": a big card for a moment when the turn becomes mine ----------
+  let poppedFor = null; // the match whose current turn of mine was already announced
+  function announceTurn() {
+    const el = box();
+    if (!el || el.dataset.live !== "1") return;
+    if (!el.dataset.turn) { if (poppedFor === el.dataset.id) poppedFor = null; return; }
+    if (poppedFor === el.dataset.id) return;
+    poppedFor = el.dataset.id;
+    const pop = el.querySelector(".gm-pop");
+    if (!pop) return;
+    pop.classList.add("show");
+    setTimeout(() => pop.classList.remove("show"), calm.matches ? 1400 : 1900);
+  }
+
   function init() {
+    announceTurn();
     if (!document.querySelector(".gm-stage.full")) document.documentElement.classList.remove("gm-noscroll");
     document.querySelectorAll(".gm-mute").forEach((b) => { b.classList.toggle("off", muted()); b.setAttribute("aria-pressed", String(muted())); });
     connect();

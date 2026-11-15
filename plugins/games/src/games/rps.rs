@@ -31,7 +31,7 @@ fn beats(a: u8, b: u8) -> u8 {
 }
 
 impl Game for Rps {
-    fn new(_: usize, _: &mut Rng) -> Self {
+    fn new(_: usize, _: &str, _: &mut Rng) -> Self {
         Rps { pick: [None, None], last: None, score: [0, 0], round: 1, log: Vec::new() }
     }
     /// Whoever still has to choose (seat 0 first): both can, in any order.
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn hidden_picks_and_score() {
         let mut rng = Rng::seeded(1);
-        let mut g = Rps::new(2, &mut rng);
+        let mut g = Rps::new(2, "", &mut rng);
         assert_eq!((beats(0, 2), beats(2, 0), beats(1, 1)), (1, 2, 0), "rock beats scissors");
         g.play(1, "paper", &mut rng).unwrap(); // the second player may choose first
         assert!(g.play(1, "rock", &mut rng).is_err(), "only once per round");

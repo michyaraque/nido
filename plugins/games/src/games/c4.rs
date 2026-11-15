@@ -99,7 +99,7 @@ fn negamax(g: &mut [u8], p: u8, depth: u32, mut a: i32, b: i32) -> i32 {
 }
 
 impl Game for C4 {
-    fn new(_: usize, _: &mut Rng) -> Self {
+    fn new(_: usize, _: &str, _: &mut Rng) -> Self {
         C4 { g: vec![0; W * H], turn: 0, last: None }
     }
     fn turn(&self) -> usize {
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn robot_wins_or_blocks_four() {
         let mut rng = Rng::seeded(2);
-        let mut g = C4::new(2, &mut rng);
+        let mut g = C4::new(2, "", &mut rng);
         // Seat 0 has three in the bottom row (columns 0-2); seat 1 must block at column 3.
         for (col, seat) in [(0, 0), (6, 1), (1, 0), (6, 1), (2, 0)] {
             g.play(seat, &col.to_string(), &mut rng).unwrap();

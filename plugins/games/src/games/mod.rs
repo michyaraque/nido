@@ -7,7 +7,9 @@ use serde::{de::DeserializeOwned, Serialize};
 
 pub mod c4;
 pub mod colors;
+pub mod domino;
 pub mod fleet;
+pub mod memory;
 pub mod oca;
 pub mod parchis;
 pub mod rps;
@@ -93,7 +95,16 @@ impl Ctx<'_> {
 }
 
 pub trait Game: Serialize + DeserializeOwned {
-    fn new(players: usize, rng: &mut Rng) -> Self;
+    /// A new match; `opt` is one of the game's `Info::options` (or empty when it has none).
+    fn new(players: usize, opt: &str, rng: &mut Rng) -> Self;
+    /// The option it was created with, so a rematch keeps it.
+    fn opt(&self) -> String {
+        String::new()
+    }
+    /// What `seat` has to do now, when it is more precise than the game's `Info::hint`.
+    fn hint(&self, _seat: usize) -> String {
+        String::new()
+    }
     fn turn(&self) -> usize;
     fn outcome(&self) -> Option<Outcome>;
     /// A move from `seat`; `Err` explains why it is not allowed.
@@ -116,16 +127,22 @@ pub struct Info {
     pub minutes: &'static str,
     pub blurb: &'static str,
     pub accent: &'static str,
+    /// Shown under "¡Te toca!".
+    pub hint: &'static str,
+    /// Variants to choose when creating a match (value, label); the first is the default.
+    pub options: &'static [(&'static str, &'static str)],
 }
 
 pub const GAMES: &[Info] = &[
-    Info { id: "parchis", name: "Parchís", icon: "dices", players: (2, 4), minutes: "30 min", blurb: "Saca tus cuatro fichas con un 5, come a los demás y llega a meta.", accent: "#eab308" },
-    Info { id: "oca", name: "La oca", icon: "bird", players: (2, 4), minutes: "15 min", blurb: "De oca a oca y tiro porque me toca. Cuidado con el pozo y la calavera.", accent: "#16a34a" },
-    Info { id: "colores", name: "Colors", icon: "layers", players: (2, 4), minutes: "10 min", blurb: "Echa una carta del mismo color o número. Gana quien se queda sin cartas.", accent: "#e11d48" },
-    Info { id: "fleet", name: "Hundir la flota", icon: "anchor", players: (2, 2), minutes: "10 min", blurb: "Agua, tocado, hundido: encuentra los barcos del otro antes que él los tuyos.", accent: "#0891b2" },
-    Info { id: "c4", name: "4 en raya", icon: "circle-dot", players: (2, 2), minutes: "5 min", blurb: "Deja caer fichas y junta cuatro en línea antes que tu rival.", accent: "#2f6bff" },
-    Info { id: "rps", name: "Piedra, papel o tijera", icon: "scissors", players: (2, 2), minutes: "1 min", blurb: "Los dos eligen a la vez y nadie ve la mano del otro hasta el final. Gana quien llega a 3.", accent: "#d97706" },
-    Info { id: "ttt", name: "Tres en raya", icon: "grid-3x3", players: (2, 2), minutes: "3 min", blurb: "Sin empates: cada uno tiene tres fichas y la cuarta borra la más antigua. Gana quien hace línea.", accent: "#7c3aed" },
+    Info { id: "parchis", name: "Parchís", icon: "dices", players: (2, 4), minutes: "30 min", blurb: "Saca tus cuatro fichas con un 5, come a los demás y llega a meta.", accent: "#eab308", hint: "Tira el dado y mueve una ficha", options: &[] },
+    Info { id: "oca", name: "La oca", icon: "bird", players: (2, 4), minutes: "15 min", blurb: "De oca a oca y tiro porque me toca. Cuidado con el pozo y la calavera.", accent: "#16a34a", hint: "Tira el dado y a ver dónde caes", options: &[] },
+    Info { id: "colores", name: "Colors", icon: "layers", players: (2, 4), minutes: "10 min", blurb: "Echa una carta del mismo color o número. Gana quien se queda sin cartas.", accent: "#e11d48", hint: "Echa una carta o roba del mazo", options: &[] },
+    Info { id: "fleet", name: "Hundir la flota", icon: "anchor", players: (2, 2), minutes: "10 min", blurb: "Agua, tocado, hundido: encuentra los barcos del otro antes que él los tuyos.", accent: "#0891b2", hint: "Apunta al mar rival y ¡fuego!", options: &[] },
+    Info { id: "c4", name: "4 en raya", icon: "circle-dot", players: (2, 2), minutes: "5 min", blurb: "Deja caer fichas y junta cuatro en línea antes que tu rival.", accent: "#2f6bff", hint: "Deja caer una ficha", options: &[] },
+    Info { id: "rps", name: "Piedra, papel o tijera", icon: "scissors", players: (2, 2), minutes: "1 min", blurb: "Los dos eligen a la vez y nadie ve la mano del otro hasta el final. Gana quien llega a 3.", accent: "#d97706", hint: "Elige tu mano en secreto", options: &[] },
+    Info { id: "ttt", name: "Tres en raya", icon: "grid-3x3", players: (2, 2), minutes: "3 min", blurb: "Sin empates: cada uno tiene tres fichas y la cuarta borra la más antigua. Gana quien hace línea.", accent: "#7c3aed", hint: "Pon tu ficha en el tablero", options: &[] },
+    Info { id: "memory", name: "Memory", icon: "sparkles", players: (2, 4), minutes: "10 min", blurb: "Levanta dos cartas y busca las parejas. Si aciertas, repites; gana quien junte más.", accent: "#db2777", hint: "Levanta dos cartas y busca la pareja", options: &[("easy", "Fácil · 12 cartas"), ("normal", "Normal · 20 cartas"), ("hard", "Difícil · 30 cartas")] },
+    Info { id: "domino", name: "Dominó", icon: "domino", players: (2, 4), minutes: "15 min", blurb: "Une fichas por sus números. Si no tienes, robas del pozo; gana quien se queda sin fichas.", accent: "#b45309", hint: "Pon una ficha en un extremo", options: &[] },
 ];
 
 /// The banner art of each game for the gallery: our own little scenes made of its pieces.
@@ -151,6 +168,8 @@ pub fn art(id: &str) -> String {
         "oca" => r##"<path d="M80 45m-4 0a4 4 0 1 1 8 0a10 10 0 1 1-20 0a17 17 0 1 1 34 0a25 25 0 1 1-50 0a33 33 0 1 1 66 0" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="1 7" stroke-linecap="round" opacity=".7"/><g transform="translate(64 26)"><path d="M10 34c0-10 6-15 14-15 2-6-1-11-6-11-4 0-6 3-6 6l-6 1 6 3c-1 4-2 8-2 16z" fill="#fff"/><path d="M4 15l-5 2 6 1z" fill="#f97316"/><circle cx="16" cy="11" r="1.6" fill="#1f2937"/><path d="M10 34c8 4 20 3 24-6-6 2-12 1-16-3" fill="#e5e7eb"/></g>"##.to_string(),
         "colores" => card(58, -16, "#ef4444", "7") + &card(80, -2, "#facc15", "+2") + &card(102, 13, "#3b82f6", "4"),
         "rps" => format!(r#"<g transform="translate(30 22) scale(.75)">{}</g><g transform="translate(64 14) scale(.95)">{}</g><g transform="translate(106 22) scale(.75)">{}</g>"#, rps::ROCK.replace("<svg ", "<svg width=\"64\" height=\"64\" "), rps::PAPER.replace("<svg ", "<svg width=\"64\" height=\"64\" "), rps::SCISSORS.replace("<svg ", "<svg width=\"64\" height=\"64\" ")),
+        "memory" => r##"<g transform="translate(58 46) rotate(-12)"><rect x="-19" y="-26" width="38" height="52" rx="8" fill="#fff"/><rect x="-15" y="-22" width="30" height="44" rx="5" fill="#fce7f3"/><path d="M0 9c-8-5-11-9-11-13a5 5 0 0 1 11-2 5 5 0 0 1 11 2c0 4-3 8-11 13z" fill="#e11d48"/></g><g transform="translate(102 46) rotate(10)"><rect x="-19" y="-26" width="38" height="52" rx="8" fill="#fff"/><rect x="-15" y="-22" width="30" height="44" rx="5" fill="#9d174d"/><circle cx="-6" cy="-10" r="2.2" fill="#fbcfe8"/><circle cx="6" cy="0" r="2.2" fill="#fbcfe8"/><circle cx="-6" cy="10" r="2.2" fill="#fbcfe8"/><circle cx="6" cy="-20" r="0" fill="none"/></g>"##.to_string(),
+        "domino" => format!(r#"<g transform="translate(62 45) rotate(-14)">{}</g><g transform="translate(100 45) rotate(9)">{}</g>"#, domino::tile((6, 3), true, false).into_string().replace("<svg ", r#"<svg x="-17" y="-33" width="34" height="66" "#), domino::tile((5, 5), true, false).into_string().replace("<svg ", r#"<svg x="-17" y="-33" width="34" height="66" "#)),
         _ => String::new(),
     };
     format!(r#"<svg class="gm-art-svg" viewBox="0 0 160 90" aria-hidden="true">{inner}</svg>"#)
@@ -192,6 +211,14 @@ macro_rules! with_game {
                 type $G = rps::Rps;
                 Some($body)
             }
+            "memory" => {
+                type $G = memory::Memory;
+                Some($body)
+            }
+            "domino" => {
+                type $G = domino::Domino;
+                Some($body)
+            }
             _ => None,
         }
     };
@@ -208,8 +235,19 @@ fn pack<G: Game>(g: &G) -> Status {
     Status { state: serde_json::to_string(g).unwrap_or_default(), turn: g.turn(), outcome: g.outcome() }
 }
 
-pub fn create(game: &str, bots: &[bool], rng: &mut Rng) -> Option<Status> {
-    with_game!(game, G, pack(&G::new(bots.len(), rng)))
+pub fn create(game: &str, bots: &[bool], opt: &str, rng: &mut Rng) -> Option<Status> {
+    with_game!(game, G, pack(&G::new(bots.len(), opt, rng)))
+}
+
+/// The option a match was created with (Memory's difficulty), for its rematch.
+pub fn option_of(game: &str, state: &str) -> String {
+    with_game!(game, G, serde_json::from_str::<G>(state).map(|g| g.opt()).unwrap_or_default()).unwrap_or_default()
+}
+
+/// What `seat` has to do now: the game's own words, or its general hint.
+pub fn turn_hint(game: &str, state: &str, seat: usize) -> String {
+    let own = with_game!(game, G, serde_json::from_str::<G>(state).map(|g| g.hint(seat)).unwrap_or_default()).unwrap_or_default();
+    if own.is_empty() { info(game).map_or("", |g| g.hint).to_string() } else { own }
 }
 
 /// One robot move, if it is a robot's turn: `Some(None)` when a person has to play (or it is over).
@@ -280,11 +318,13 @@ mod tests {
     #[test]
     fn robots_finish_every_game() {
         for g in GAMES {
+            let opts: Vec<&str> = if g.options.is_empty() { vec![""] } else { g.options.iter().map(|o| o.0).collect() };
             for players in g.players.0..=g.players.1 {
                 for seed in 1..=6u64 {
+                    let opt = opts[seed as usize % opts.len()];
                     let mut rng = Rng::seeded(seed * 7919 + players as u64);
                     let bots = vec![true; players];
-                    let mut s = create(g.id, &bots, &mut rng).unwrap();
+                    let mut s = create(g.id, &bots, opt, &mut rng).unwrap();
                     for _ in 0..20_000 {
                         match robot_step(g.id, &s.state, &bots, &mut rng).unwrap() {
                             Some(next) => s = next,
@@ -302,7 +342,7 @@ mod tests {
         for g in GAMES {
             let mut rng = Rng::seeded(3);
             let bots = vec![false; g.players.0];
-            let s = create(g.id, &bots, &mut rng).unwrap();
+            let s = create(g.id, &bots, "", &mut rng).unwrap();
             let other = (s.turn + 1) % g.players.0;
             let r = act(g.id, &s.state, other, "0", &mut rng).unwrap();
             assert!(r.is_err(), "{}: seat {other} played out of turn", g.id);
