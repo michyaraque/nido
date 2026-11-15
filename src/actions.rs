@@ -255,13 +255,15 @@ pub async fn add_items(State(db): State<Db>, h: HeaderMap, F(f): F<ItemsF>) -> R
     back(&m, Some("shopping"), "items_added")
 }
 
-/// Several products at once, from a plugin's page (Recetas → Compra). Fields `item` (repeated) and
-/// `next`, the Nido page to go back to. Then the toast says they are on the list.
+/// Several products at once, from a plugin's page (Recetas → Compra). Fields `item` (repeated),
+/// `skip` (repeated, items left out: a checkbox only sends what is ticked, so "lo tengo" boxes skip)
+/// and `next`, the Nido page to go back to. Then the toast says they are on the list.
 pub async fn add_many(State(db): State<Db>, h: HeaderMap, F(pairs): F<Vec<(String, String)>>) -> R {
     let c = lock(&db);
     let me = require_user!(c, h);
+    let skip: Vec<&str> = pairs.iter().filter(|p| p.0 == "skip").map(|p| p.1.as_str()).collect();
     let mut added = 0;
-    for (_, item) in pairs.iter().filter(|p| p.0 == "item").take(60) {
+    for (_, item) in pairs.iter().filter(|p| p.0 == "item" && !skip.contains(&p.1.as_str())).take(60) {
         added += add_to_list(&c, item, me.id)? as usize;
     }
     // Only back into Nido itself ("/?…"), never to another site.
