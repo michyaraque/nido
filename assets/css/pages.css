@@ -2283,6 +2283,23 @@ form:has(input[name=received]:checked) .received-on {
   gap: 20px;
 }
 
+.upd .set-group {
+  display: grid;
+  gap: 16px;
+}
+
+.upd-note {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.upd-note a {
+  color: var(--accent);
+}
+
 .upd-card h2 {
   font-size: 17px;
   font-weight: 600;

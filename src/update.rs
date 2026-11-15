@@ -422,7 +422,7 @@ pub fn render(v: &View) -> Markup {
                                 div.card.upd-card {
                                     h2 { "Qué trae" }
                                     (changelog(&j.from, &j.to))
-                                    p.upd-muted { "Los plugins se actualizan aparte, desde " a href=(v.link("plugins")) { "Plugins" } "." }
+                                    p.upd-note { "Los plugins se actualizan aparte, desde " a href=(v.link("plugins")) { "Plugins" } "." }
                                 }
                             }
                         }
