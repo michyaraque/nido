@@ -244,9 +244,9 @@ pub fn render_house(v: &View) -> Markup {
                 (sec("bot-set", "Avisos por Telegram", html! { "Un bot para toda la casa. Cada uno se vincula en Mis ajustes." }, house_bot(v, tg)))
             }
             @if let Some(b) = &v.backups {
-                (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir de la Pi." }, backups(v, b)))
+                (sec("backups-set", "Copias de seguridad", html! { "Cifradas con vuestra contraseña antes de salir del equipo." }, backups(v, b)))
             }
-            (sec("nido", "Nido", html! { "El programa de la Raspberry. Se actualiza solo cuando lo decidís." }, html! {
+            (sec("nido", "Nido", html! { "El programa de este equipo. Se actualiza solo cuando lo decidís." }, html! {
                 div.card.set-card {
                     @if let Some(r) = crate::update::available() {
                         (item(&format!("Versión {VERSION}"), &format!("Ya está la {}. Mira qué trae antes de actualizar.", r.tag), html! {
@@ -554,7 +554,7 @@ fn backups(v: &View, b: &crate::backup::Panel) -> Markup {
                 div.backup-empty {
                     span.backup-empty-ico { (icon("hard-drive")) }
                     h3 { "Elige dónde guardarlas" }
-                    p { "Un pendrive conectado a la Pi, la nube o vuestro NAS. Podéis usar varios a la vez." }
+                    p { "Un pendrive conectado al equipo, la nube o vuestro NAS. Podéis usar varios a la vez." }
                     a.btn.primary href="#add-dest" { (icon("plus")) "Añadir destino" }
                 }
             } @else {
@@ -649,7 +649,7 @@ fn add_destination(v: &View, b: &crate::backup::Panel) -> Markup {
     };
     let keep = html! { div.field.keep-field { label { "Copias que guardar" } input.input type="number" name="keep" value="14" min="1" max="365"; } };
     let kinds = [
-        ("usb", "hard-drive", "Disco USB", "Un pendrive en la Pi"),
+        ("usb", "hard-drive", "Disco USB", "Un pendrive en el equipo"),
         ("s3", "cloud", "Nube S3", "R2, Backblaze, AWS…"),
         ("dav", "server", "NAS o Nextcloud", "Por WebDAV"),
         ("dir", "folder", "Carpeta", "Ruta montada (avanzado)"),
@@ -670,7 +670,7 @@ fn add_destination(v: &View, b: &crate::backup::Panel) -> Markup {
                 div.kind-pane.pane-usb {
                     @if free.is_empty() {
                         div.no-disk {
-                            p { b { "No vemos ningún disco USB libre." } " Conecta un pendrive o un disco a la Pi y vuelve a buscar." }
+                            p { b { "No vemos ningún disco USB libre." } " Conecta un pendrive o un disco al equipo y vuelve a buscar." }
                             a.btn.outline.sm href={ (v.link("household")) "&scan=1#add-dest" } { (icon("refresh-cw")) "Buscar de nuevo" }
                         }
                     } @else {

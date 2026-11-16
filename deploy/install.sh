@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs Nido on a Raspberry Pi (Raspberry Pi OS / Debian). Run it again to update the setup.
+# Installs Nido on a Debian-based machine (Raspberry Pi OS, Debian…). Run it again to update the setup.
 #   sudo sh install.sh                      # uses the "nido" binary next to this script
 #   sudo sh install.sh user/repo [token]    # downloads the latest release from GitHub
 # The token is only needed for a private repository (fine-grained, read-only "Contents").
@@ -219,7 +219,7 @@ cat > /etc/caddy/Caddyfile <<'EOF'
 }
 
 (nido) {
-	# Pages are HTML made on the Pi: compressed they travel ~8x lighter to the phone.
+	# Pages are HTML made on this machine: compressed they travel ~8x lighter to the phone.
 	encode zstd gzip
 	handle /nido.crt {
 		root * /var/lib/caddy/.local/share/caddy/pki/authorities/local

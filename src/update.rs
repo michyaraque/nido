@@ -261,7 +261,7 @@ fn run(db: Db, rel: Release) -> Result<(), String> {
         return Err("No se ha podido descargar. Revisa que Nido tenga internet.".into());
     }
     let size = std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
-    say("step", &format!("Descargado ({}). Comprobando que funciona en esta Raspberry", mb(size)));
+    say("step", &format!("Descargado ({}). Comprobando que funciona en este equipo", mb(size)));
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -275,7 +275,7 @@ fn run(db: Db, rel: Release) -> Result<(), String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
     let Some(got) = got else {
         let _ = std::fs::remove_file(&part);
-        return Err("Lo descargado no arranca en esta Raspberry. No se ha cambiado nada.".into());
+        return Err("Lo descargado no arranca en este equipo. No se ha cambiado nada.".into());
     };
     if got != *tag {
         let _ = std::fs::remove_file(&part);
@@ -301,7 +301,7 @@ fn run(db: Db, rel: Release) -> Result<(), String> {
         }
     }
     let _ = std::fs::remove_file(&request);
-    Err("El instalador del sistema no ha respondido. En la Raspberry, ejecuta una vez: sudo sh install.sh".into())
+    Err("El instalador del sistema no ha respondido. En el equipo, ejecuta una vez: sudo sh install.sh".into())
 }
 
 #[derive(Deserialize)]
@@ -321,14 +321,14 @@ pub async fn start(State(db): State<Db>, h: HeaderMap, F(f): F<UpdateF>) -> R {
         return Ok(to_page);
     }
     if !installer_ready() {
-        return bad("Falta el instalador del sistema. En la Raspberry, ejecuta una vez: sudo sh install.sh");
+        return bad("Falta el instalador del sistema. En el equipo, ejecuta una vez: sudo sh install.sh");
     }
     let Some(rel) = available() else { return bad("Ya tienes la última versión") };
     let d = dir();
     let _ = std::fs::create_dir_all(&d);
     let _ = std::fs::remove_file(d.join("request"));
     if std::fs::write(d.join("log"), format!("start\t{VERSION} {}\nsize\t{}\n", rel.tag, rel.size)).is_err() {
-        let msg = format!("Nido no puede escribir en {}. En la Raspberry, ejecuta una vez: sudo sh install.sh", d.display());
+        let msg = format!("Nido no puede escribir en {}. En el equipo, ejecuta una vez: sudo sh install.sh", d.display());
         return Ok((StatusCode::BAD_REQUEST, msg).into_response());
     }
     RUNNING.store(true, Ordering::SeqCst);
@@ -485,7 +485,7 @@ pub fn render(v: &View) -> Markup {
                                         span.backup-status-ico { (icon("circle-alert")) }
                                         div {
                                             b { "Falta el instalador del sistema" }
-                                            span { "Nido no puede cambiar su propio programa sin él. Instálalo una vez en la Raspberry con " code { "sudo sh install.sh" } " y vuelve aquí." }
+                                            span { "Nido no puede cambiar su propio programa sin él. Instálalo una vez en el equipo con " code { "sudo sh install.sh" } " y vuelve aquí." }
                                         }
                                     }
                                 }

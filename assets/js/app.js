@@ -295,7 +295,7 @@ document.addEventListener("input", (e) => {
   if (e.target.matches(".item-price, #tt")) updateSum();
 });
 
-/* ---------- away from home: changes wait on the phone until the Pi answers again ---------- */
+/* ---------- away from home: changes wait on the phone until Nido answers again ---------- */
 
 const idb = new Promise((ok, ko) => {
   const r = indexedDB.open("nido", 1);
@@ -466,7 +466,7 @@ function waitForRestart(card) {
   const note = card.querySelector(".upd-job-head span");
   if (note) {
     note.textContent = updateFailures > UPDATE_PATIENCE
-      ? "Nido tarda en volver. Si no aparece en un par de minutos, mira la Raspberry."
+      ? "Nido tarda en volver. Si no aparece en un par de minutos, mira el equipo donde está Nido."
       : "Nido se está reiniciando… Esta página se reconecta sola.";
   }
   updateTimer = setTimeout(refreshUpdateCard, UPDATE_RETRY_MS);

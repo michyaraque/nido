@@ -61,7 +61,7 @@ fn render(v: &View, t: &backup::Target, found: Result<Vec<backup::Copy>, String>
                                 }
                             }
                         }
-                        p.hint.top { "Para recuperar una copia, descárgala y en la Pi ejecuta " code { "sudo nido-restore" } " con el archivo" }
+                        p.hint.top { "Para recuperar una copia, descárgala y en el equipo de Nido ejecuta " code { "sudo nido-restore" } " con el archivo" }
                     }
                 }
             }

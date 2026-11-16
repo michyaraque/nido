@@ -191,7 +191,7 @@ NIDO_PLUGINS=target/debug cargo run
 
 Activa el plugin en Plugins → Ejemplo y ábrelo desde el menú.
 
-### 6. Despliegue manual en la Raspberry
+### 6. Despliegue manual en el equipo
 
 Compila para la placa, copia el binario a `~/nido-install/plugins/` y ejecuta `sudo nido-deploy`, que lo instala en `/var/lib/nido/plugins/` junto con Nido.
 

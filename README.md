@@ -1,6 +1,6 @@
 # Nido
 
-Aplicación web para gestionar una casa desde una Raspberry Pi: cuentas comunes repartidas por sueldo, gastos, lista de la compra, tareas domésticas con calendario, lectura de tickets por foto y avisos por Telegram. Funciona para una persona o para varias, sin servicios en la nube.
+Aplicación web para gestionar una casa desde un equipo modesto en casa (una Raspberry Pi, un miniPC, un portátil viejo): cuentas comunes repartidas por sueldo, gastos, lista de la compra, tareas domésticas con calendario, lectura de tickets por foto y avisos por Telegram. Funciona para una persona o para varias, sin servicios en la nube.
 
 ![Nido en el ordenador y en el móvil](docs/screenshot.webp)
 
@@ -25,11 +25,11 @@ Además:
 - Copias de seguridad diarias cifradas a un disco USB, a almacenamiento compatible con S3 o a un servidor WebDAV.
 - Plugins: funciones opcionales que se instalan desde el menú (ver [Plugins](#plugins)).
 
-Ningún dato sale de la Raspberry salvo los avisos de Telegram, las copias cifradas y las peticiones que haga un plugin, si se usan. No hay cuentas en la nube, anuncios ni analítica.
+Ningún dato sale de vuestro equipo salvo los avisos de Telegram, las copias cifradas y las peticiones que haga un plugin, si se usan. No hay cuentas en la nube, anuncios ni analítica.
 
 ## Requisitos
 
-Cualquier Raspberry Pi con Raspberry Pi OS. El modelo solo influye en el tiempo de lectura de tickets; el resto de la aplicación responde igual en todos.
+Un equipo con Linux y al menos 512 MB de RAM. Las versiones publicadas son para ARM (aarch64, armv7 y armv6), y la referencia es la Raspberry Pi con Raspberry Pi OS; en otros equipos se compila desde el código. El modelo solo influye en el tiempo de lectura de tickets; el resto de la aplicación responde igual en todos.
 
 Consumo medido en una Pi 3 B+:
 
@@ -71,7 +71,7 @@ curl -fsSLO https://raw.githubusercontent.com/michyaraque/nido/master/deploy/ins
 sudo sh install.sh michyaraque/nido
 ```
 
-Sin GitHub: copia a una carpeta de la Pi el binario `nido` (de [Releases](../../releases) o compilado), `deploy/install.sh` y, opcionalmente, la carpeta `models/`, y ejecuta `sudo sh install.sh` en esa carpeta.
+Sin GitHub: copia a una carpeta del equipo el binario `nido` (de [Releases](../../releases) o compilado), `deploy/install.sh` y, opcionalmente, la carpeta `models/`, y ejecuta `sudo sh install.sh` en esa carpeta.
 
 El instalador crea el servicio `nido`, descarga los modelos del lector de tickets (~6 MB), configura Caddy para HTTPS y publica `nido.local` en la red mediante mDNS. Se puede volver a ejecutar en cualquier momento.
 
@@ -86,7 +86,7 @@ El mismo comando cambia la contraseña de un usuario existente.
 
 ### 3. Acceder
 
-Abre `http://nido.local` desde cualquier dispositivo de la red. Si el dispositivo no resuelve nombres `.local`, usa la IP de la Pi.
+Abre `http://nido.local` desde cualquier dispositivo de la red. Si el dispositivo no resuelve nombres `.local`, usa la IP del equipo.
 
 ### 4. App en el móvil y modo sin conexión
 
@@ -115,13 +115,13 @@ Android:
 
 Se envían tres tipos de aviso: tareas asignadas o liberadas, el recordatorio diario de pendientes (con un botón para marcarlas como hechas) y el resumen semanal de los domingos.
 
-Para probarlo, escribe cualquier mensaje al bot o ejecuta en la Pi:
+Para probarlo, escribe cualquier mensaje al bot o ejecuta en el equipo:
 
 ```sh
 sudo -u nido NIDO_DB=/var/lib/nido/nido.db /opt/nido/nido avisos <nombre>
 ```
 
-Solo reciben avisos los chats vinculados desde Nido, y cada enlace de vinculación es de un solo uso. La Pi consulta a Telegram mediante long polling, así que no hay que abrir puertos en el router.
+Solo reciben avisos los chats vinculados desde Nido, y cada enlace de vinculación es de un solo uso. Nido consulta a Telegram mediante long polling, así que no hay que abrir puertos en el router.
 
 ### 6. Atajo de iPhone (opcional)
 
@@ -146,11 +146,11 @@ Se configuran en Ajustes → La casa → Copias de seguridad:
 
 | Destino | Uso | Configuración |
 |---|---|---|
-| Carpeta o disco USB | Disco conectado a la Pi | Ruta dentro de `/media` o `/mnt`, con permisos para el usuario `nido` (`sudo chown nido /media/usb/nido`) |
+| Carpeta o disco USB | Disco conectado al equipo | Ruta dentro de `/media` o `/mnt`, con permisos para el usuario `nido` (`sudo chown nido /media/usb/nido`) |
 | Compatible con S3 | Cloudflare R2, Backblaze B2, Wasabi, AWS S3, Hetzner, MinIO… | Endpoint, bucket, región (`auto` en R2), access key y secret key |
 | WebDAV | Nextcloud, Synology, ownCloud u otro NAS | URL de la carpeta, usuario y contraseña de aplicación |
 
-Cada copia incluye la base de datos (copia en caliente, sin detener el servicio), las fotos de tickets y de perfil, y las bases de datos de los plugins. Se comprime y se cifra con AES-256 en la Pi antes de enviarse. Si una copia falla, el destino muestra el error y, si Telegram está configurado, se envía un aviso.
+Cada copia incluye la base de datos (copia en caliente, sin detener el servicio), las fotos de tickets y de perfil, y las bases de datos de los plugins. Se comprime y se cifra con AES-256 en el equipo antes de enviarse. Si una copia falla, el destino muestra el error y, si Telegram está configurado, se envía un aviso.
 
 Para restaurar:
 
@@ -201,7 +201,7 @@ Registros: `journalctl -u nido -f`.
 
 ## Desarrollo
 
-Requiere Rust estable. Para compilar para la Pi, también [Zig](https://ziglang.org) y `cargo install cargo-zigbuild`.
+Requiere Rust estable. Para compilar para ARM, también [Zig](https://ziglang.org) y `cargo install cargo-zigbuild`.
 
 Las normas de interfaz y de código (mobile first, accesibilidad, contraste, estructura de módulos) y cómo comprobar los cambios están en [AGENTS.md](AGENTS.md); las de los plugins, en [plugins/AGENTS.md](plugins/AGENTS.md). Sirven igual si trabajas con un asistente de IA.
 
@@ -218,7 +218,7 @@ cargo zigbuild --release --target aarch64-unknown-linux-musl
 | Variable | Por defecto | Descripción |
 |---|---|---|
 | `NIDO_DB` | `nido.db` | Base de datos. Las fotos se guardan junto a ella (`tickets/`, `avatars/`). |
-| `NIDO_ADDR` | `0.0.0.0:8080` | Dirección de escucha. En la Pi, `127.0.0.1:8080` detrás de Caddy. |
+| `NIDO_ADDR` | `0.0.0.0:8080` | Dirección de escucha. En la instalación, `127.0.0.1:8080` detrás de Caddy. |
 | `NIDO_MODELS` | `models` | Carpeta de los modelos del lector de tickets. |
 | `NIDO_PLUGINS` | `plugins/` junto a la base de datos | Carpeta de los binarios de los plugins. |
 
@@ -275,7 +275,7 @@ assets/
   js/sw.js         service worker
   telegram/        plantillas de los avisos
 plugins/           plugins: recipes, games, devices
-deploy/install.sh  instalador para la Raspberry Pi
+deploy/install.sh  instalador para Debian y Raspberry Pi OS
 tools/             minificador de CSS, logos de comercios y modelos del lector
 ```
 

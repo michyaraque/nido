@@ -1,7 +1,7 @@
 #!/bin/sh
 # Descarga el icono de cada marca de assets/merchants.tsv y lo deja en assets/logos/<slug>.webp.
 # Se ejecuta a mano al añadir marcas; los iconos se suben al repo y van dentro del binario
-# (la Pi nunca sale a internet para pintar logos).
+# (Nido nunca sale a internet para pintar logos).
 #   sh tools/fetch-logos.sh          # solo las que faltan
 #   sh tools/fetch-logos.sh --all    # todas otra vez
 set -eu

@@ -229,7 +229,7 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
                         p.muted { "¿Quién entra?" }
                     }
                     @if people.is_empty() {
-                        p.muted { "Todavía no hay nadie en esta casa. Crea el primer usuario desde la Raspberry, como explica la guía de instalación." }
+                        p.muted { "Todavía no hay nadie en esta casa. Crea el primer usuario desde el equipo donde está Nido, como explica la guía de instalación." }
                     } @else {
                         ul.who-list role="list" {
                             @for u in &people {

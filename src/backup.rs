@@ -93,7 +93,7 @@ pub fn targets(c: &Connection) -> rusqlite::Result<Vec<Target>> {
 }
 
 
-/// A USB disk plugged into the Pi, mounted or not.
+/// A USB disk plugged into this machine, mounted or not.
 pub struct Disk {
     pub uuid: String,
     pub label: String,
@@ -158,7 +158,7 @@ fn writable(dir: &FsPath) -> bool {
 /// Folder for the copies on a USB disk. Nido mounts the disk itself (udisks2) when it is not mounted, or
 /// mounted by someone else without letting Nido write, so it works again after a reboot or a replug.
 fn usb_dir(uuid: &str) -> Result<PathBuf, String> {
-    let disk = disks().into_iter().find(|d| d.uuid == uuid).ok_or("El disco no está conectado a la Pi.")?;
+    let disk = disks().into_iter().find(|d| d.uuid == uuid).ok_or("El disco no está conectado al equipo.")?;
     let dev = format!("/dev/disk/by-uuid/{uuid}");
     if let Some(mp) = &disk.mountpoint {
         let dir = PathBuf::from(mp).join("Nido copias");

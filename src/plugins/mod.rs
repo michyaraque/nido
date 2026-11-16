@@ -652,7 +652,7 @@ fn download(k: &Known) -> Result<(), String> {
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let part = dir.join(format!("{}.part", k.bin));
     if std::fs::File::create(&part).is_err() {
-        return Err(format!("Nido no puede guardar plugins en {}. En la Raspberry: sudo chown nido:nido {}", dir.display(), dir.display()));
+        return Err(format!("Nido no puede guardar plugins en {}. En el equipo de Nido: sudo chown nido:nido {}", dir.display(), dir.display()));
     }
     let (tag, want) = match offer(k) {
         Some(o) if fits(&o) => (o.tag, Some(o.version)),
