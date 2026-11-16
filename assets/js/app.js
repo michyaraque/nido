@@ -207,6 +207,42 @@ document.addEventListener("keydown", (e) => {
   if (document.querySelector(".modal:target")) location.hash = "_";
 });
 
+/* WAI-ARIA dialog pattern: focus moves in on open, Tab stays inside, focus returns on close. */
+const openDialog = () => document.querySelector(".modal.open, .modal:target");
+let dialogOpener = null;
+
+function focusDialog() {
+  const m = openDialog();
+  if (!m) {
+    if (dialogOpener?.isConnected) dialogOpener.focus({ preventScroll: true });
+    dialogOpener = null;
+    return;
+  }
+  if (m.contains(document.activeElement)) return;
+  if (!dialogOpener) dialogOpener = document.activeElement;
+  const box = m.querySelector(".dialog") || m;
+  if (!box.hasAttribute("tabindex")) box.setAttribute("tabindex", "-1");
+  box.focus({ preventScroll: true });
+}
+
+addEventListener("hashchange", focusDialog);
+
+document.addEventListener("keydown", (e) => {
+  const m = e.key === "Tab" && openDialog();
+  if (!m) return;
+  const items = [...m.querySelectorAll("a[href]:not(.scrim), button:not([disabled]), input:not([type=hidden]):not([disabled]), select, textarea, summary, [tabindex]:not([tabindex='-1'])")]
+    .filter((el) => el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !m.contains(document.activeElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || !m.contains(document.activeElement))) {
+    e.preventDefault();
+    first.focus();
+  }
+});
+
 /* ---------- forms that send themselves ---------- */
 
 document.addEventListener("change", (e) => {

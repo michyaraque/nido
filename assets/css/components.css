@@ -1051,6 +1051,46 @@ input[type=date]::-webkit-calendar-picker-indicator {
   display: grid;
 }
 
+html:has(.modal:target),
+html:has(.modal.open) {
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .modal {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .modal .dialog {
+    max-width: none;
+    max-height: 92dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+    padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
+    animation: sheet .26s var(--ease-out);
+  }
+
+  .modal .dialog::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 5px;
+    margin: 0 auto 12px;
+    border-radius: 99px;
+    background: var(--line-strong);
+  }
+}
+
+@keyframes sheet {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
 .scrim {
   position: absolute;
   inset: 0;
@@ -1070,6 +1110,11 @@ input[type=date]::-webkit-calendar-picker-indicator {
   box-shadow: var(--shadow-float);
   padding: 24px;
   animation: pop .2s var(--ease-out);
+}
+
+/* Focused only so keyboard and screen reader users land inside it. */
+.dialog:focus {
+  outline: none;
 }
 
 .dialog h2 {
@@ -1592,7 +1637,18 @@ html.loading::before {
   font-size: 13px;
 }
 
-/* Anything you tap: a quick double click must not select text (nor zoom on a phone). */
+/* Anything you tap answers at once: no double-tap zoom wait on a phone. */
+a,
+button,
+label,
+summary,
+select,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+/* Button-like controls: a quick double click must not select their text. */
 button,
 .btn,
 .icon-btn,
@@ -1603,12 +1659,23 @@ button,
 .tabbar a,
 .side-nav a,
 .seg a,
-.rc-cat,
-.rc-stepper,
 .mk-actions {
   -webkit-user-select: none;
   user-select: none;
-  touch-action: manipulation;
+}
+
+/* A finger needs 44 px to hit a control (Apple HIG, WCAG 2.5.5); a mouse keeps the compact sizes. */
+@media (pointer: coarse) {
+  .btn,
+  .btn.sm {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 .notice {
