@@ -1,6 +1,6 @@
 # Guide for AI agents: building Nido plugins
 
-Read this before creating or changing anything under `plugins/`. The full protocol is in [README.md](README.md); this file is the short, prescriptive version plus the mistakes already made once.
+Read this before creating or changing anything under `plugins/`. The full protocol is in [README.md](README.md); this file is the short, prescriptive version plus the mistakes already made once. The UI and code standards that apply to the whole project (mobile first, touch targets, dialogs, colour contrast, module size) are in the root [AGENTS.md](../AGENTS.md): read both.
 
 ## What an plugin is
 
@@ -9,7 +9,7 @@ Read this before creating or changing anything under `plugins/`. The full protoc
 - Server-rendered pages. Every feature must work without JavaScript.
 - Target hardware is a Raspberry Pi (down to 512 MB). Idle RAM and startup time matter.
 
-Reference implementations: `recipes/` (forms, uploads, core services), `games/` (WebSocket, binary packets), `devices/` (background tasks, LAN protocols, notices, modals, scenes).
+Reference implementations: `recipes/` (forms, uploads, core services), `games/` (WebSocket, binary packets), `devices/` (background tasks, LAN protocols, notices, modals, scenes), `pets/` (the UI reference: mobile-first layout, folding lists, carousels, coloured cards with AA contrast, two-step deletes, reminders persisted with `sent` keys, view split into modules).
 
 ## Files to touch for a new plugin
 
@@ -93,12 +93,29 @@ An plugin has four ways to tell people something. Pick by urgency and audience.
 - No jargon on the main path: no IPs, keys, protocol versions or tool names (for example, never "tinytuya"). Put them under a collapsed "Opciones avanzadas".
 - Page header: `div.page-head` with `a.back` (small "‹ Parent" link) above the `h1`, never a "Volver" button. The primary action goes at the right of the header (`a.btn.primary`).
 - Forms: `method="post"` to `/plugins/<id>/…`, then `303` to `/?tab=<id>…&ok=<code>`. On error, redirect with `&err=<message>` and render it with `div.alert.bad` near where it happened.
-- Dialogs: `div.modal#<id>` with `a.scrim href="#_"`, `div.dialog.dialog-wide`, `div.dialog-top`. Open them with `href="#<id>"` (CSS `:target`). Prefer a modal over an inline form for "add" and "edit".
+- Dialogs: `div.modal#<id>` with `a.scrim href="#_"`, `div.dialog.dialog-wide`, `div.dialog-top`. Open them with `href="#<id>"` (CSS `:target`). Prefer a modal over an inline form for "add" and "edit". Nido turns every dialog into a bottom sheet on phones, locks the page behind it, moves focus into it, keeps Tab inside and gives focus back on close: do not restyle `.modal`/`.dialog` in a plugin. To prefill an edit dialog, link to `?…&e=<id>#<id>-edit` and render that dialog only on that view.
 - Live data: put `span hidden data-refresh="<s>"` on views that change by themselves. Nido reloads them in place and keeps the scroll position. Do not add it to pages with forms people are typing in.
 - Do not disable a control because a background health check failed once. Let the action run and show the error.
 - Reuse core classes (`card`, `btn`, `field`, `input`, `pill`, `empty`, `hint`, `two`, `rows`) and tokens (`--ink`, `--mute`, `--line`, `--surface`, `--canvas`, `--accent`). Plugin-specific classes carry a prefix (`dv-`, `rc-`, `gm-`).
 - `style.css` is readable CSS (one declaration per line). `build.rs` minifies it; never hand-minify.
-- Touch targets at least 44 px, layouts that work at 375 px, `prefers-reduced-motion` respected, light and dark themes via tokens.
+- Classes from a plugin never appear in the core CSS or JS. If the core needs a hook, make it generic (an element type or a core class).
+- Plugin colours (a category, a pet) are data: tint with `color-mix` over `--surface` for soft backgrounds, and darken to 72% with `#000` before putting white text on them (WCAG AA for every swatch).
+- Everything people record or manage can be edited afterwards, not only deleted: entries in a history (a walk, a health note, a weight), schedules, settings, the item's card. A typo or "it was Leo, not me" is fixed in place (same id, `UPDATE`), never by deleting and writing it again. Tapping the row opens its edit dialog already filled in; the create and edit dialogs are the same form (`Option<&Item>`), and the create and edit handlers share one function that reads the form.
+- Deleting lives inside the edit dialog, behind a second step (`delete_form` in `pets/src/view/mod.rs`: a `details` that reveals "Sí, borrar"). Rows carry no delete button of their own.
+- Toggles that record who did something (a dose, a meal, a chore done) undo with a second tap on the same control.
+- To prefill an edit dialog, link to `?…&e=<id>#<x>-edit` and render that dialog only on that view. To prefill a "new" dialog from a suggestion, pass the suggestion in the query (`&nt=<i>#task-new`).
+- Touch targets at least 44 px, layouts that work at 375 px, `prefers-reduced-motion` respected, light and dark themes via tokens. On touch screens (`pointer: coarse`) Nido already raises `.btn`, `.btn.sm` and `.icon-btn` to 44 px; plugin controls must do the same.
+
+### Mobile first
+
+Design for a 375 px phone first, then let wider screens show more.
+
+- One page scroll. Never give a box a max height with its own scroll inside the page: it traps the finger and hides content.
+- Long lists show their first rows and fold the rest behind a button that says what it reveals ("Ver 6 más", "Ver 3 días más"): about 4 rows (2 days) on a phone, 8 (4 days) on wider screens. A hidden checkbox plus its `label` does it without JavaScript (see `clamp` in `pets/src/view/mod.rs`).
+- Secondary rows of cards (a list of pets, what is coming up, suggestions) slide sideways on a phone with `scroll-snap`, showing a peek of the next card, instead of stacking.
+- What is done folds away; what is pending stays in sight.
+- Headers stay compact on a phone: tags, figures and quick actions go in one sideways row. Section tabs stick to the top while scrolling.
+- Explanatory hints can hide on a phone when the screen already says it.
 - Icons: Lucide only. If one is missing, add the SVG to `assets/icons/` with the same license header as the others. Brand or app logos are embedded in the plugin (see `devices/logos/`), not in the core.
 - Copy is short and factual. No slogans, no exclamation-heavy marketing, no emojis as icons.
 
@@ -148,7 +165,10 @@ One English ASCII title line in conventional form (`feat(devices): …`, `fix(ga
 - [ ] `cargo test --workspace` passes, no new warnings.
 - [ ] Every redirect `ok` code is in `/manifest`.
 - [ ] If the plugin notifies: `/notices` answers `200` (never `404`), each notice is returned once, and the household ids come from `X-Nido-People`.
-- [ ] The page works at 375 px wide and in dark mode.
+- [ ] The page works at 375 px wide and in dark mode, checked with `tools/plugin-shot.sh` (see the root [AGENTS.md](../AGENTS.md#checking-your-work)).
+- [ ] No list grows without limit on a phone: long ones fold, secondary rows slide sideways.
+- [ ] Touch targets are 44 px, text passes 4.5:1 on its background, and nothing is deleted on a single tap.
+- [ ] Everything the plugin lets people create can also be edited.
 - [ ] No technical term on the main path; errors explain what to do.
 - [ ] Works without JavaScript.
 - [ ] READMEs updated if a new plugin or a user-visible feature was added.

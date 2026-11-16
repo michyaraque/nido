@@ -203,6 +203,8 @@ Registros: `journalctl -u nido -f`.
 
 Requiere Rust estable. Para compilar para la Pi, también [Zig](https://ziglang.org) y `cargo install cargo-zigbuild`.
 
+Las normas de interfaz y de código (mobile first, accesibilidad, contraste, estructura de módulos) y cómo comprobar los cambios están en [AGENTS.md](AGENTS.md); las de los plugins, en [plugins/AGENTS.md](plugins/AGENTS.md). Sirven igual si trabajas con un asistente de IA.
+
 ```sh
 sh tools/fetch-models.sh              # modelos del lector de tickets en ./models (opcional)
 echo "1234" | cargo run -- user Natalia
