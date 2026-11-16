@@ -134,18 +134,6 @@ fn send_widget(token: &str, chat: i64, html: &str, data: &str, caption: &str, qu
     }
 }
 
-/// Sends the same notice to everyone who linked Telegram (used when a backup fails).
-pub fn tell_all(c: &Connection, html: &str) {
-    let Some(token) = setting(c, "tg_token") else { return };
-    let chats: Vec<i64> = c
-        .prepare("SELECT tg_chat FROM users WHERE tg_chat IS NOT NULL")
-        .and_then(|mut s| s.query_map([], |r| r.get(0))?.collect())
-        .unwrap_or_default();
-    for chat in chats {
-        send_later(token.clone(), chat, html.to_string());
-    }
-}
-
 /// Sends a notice to one person, if they linked Telegram.
 pub fn tell(c: &Connection, user: i64, html: &str) {
     if let (Some(token), Some(chat)) = (setting(c, "tg_token"), chat_of(c, user)) {
@@ -177,24 +165,17 @@ fn day_words(c: &Connection, day: &str) -> String {
 }
 
 pub fn planned(c: &Connection, by: &User, chore: i64, day: &str, assignee: Option<i64>) {
-    let token = setting(c, "tg_token").unwrap_or_default();
     let Ok(name) = c.query_row("SELECT name FROM chores WHERE id=?1", [chore], |r| r.get::<_, String>(0)) else { return };
     let when = day_words(c, day);
-    let users: Vec<(i64, Option<i64>)> = c
-        .prepare("SELECT id, tg_chat FROM users")
-        .and_then(|mut s| s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect())
-        .unwrap_or_default();
-    for (id, chat) in users {
+    let users: Vec<i64> = c.prepare("SELECT id FROM users").and_then(|mut s| s.query_map([], |r| r.get(0))?.collect()).unwrap_or_default();
+    for id in users {
         let text = match assignee {
             Some(a) if a == id && a != by.id => format!("{} te ha planificado «{}» para {when}.", by.name, name),
             None if id != by.id => format!("{} ha dejado «{}» libre para {when}: la puede coger quien pueda.", by.name, name),
             _ => continue,
         };
-        if crate::push::send(c, id, "Tareas", &text, "/?tab=chores") {
-            continue;
-        }
-        let (Some(chat), false) = (chat, token.is_empty()) else { continue };
-        send_later(token.clone(), chat, esc(&text).replacen(&esc(&by.name), &format!("<b>{}</b>", esc(&by.name)), 1));
+        let html = esc(&text).replacen(&esc(&by.name), &format!("<b>{}</b>", esc(&by.name)), 1);
+        crate::push::notify(c, id, "Tareas", &text, "/?tab=chores", &html);
     }
 }
 

@@ -77,7 +77,7 @@ Nido valida la sesión antes de reenviar. El plugin solo debe confiar en estas c
 | `<método> /<ruta>` | Las peticiones a `/plugins/<id>/<ruta>` llegan como `/<ruta>`: formularios, imágenes, scripts. Nido devuelve al navegador el estado y las cabeceras `Content-Type`, `Location` y `Cache-Control`. |
 | WebSocket en `/<ruta>` | El navegador abre `ws(s)://<host>/plugins/<id>/<ruta>`. Nido valida la sesión, reenvía el handshake con las cabeceras `X-Nido-*` y, tras el `101`, pasa los bytes sin interpretarlos. El formato de los mensajes lo define el plugin (Juegos usa paquetes binarios, ver `games/src/net.rs`). |
 | `GET /notices` (opcional) | Avisos para la persona de `X-Nido-User`: `[{"text":"Ana te invita…","href":"/?tab=<id>&…","action":"Jugar"}]`. Nido lo consulta cada 3 s con la app en primer plano y los muestra en la parte superior. Lo devuelto se considera visto. `href` debe empezar por `/?`. |
-| `GET /notices/late` (opcional) | Avisos no vistos a tiempo, con destinatario: `[{"user":2,"text":"…","href":"/?…"}]`. Nido lo consulta cada 30 s y los envía como notificación push o, si la persona no las tiene activadas, por Telegram. Cada aviso debe devolverse una sola vez. |
+| `GET /notices/late` (opcional) | Avisos no vistos a tiempo, con destinatario: `[{"user":2,"text":"…","href":"/?…"}]`. Nido lo consulta cada 30 s y los envía como notificación push y, si ningún móvil de esa persona confirma haberla mostrado en 3 minutos, también por Telegram. Cada aviso debe devolverse una sola vez. |
 
 ### Reglas de la página
 

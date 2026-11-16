@@ -518,7 +518,8 @@ pub fn run_now(db: &Db) -> Result<Vec<String>, String> {
         Err(e) => vec![e.clone()],
     };
     if !failures.is_empty() {
-        notify::tell_all(&lock(db), &format!("<b>La copia de seguridad de Nido ha fallado</b>\n{}", failures.join("\n")));
+        let html = format!("<b>La copia de seguridad de Nido ha fallado</b>\n{}", notify::esc_html(&failures.join("\n")));
+        crate::push::notify_all(&lock(db), "La copia de seguridad ha fallado", &failures.join(" · "), "/?tab=settings", &html);
     }
     result
 }

@@ -122,6 +122,7 @@ async fn main() {
 
     let db: Db = Arc::new(Mutex::new(conn));
     notify::start(db.clone());
+    push::start(db.clone());
     backup::start(db.clone());
     plugins::start(&db);
     let app = Router::new()

@@ -77,7 +77,9 @@ async function sameTab(c, url) {
 self.addEventListener("push", (e) => {
   let n = {};
   try { n = e.data ? e.data.json() : {}; } catch { n = { body: e.data?.text() }; }
-  e.waitUntil(self.registration.showNotification(n.title || "Nido", { body: n.body || "", icon: "/icon.png", badge: "/icon.png", data: { url: n.url || "/" } }));
+  const shown = self.registration.showNotification(n.title || "Nido", { body: n.body || "", icon: "/icon.png", badge: "/icon.png", data: { url: n.url || "/" } });
+  // Without this receipt Nido sends it again by Telegram (also when the phone is away from home and cannot reach it).
+  e.waitUntil(shown.then(() => n.id && fetch(`/push/seen/${encodeURIComponent(n.id)}`, { method: "POST" }).catch(() => {})));
 });
 
 self.addEventListener("notificationclick", (e) => {

@@ -115,6 +115,8 @@ Android:
 
 Se envían tres tipos de aviso: tareas asignadas o liberadas, el recordatorio diario de pendientes (con un botón para marcarlas como hechas) y el resumen semanal de los domingos.
 
+Los avisos sueltos (tareas, plugins, copias que fallan) van primero como notificación al móvil. Si ningún móvil de esa persona confirma en 3 minutos que lo ha mostrado (no tiene las notificaciones activadas, el móvil está apagado o fuera de casa), llegan también por Telegram.
+
 Para probarlo, escribe cualquier mensaje al bot o ejecuta en el equipo:
 
 ```sh
@@ -150,7 +152,7 @@ Se configuran en Ajustes → La casa → Copias de seguridad:
 | Compatible con S3 | Cloudflare R2, Backblaze B2, Wasabi, AWS S3, Hetzner, MinIO… | Endpoint, bucket, región (`auto` en R2), access key y secret key |
 | WebDAV | Nextcloud, Synology, ownCloud u otro NAS | URL de la carpeta, usuario y contraseña de aplicación |
 
-Cada copia incluye la base de datos (copia en caliente, sin detener el servicio), las fotos de tickets y de perfil, y las bases de datos de los plugins. Se comprime y se cifra con AES-256 en el equipo antes de enviarse. Si una copia falla, el destino muestra el error y, si Telegram está configurado, se envía un aviso.
+Cada copia incluye la base de datos (copia en caliente, sin detener el servicio), las fotos de tickets y de perfil, y las bases de datos de los plugins. Se comprime y se cifra con AES-256 en el equipo antes de enviarse. Si una copia falla, el destino muestra el error y se avisa a todos (al móvil o, si no llega, por Telegram).
 
 Para restaurar:
 

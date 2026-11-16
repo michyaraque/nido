@@ -133,9 +133,70 @@ fn deliver(endpoint: &str, auth: &str, body: &[u8]) -> Result<u16, String> {
     String::from_utf8_lossy(&out.stdout).trim().parse().map_err(|_| "sin respuesta".into())
 }
 
-/// Sends a notification to every phone of `user` that turned them on. Returns whether they have
-/// any (if not, the caller may try Telegram). `url` opens when they tap it.
+/// How long a phone has to confirm it showed a notification before Telegram gets it too.
+const GRACE_SECS: i64 = 180;
+
+/// Receipts of notifications no push service accepted: Telegram gets them on the next sweep.
+static UNDELIVERED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Tells `user` by Web Push and, when no phone of theirs confirms showing it in time (none
+/// subscribed, the push service refused it, or the phone is off or away from home and cannot
+/// reach Nido), by Telegram. `tg_html` is the Telegram version of the message.
+pub fn notify(c: &Connection, user: i64, title: &str, body: &str, url: &str, tg_html: &str) {
+    let telegram = crate::notify::setting(c, "tg_token").is_some()
+        && c.query_row("SELECT tg_chat IS NOT NULL FROM users WHERE id=?1", [user], |r| r.get::<_, bool>(0)).unwrap_or(false);
+    if !telegram {
+        send(c, user, title, body, url);
+        return;
+    }
+    let receipt = rand_hex(16);
+    if push(c, user, title, body, url, Some(&receipt)) {
+        let _ = c.execute(
+            "INSERT INTO push_pending(id,user_id,html,due) VALUES(?1,?2,?3,unixepoch()+?4)",
+            params![receipt, user, tg_html, GRACE_SECS],
+        );
+    } else {
+        crate::notify::tell(c, user, tg_html);
+    }
+}
+
+/// `notify` for everyone in the house.
+pub fn notify_all(c: &Connection, title: &str, body: &str, url: &str, tg_html: &str) {
+    let users: Vec<i64> = c.prepare("SELECT id FROM users").and_then(|mut s| s.query_map([], |r| r.get(0))?.collect()).unwrap_or_default();
+    for u in users {
+        notify(c, u, title, body, url, tg_html);
+    }
+}
+
+pub fn start(db: Db) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(15));
+        sweep(&lock(&db));
+    });
+}
+
+/// Notifications no phone confirmed in time go to Telegram.
+fn sweep(c: &Connection) {
+    for id in std::mem::take(&mut *UNDELIVERED.lock().unwrap_or_else(|e| e.into_inner())) {
+        let _ = c.execute("UPDATE push_pending SET due=0 WHERE id=?1", [id]);
+    }
+    let due: Vec<(String, i64, String)> = c
+        .prepare("SELECT id, user_id, html FROM push_pending WHERE due <= unixepoch() ORDER BY due LIMIT 50")
+        .and_then(|mut s| s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect())
+        .unwrap_or_default();
+    for (id, user, html) in due {
+        let _ = c.execute("DELETE FROM push_pending WHERE id=?1", [id]);
+        crate::notify::tell(c, user, &html);
+    }
+}
+
+/// Sends a notification to every phone of `user` that turned them on, without Telegram. Returns
+/// whether they have any. `url` opens when they tap it.
 pub fn send(c: &Connection, user: i64, title: &str, body: &str, url: &str) -> bool {
+    push(c, user, title, body, url, None)
+}
+
+fn push(c: &Connection, user: i64, title: &str, body: &str, url: &str, receipt: Option<&str>) -> bool {
     for gone in std::mem::take(&mut *GONE.lock().unwrap_or_else(|e| e.into_inner())) {
         let _ = c.execute("DELETE FROM push_subs WHERE endpoint=?1", [gone]);
     }
@@ -153,7 +214,7 @@ pub fn send(c: &Connection, user: i64, title: &str, body: &str, url: &str) -> bo
         return false;
     }
     let key = vapid(c);
-    let payload = serde_json::json!({ "title": title, "body": body, "url": url }).to_string();
+    let payload = serde_json::json!({ "title": title, "body": body, "url": url, "id": receipt }).to_string();
     let jobs: Vec<(String, String, Vec<u8>)> = subs
         .into_iter()
         .filter_map(|(ep, p, a)| {
@@ -161,14 +222,19 @@ pub fn send(c: &Connection, user: i64, title: &str, body: &str, url: &str) -> bo
             Some((authorization(&key, &ep)?, ep, body))
         })
         .collect();
+    let receipt = receipt.map(str::to_string);
     std::thread::spawn(move || {
+        let mut accepted = false;
         for (auth, ep, body) in jobs {
             match deliver(&ep, &auth, &body) {
                 Ok(404 | 410) => GONE.lock().unwrap_or_else(|e| e.into_inner()).push(ep),
                 Ok(s) if s >= 300 => eprintln!("push: {s} desde {}", ep.split('/').nth(2).unwrap_or("?")),
                 Err(e) => eprintln!("push: {e}"),
-                _ => {}
+                _ => accepted = true,
             }
+        }
+        if let (false, Some(r)) = (accepted, receipt) {
+            UNDELIVERED.lock().unwrap_or_else(|e| e.into_inner()).push(r);
         }
     });
     true
@@ -226,6 +292,13 @@ pub async fn forget_missed(State(db): State<Db>, h: HeaderMap) -> R {
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
+/// No session needed: the receipt is a random one-time id, and the service worker's request may
+/// arrive without the cookie.
+pub async fn seen(State(db): State<Db>, axum::extract::Path(id): axum::extract::Path<String>) -> R {
+    lock(&db).execute("DELETE FROM push_pending WHERE id=?1", [id])?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
 pub async fn unsubscribe(State(db): State<Db>, h: HeaderMap, axum::Json(s): axum::Json<Sub>) -> R {
     let c = lock(&db);
     let me = require_user!(c, h);
@@ -249,6 +322,7 @@ pub fn routes() -> Router<Db> {
         .route("/push/unsubscribe", post(unsubscribe))
         .route("/push/test", post(test))
         .route("/push/missed", get(missed).post(forget_missed))
+        .route("/push/seen/{id}", post(seen))
 }
 
 #[cfg(test)]
@@ -295,6 +369,22 @@ mod tests {
         assert!(!send(&c, 1, "Mascotas", "Toca Apoquel a Toby", "/?tab=pets"));
         let missed: String = c.query_row("SELECT value FROM settings WHERE key='push_missed:1'", [], |r| r.get(0)).unwrap();
         assert_eq!(missed, "Toca Apoquel a Toby");
+    }
+
+    #[test]
+    fn unconfirmed_notifications_fall_back_to_telegram() {
+        let c = Connection::open_in_memory().unwrap();
+        crate::db::migrate(&c);
+        c.execute_batch(
+            "INSERT INTO users(id,name,pass,token) VALUES(1,'Natalia','x','a');
+             INSERT INTO push_pending(id,user_id,html,due) VALUES('late',1,'a',unixepoch()-1),
+               ('early',1,'b',unixepoch()+60),('refused',1,'c',unixepoch()+60);",
+        )
+        .unwrap();
+        UNDELIVERED.lock().unwrap().push("refused".into());
+        sweep(&c);
+        let left: Vec<String> = c.prepare("SELECT id FROM push_pending").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+        assert_eq!(left, ["early"]);
     }
 
     #[test]

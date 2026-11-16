@@ -9,7 +9,7 @@
 //!   in `X-Nido-People`; a WebSocket opened there is handed over to the plugin as it is;
 //! - shows its toasts (from its `/manifest`) and offers its own services, like `/shopping/many`;
 //! - shows its notices to a person in the open app (`GET /notices`) and sends the ones nobody saw
-//!   in time (`GET /notices/late`) as a push notification, or by Telegram.
+//!   in time (`GET /notices/late`) as a push notification, and by Telegram when no phone confirms it.
 //!
 //! Each plugin keeps its own database (`plugins/data/<id>.db`, in backups). The protocol and a guide to write one
 //! are in plugins/README.md.
@@ -343,11 +343,8 @@ fn late(db: Db) {
                 for n in notice_list(r) {
                     let (Some(user), Some(text), Some(href)) = (n["user"].as_i64(), n["text"].as_str(), n["href"].as_str()) else { continue };
                     let c = lock(&db);
-                    if crate::push::send(&c, user, k.name, text, href) {
-                        continue;
-                    }
                     let html = format!("{}\n\n<a href=\"{origin}{href}\">{}</a>", crate::notify::esc_html(text), crate::notify::esc_html(n["action"].as_str().unwrap_or("Abrir en Nido")));
-                    crate::notify::tell(&c, user, &html);
+                    crate::push::notify(&c, user, k.name, text, href, &html);
                 }
             }
         }

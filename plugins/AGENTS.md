@@ -55,7 +55,7 @@ An plugin has four ways to tell people something. Pick by urgency and audience.
 
 - Nido calls it every 30 s with only `X-Nido-Key` (no user headers).
 - Response: `[{"user": 2, "text": "...", "href": "/?tab=<id>&...", "action": "Ver"}]`, one entry per recipient.
-- Nido sends each entry as a Web Push notification titled with the plugin's catalog name. If that person has no push subscription, it goes by Telegram with a link (`action` is the link text, default "Abrir en Nido"). If they have neither, it is dropped.
+- Nido sends each entry as a Web Push notification titled with the plugin's catalog name. If no phone of that person confirms showing it within 3 minutes (no subscription, refused by the push service, phone off or away from home), it also goes by Telegram with a link (`action` is the link text, default "Abrir en Nido"). Without Telegram linked, push is the only channel.
 - Return each entry once, then forget it.
 
 ### Implementing them

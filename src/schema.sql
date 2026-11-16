@@ -164,6 +164,15 @@ CREATE TABLE IF NOT EXISTS push_subs (
   created  TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
+-- Notifications waiting for a phone to confirm it showed them; past `due` (unix seconds) they go to Telegram.
+CREATE TABLE IF NOT EXISTS push_pending (
+  id      TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  html    TEXT NOT NULL,
+  due     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS push_pending_due ON push_pending(due);
 CREATE INDEX IF NOT EXISTS expenses_month ON expenses(month, created);
 CREATE INDEX IF NOT EXISTS settlements_month ON settlements(month);
 CREATE INDEX IF NOT EXISTS shopping_pending ON shopping(cleared, done);
