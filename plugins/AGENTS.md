@@ -7,7 +7,7 @@ Read this before creating or changing anything under `plugins/`. The full protoc
 - A separate program (`nido-<name>`) that Nido starts and talks to over HTTP on `127.0.0.1`. The core only holds its catalog entry in `src/plugins/mod.rs`.
 - Rust 2021, `axum` 0.8, `tokio` current-thread runtime, `maud` for HTML, `rusqlite` (bundled) for its own database.
 - Server-rendered pages. Every feature must work without JavaScript.
-- Target hardware is a Raspberry Pi (down to 512 MB). Idle RAM and startup time matter.
+- Target hardware is any modest device: little RAM (down to 512 MB), slow storage, a few CPU cores. Idle RAM and startup time matter.
 
 Reference implementations: `recipes/` (forms, uploads, core services), `games/` (WebSocket, binary packets), `devices/` (background tasks, LAN protocols, notices, modals, scenes), `pets/` (the UI reference: mobile-first layout, folding lists, carousels, coloured cards with AA contrast, two-step deletes, reminders persisted with `sent` keys, view split into modules).
 
@@ -143,8 +143,8 @@ Design for a 375 px phone first, then let wider screens show more.
 ```sh
 cargo test --workspace
 cargo zigbuild --release --target aarch64-unknown-linux-musl -p nido-<name>
-scp target/aarch64-unknown-linux-musl/release/nido-<name> <pi>:nido-install/plugins/
-ssh <pi> 'chmod +x nido-install/plugins/* && sudo -n /usr/local/bin/nido-deploy'
+scp target/aarch64-unknown-linux-musl/release/nido-<name> <host>:nido-install/plugins/
+ssh <host> 'chmod +x nido-install/plugins/* && sudo -n /usr/local/bin/nido-deploy'
 ```
 
 Copy the binary with its executable bit set: `nido-deploy` runs `--version` on it.
@@ -169,6 +169,7 @@ One English ASCII title line in conventional form (`feat(devices): …`, `fix(ga
 - [ ] No list grows without limit on a phone: long ones fold, secondary rows slide sideways.
 - [ ] Touch targets are 44 px, text passes 4.5:1 on its background, and nothing is deleted on a single tap.
 - [ ] Everything the plugin lets people create can also be edited.
+- [ ] Pages stay light and queries use indexes (see Performance in the root [AGENTS.md](../AGENTS.md#performance)).
 - [ ] No technical term on the main path; errors explain what to do.
 - [ ] Works without JavaScript.
 - [ ] READMEs updated if a new plugin or a user-visible feature was added.

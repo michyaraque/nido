@@ -1,6 +1,6 @@
 # Guide for AI agents: working on Nido
 
-Nido is a household app (expenses, shopping, chores, bills…) that runs on a Raspberry Pi down to 512 MB. Read this before changing anything. For plugins (`plugins/*`), also read [plugins/AGENTS.md](plugins/AGENTS.md): it has the protocol and the plugin rules.
+Nido is a household app (expenses, shopping, chores, bills…) that runs on modest hardware: single-board computers such as a Raspberry Pi, mini PCs, old laptops, down to 512 MB of RAM. Read this before changing anything. For plugins (`plugins/*`), also read [plugins/AGENTS.md](plugins/AGENTS.md): it has the protocol and the plugin rules.
 
 ## Where things are
 
@@ -34,6 +34,14 @@ These apply to the core and to every plugin. When a core rule breaks a standard,
 - **Motion** stays under 300 ms and respects `prefers-reduced-motion` (the core turns animations off globally).
 - **Accessibility.** Icon-only buttons have `aria-label`; form fields have visible labels; a hidden checkbox used to fold content takes its name from its `label`, not from an `aria-label`.
 
+## Performance
+
+Nido runs on low-power devices with little RAM and often slow storage (an SD card), and is used over Wi-Fi from phones: everything must be fast.
+
+- **Weight per page.** Measure the HTML a tap downloads (`curl -w "%{size_download}"`). Do not repeat inline SVG: define each icon once per page and reference it with `<use>` (see `icon` and `icon_sprite` in `plugins/pets/src/kit.rs`). Caddy compresses responses in front of Nido (`deploy/install.sh`); the app does not compress again. The raw size still costs the phone parsing time: do not render hundreds of rows behind a "Ver más"; cap histories to what is useful.
+- **SQLite.** Open with `journal_mode=WAL`, `synchronous=NORMAL`, `temp_store=MEMORY`. Every `WHERE` and `ORDER BY` on a table that grows has an index. Never write `?1 IS NULL OR col=?1`: it keeps SQLite from using the index; build the filter for the case at hand. Fetch only the rows shown (`LIMIT` inside each branch of a `UNION`), and no query inside a loop over rows (N+1).
+- **Measure before and after** with release builds and realistic data (months of records), and say the numbers.
+
 ## Code standards
 
 - Split modules by responsibility before they pass ~500 lines (see `plugins/pets/src/view/`: `mod.rs` shared pieces, one module per screen or section, `rows.rs` for rows several sections reuse).
@@ -64,7 +72,7 @@ Check every change at 375–390 px and at desktop width, in light and dark. Send
 
 ## Platform notes (Windows development machine)
 
-- Files use LF. When editing with Python, write with `newline='\n'` (CRLF once broke `deploy/install.sh` on the Pi).
+- Files use LF. When editing with Python, write with `newline='\n'` (CRLF once broke `deploy/install.sh` on the device).
 - In Git Bash, `grep -c $'\r'` counts every line, not carriage returns: use `python -c "print(open(f,'rb').read().count(b'\r'))"`.
 - Headless Chrome will not make a window narrower than ~500 px: phone widths need an iframe (`tools/plugin-shot.sh` does it).
 - A running plugin locks its `.exe`: stop it before `cargo build`, or the build fails with "failed to remove file".
