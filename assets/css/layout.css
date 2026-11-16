@@ -293,11 +293,46 @@
     padding: 0;
     margin-right: auto;
   }
-  .mtop-plug {
-    color: var(--ink-2);
+  .mtop .brand-txt small {
+    display: none;
   }
-  .mtop-plug.on {
+  .mtop {
+    gap: 8px;
+  }
+  .mtop-apps {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 48vw;
+    height: 44px;
+    padding: 0 10px 0 12px;
+    border-radius: 99px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: var(--shadow-card);
+  }
+  .mtop-apps .i {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+  .mtop-apps>.i:last-child {
+    width: 14px;
+    height: 14px;
+    opacity: .6;
+  }
+  .mtop-apps-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mtop-apps.on {
     background: var(--ink);
+    border-color: var(--ink);
     color: var(--surface);
   }
   .page-head {

@@ -766,6 +766,58 @@ a.row-main:hover .row-title {
   border-color: var(--ink);
 }
 
+.launcher {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.launcher-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 100px;
+  padding: 12px 6px;
+  border-radius: 18px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  transition: background .15s;
+}
+
+.launcher-item:hover {
+  background: var(--hover);
+}
+
+.launcher-ico {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--c, var(--mute)) 14%, var(--surface));
+  color: color-mix(in srgb, var(--c, var(--mute)) 78%, var(--ink));
+}
+
+.launcher-ico .i {
+  width: 24px;
+  height: 24px;
+}
+
+.launcher-item.on {
+  background: var(--hover);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.launcher-item.on .launcher-ico {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--c, var(--ink)) 70%, var(--ink));
+}
+
 .mtop-me {
   display: flex;
   align-items: center;

@@ -599,10 +599,6 @@ impl View {
         }
     }
 
-    fn avatars(&self) -> Markup {
-        html! { div.avatars { @for u in &self.users { (self.avatar(u.id)) } } }
-    }
-
     pub fn head(&self, title: &str, sub: Markup) -> Markup {
         html! {
             div.page-head {
@@ -691,13 +687,34 @@ impl View {
                 main #main.content {
                     header.mtop {
                         div.brand { (brand()) }
-                        @for p in &self.plugins {
-                            a.icon-btn.mtop-plug.on[p.id == self.t] href=(self.link(p.id)) aria-label=(p.name) title=(p.name) { (icon(p.icon)) }
+                        @let here = self.plugin();
+                        a.mtop-apps.on[here.is_some() || self.t == "plugins"] href="#apps" aria-haspopup="dialog" aria-label={ "Plugins" @if let Some(p) = here { ": estás en " (p.name) } } {
+                            (icon(here.map_or("layout-grid", |p| p.icon)))
+                            span.mtop-apps-name { (here.map_or("Plugins", |p| p.name)) }
+                            (icon("chevron-down"))
                         }
-                        a.icon-btn.mtop-plug.on[self.t == "plugins"] href=(self.link("plugins")) aria-label="Plugins" title="Plugins" { (icon("puzzle")) }
                         @let fresh = crate::update::available();
                         a.mtop-me href=(self.link(if fresh.is_some() { "update" } else { "settings" })) aria-label=(if fresh.is_some() { "Ajustes · hay una versión nueva de Nido" } else { "Ajustes" }) {
-                            (self.avatars()) span.mtop-gear { (icon("settings")) @if fresh.is_some() { span.mtop-dot {} } }
+                            (self.avatar(self.me.id)) span.mtop-gear { (icon("settings")) @if fresh.is_some() { span.mtop-dot {} } }
+                        }
+                    }
+                    div.modal #apps role="dialog" aria-modal="true" aria-labelledby="apps-t" {
+                        a.scrim href="#_" aria-label="Cerrar" tabindex="-1" {}
+                        div.dialog {
+                            div.dialog-top {
+                                h2 #apps-t { "Plugins" }
+                                a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
+                            }
+                            nav.launcher aria-label="Plugins activos" {
+                                @for p in &self.plugins {
+                                    a.launcher-item.on[p.id == self.t] href=(self.link(p.id)) style={ "--c:" (p.accent) } aria-current=[(p.id == self.t).then_some("page")] {
+                                        span.launcher-ico { (icon(p.icon)) } span { (p.name) }
+                                    }
+                                }
+                                a.launcher-item.on[self.t == "plugins"] href=(self.link("plugins")) aria-current=[(self.t == "plugins").then_some("page")] {
+                                    span.launcher-ico { (icon("puzzle")) } span { "Explorar plugins" }
+                                }
+                            }
                         }
                     }
                     (content)
