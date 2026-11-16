@@ -100,6 +100,7 @@ async fn main() {
     }
     let path = std::env::var("NIDO_DB").unwrap_or_else(|_| "nido.db".into());
     let conn = Connection::open(&path).expect("no se pudo abrir la base de datos");
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(5));
     migrate(&conn);
 
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {

@@ -1,4 +1,6 @@
 PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA temp_store = MEMORY;
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -161,3 +163,9 @@ CREATE TABLE IF NOT EXISTS push_subs (
   auth     TEXT NOT NULL,
   created  TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
+
+CREATE INDEX IF NOT EXISTS expenses_month ON expenses(month, created);
+CREATE INDEX IF NOT EXISTS settlements_month ON settlements(month);
+CREATE INDEX IF NOT EXISTS shopping_pending ON shopping(cleared, done);
+CREATE INDEX IF NOT EXISTS chore_logs_chore ON chore_logs(chore_id, day);
+CREATE INDEX IF NOT EXISTS chore_plans_day ON chore_plans(day);
