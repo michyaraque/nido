@@ -1,15 +1,41 @@
-//! Dates travel as text ("YYYY-MM-DD", "HH:MM") in the Pi's local time, as SQLite gives them, so the
+//! Dates travel as text ("YYYY-MM-DD", "HH:MM") in the server's local time, as SQLite gives them, so the
 //! plugin needs no date crate.
 use maud::{html, Markup, PreEscaped};
+use std::cell::RefCell;
 
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 
+thread_local! {
+    static USED: RefCell<Vec<usize>> = const { RefCell::new(Vec::new()) };
+}
+
+/// A reference to the icon's symbol: a page repeats the same few icons dozens of times, so each
+/// one's paths travel once, in `icon_sprite`.
 pub fn icon(name: &str) -> Markup {
-    let inner = ICONS.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or("");
-    html! {
-        svg.i viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" { (PreEscaped(inner)) }
+    let Some(i) = ICONS.iter().position(|(n, _)| *n == name) else { return html! {} };
+    USED.with(|u| {
+        let mut u = u.borrow_mut();
+        if !u.contains(&i) {
+            u.push(i);
+        }
+    });
+    PreEscaped(format!(r##"<svg class="i pt-i" aria-hidden="true"><use href="#pt-i-{name}"/></svg>"##))
+}
+
+/// Starts a page: forgets the icons of the previous one (a failed render may have left some).
+pub fn reset_icons() {
+    USED.with(|u| u.borrow_mut().clear());
+}
+
+/// The symbols of every icon used since `reset_icons`.
+pub fn icon_sprite() -> Markup {
+    let used = USED.with(|u| std::mem::take(&mut *u.borrow_mut()));
+    let mut s = String::from(r#"<svg width="0" height="0" style="position:absolute" aria-hidden="true">"#);
+    for i in used {
+        let (name, inner) = ICONS[i];
+        s += &format!(r#"<symbol id="pt-i-{name}" viewBox="0 0 24 24">{inner}</symbol>"#);
     }
+    PreEscaped(s + "</svg>")
 }
 
 pub fn pct_decode(s: &str) -> String {
@@ -184,6 +210,18 @@ mod tests {
         assert_eq!(age("2026-10-01", "2026-11-16").as_deref(), Some("6 semanas"));
         assert_eq!(days("2026-13-01"), None);
         assert_eq!(long_day("2026-11-16"), "lunes, 16 de noviembre");
+    }
+
+    #[test]
+    fn icons_travel_once() {
+        reset_icons();
+        let a = icon("dog").into_string();
+        icon("dog");
+        icon("cat");
+        assert!(a.contains("#pt-i-dog") && !a.contains("<path"));
+        let sprite = icon_sprite().into_string();
+        assert_eq!(sprite.matches("<symbol").count(), 2);
+        assert_eq!(icon_sprite().into_string().matches("<symbol").count(), 0);
     }
 
     #[test]

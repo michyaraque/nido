@@ -113,7 +113,7 @@ fn people_ids(c: &Connection) -> Vec<i64> {
         .collect()
 }
 
-/// Now on the Pi's clock, local time: ("YYYY-MM-DD", "HH:MM").
+/// Now on the server's clock, local time: ("YYYY-MM-DD", "HH:MM").
 pub fn now(c: &Connection) -> rusqlite::Result<(String, String)> {
     c.query_row("SELECT date('now','localtime'), strftime('%H:%M','now','localtime')", [], |r| Ok((r.get(0)?, r.get(1)?)))
 }
@@ -287,7 +287,7 @@ async fn remind(app: App) {
 pub fn open(path: &str) -> rusqlite::Result<Connection> {
     let c = Connection::open(path)?;
     c.busy_timeout(Duration::from_secs(5))?;
-    c.execute_batch("PRAGMA foreign_keys=ON;")?;
+    c.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA foreign_keys=ON;")?;
     c.execute_batch(include_str!("../schema.sql"))?;
     Ok(c)
 }

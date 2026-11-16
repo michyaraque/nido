@@ -9,7 +9,9 @@ pub(super) fn home(c: &Connection, v: &V, p: &Params) -> rusqlite::Result<Markup
     let by_pet: HashMap<i64, &Pet> = pets.iter().map(|x| (x.id, x)).collect();
     let weights = data::last_weights(c)?;
     let items = agenda_items(c, v, &pets)?;
-    let coming = upcoming(c, v, &pets, 21)?;
+    let ahead = upcoming(c, v, &pets, 60)?;
+    let soon = add_days(&v.today, 21);
+    let coming: Vec<&Up> = ahead.iter().filter(|u| u.day <= soon).take(8).collect();
     let events: Vec<data::Event> = data::feed(c, None, 40)?.into_iter().filter(|e| ids.contains(&e.pet_id)).take(20).collect();
     let walks = data::walks_since(c, None, &v.today)?;
     let left_today = items.iter().filter(|a| a.post.is_some() && a.done.is_none()).count();
@@ -42,8 +44,7 @@ pub(super) fn home(c: &Connection, v: &V, p: &Params) -> rusqlite::Result<Markup
             (kind_filter(v, &all, filter))
             div.pt-pets {
                 @for pet in &pets {
-                    @let next = upcoming(c, v, std::slice::from_ref(pet), 60)?.into_iter().next();
-                    (pet_card(v, pet, &items, walks.iter().filter(|w| w.pet_id == pet.id).count(), weights.get(&pet.id).copied(), next.as_ref()))
+                    (pet_card(v, pet, &items, walks.iter().filter(|w| w.pet_id == pet.id).count(), weights.get(&pet.id).copied(), ahead.iter().find(|u| u.pet == pet.id)))
                 }
                 a.pt-pet-add href="#pet-new" {
                     span.pt-pet-add-ico { (icon("plus")) }
@@ -58,7 +59,7 @@ pub(super) fn home(c: &Connection, v: &V, p: &Params) -> rusqlite::Result<Markup
                     section.card.pt-card {
                         (sec_head("calendar-clock", "Próximamente", None))
                         @if coming.is_empty() { p.pt-none { "Nada en las próximas tres semanas." } }
-                        @else { (upcoming_list(v, &coming, &by_pet, true)) }
+                        @else { (upcoming_list(v, coming.iter().copied(), &by_pet, true)) }
                     }
                     section.card.pt-card {
                         (sec_head("history", "Lo último en casa", None))

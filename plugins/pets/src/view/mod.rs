@@ -103,11 +103,12 @@ fn weekday(day: &str) -> &'static str {
 pub fn page(c: &Connection, me: Me, p: &Params) -> rusqlite::Result<Markup> {
     let (today, time) = now(c)?;
     let v = V { m: month(p.get("month").map(String::as_str), &today), today, time, me };
+    reset_icons();
     let body = match num(p, "p").map(|id| data::pet(c, id)).transpose()?.flatten() {
         Some(pet) => pet_page(c, &v, &pet, p)?,
         None => home(c, &v, p)?,
     };
-    Ok(html! { style { (PreEscaped(CSS)) } span hidden data-plugin="pets" data-plugin-js=(js_url()) {} div.pt { (body) } })
+    Ok(html! { style { (PreEscaped(CSS)) } span hidden data-plugin="pets" data-plugin-js=(js_url()) {} (icon_sprite()) div.pt { (body) } })
 }
 
 // ---------- small pieces ----------

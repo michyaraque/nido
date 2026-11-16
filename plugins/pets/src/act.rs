@@ -129,7 +129,7 @@ fn when(c: &Connection, f: &[(String, String)]) -> rusqlite::Result<String> {
 
 // ---------- pets ----------
 
-/// A photo in any format and orientation → 480×480 WebP: sharp on a phone, light on the Pi.
+/// A photo in any format and orientation → 480×480 WebP: sharp on a phone, light on a small server.
 fn to_webp(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let mut decoder = ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()

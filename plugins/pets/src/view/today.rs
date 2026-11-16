@@ -180,23 +180,25 @@ pub(super) struct Up {
     pub(super) href: String,
 }
 
+/// Soonest first, from tomorrow to `horizon` days ahead.
 pub(super) fn upcoming(c: &Connection, v: &V, pets: &[Pet], horizon: i64) -> rusqlite::Result<Vec<Up>> {
     let ids: Vec<i64> = pets.iter().map(|p| p.id).collect();
+    let one = (pets.len() == 1).then(|| pets[0].id);
     let tomorrow = add_days(&v.today, 1);
     let end = add_days(&v.today, horizon);
     let mut out = Vec::new();
-    for x in data::visits(c, None)? {
+    for x in data::visits(c, one)? {
         if ids.contains(&x.pet_id) && x.at[..10] >= *tomorrow && x.at[..10] <= *end {
             let what = if x.title.is_empty() { "Veterinario".to_string() } else { x.title.clone() };
             out.push(Up { day: x.at[..10].into(), time: x.at[11..16].into(), pet: x.pet_id, icon: "stethoscope", title: what, href: v.link(&format!("p={}&s=vet&e={}#visit-edit", x.pet_id, x.id)) });
         }
     }
-    for r in data::records(c, None)? {
+    for r in data::records(c, one)? {
         if ids.contains(&r.pet_id) && !r.next.is_empty() && r.next >= tomorrow && r.next <= end {
             out.push(Up { day: r.next.clone(), time: String::new(), pet: r.pet_id, icon: data::record_kind(&r.kind).2, title: r.title(), href: v.link(&format!("p={}&s=vet", r.pet_id)) });
         }
     }
-    for t in data::tasks(c, None)? {
+    for t in data::tasks(c, one)? {
         if ids.contains(&t.pet_id) && t.due >= tomorrow && t.due <= end {
             let ic = data::TASK_ICONS.iter().find(|i| **i == t.icon).copied().unwrap_or("sparkles");
             out.push(Up { day: t.due.clone(), time: String::new(), pet: t.pet_id, icon: ic, title: t.title.clone(), href: v.link(&format!("p={}&s=tasks", t.pet_id)) });
@@ -208,11 +210,10 @@ pub(super) fn upcoming(c: &Connection, v: &V, pets: &[Pet], horizon: i64) -> rus
         }
     }
     out.sort_by(|a, b| (&a.day, &a.time).cmp(&(&b.day, &b.time)));
-    out.truncate(8);
     Ok(out)
 }
 
-pub(super) fn upcoming_list(v: &V, items: &[Up], pets: &HashMap<i64, &Pet>, show_pet: bool) -> Markup {
+pub(super) fn upcoming_list<'a>(v: &V, items: impl IntoIterator<Item = &'a Up>, pets: &HashMap<i64, &Pet>, show_pet: bool) -> Markup {
     html! {
         div.pt-list.pt-carousel {
             @for u in items {

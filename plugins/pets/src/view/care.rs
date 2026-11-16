@@ -152,7 +152,7 @@ pub(super) fn health_row(v: &V, h: &data::Health, ret: &str) -> Markup {
 }
 
 pub(super) fn health_section(c: &Connection, v: &V, pet: &Pet, ret: &str, edit: Option<i64>) -> rusqlite::Result<Markup> {
-    let list = data::health(c, pet.id, 150)?;
+    let list = data::health(c, pet.id, 60)?;
     let editing = edit.and_then(|id| list.iter().find(|h| h.id == id));
     let week: Vec<String> = (0..7).rev().map(|i| add_days(&v.today, -i)).collect();
     let worst = |day: &str| {

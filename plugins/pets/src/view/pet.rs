@@ -151,7 +151,8 @@ pub(super) fn overview(c: &Connection, v: &V, pet: &Pet, ret: &str) -> rusqlite:
     let one = std::slice::from_ref(pet);
     let by_pet: HashMap<i64, &Pet> = [(pet.id, pet)].into_iter().collect();
     let items = agenda_items(c, v, one)?;
-    let coming = upcoming(c, v, one, 45)?;
+    let mut coming = upcoming(c, v, one, 45)?;
+    coming.truncate(8);
     let events = data::feed(c, Some(pet.id), 12)?;
     let link = |s: &str| v.link(&format!("p={}&s={s}", pet.id));
     let hint = if pet.meal_slots().is_empty() {
@@ -180,7 +181,7 @@ pub(super) fn overview(c: &Connection, v: &V, pet: &Pet, ret: &str) -> rusqlite:
 }
 
 pub(super) fn diary_section(c: &Connection, v: &V, pet: &Pet) -> rusqlite::Result<Markup> {
-    let events = data::feed(c, Some(pet.id), 200)?;
+    let events = data::feed(c, Some(pet.id), 80)?;
     let by_pet: HashMap<i64, &Pet> = [(pet.id, pet)].into_iter().collect();
     Ok(html! {
         p.hint.pt-lead { "Todo lo que habéis apuntado de " (pet.name) ", y quién lo hizo." }

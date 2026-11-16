@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS task_done (
   at TEXT NOT NULL DEFAULT (strftime('%H:%M','now','localtime'))
 );
 
+CREATE INDEX IF NOT EXISTS walk_at ON walk(at);
+CREATE INDEX IF NOT EXISTS health_at ON health(at);
+CREATE INDEX IF NOT EXISTS weight_day ON weight(day);
+CREATE INDEX IF NOT EXISTS med_pet ON med(pet_id);
+CREATE INDEX IF NOT EXISTS dose_day ON dose(day);
+CREATE INDEX IF NOT EXISTS visit_pet ON visit(pet_id, at);
+CREATE INDEX IF NOT EXISTS task_pet ON task(pet_id, due);
+CREATE INDEX IF NOT EXISTS task_done_task ON task_done(task_id, day);
+CREATE INDEX IF NOT EXISTS task_done_day ON task_done(day, at);
+
 CREATE TABLE IF NOT EXISTS setting (
   k TEXT PRIMARY KEY,
   v TEXT NOT NULL
@@ -142,3 +152,6 @@ CREATE TABLE IF NOT EXISTS record (
   note TEXT NOT NULL DEFAULT '',
   sent TEXT NOT NULL DEFAULT ''
 );
+
+CREATE INDEX IF NOT EXISTS fed_day ON fed(day, at);
+CREATE INDEX IF NOT EXISTS record_pet ON record(pet_id, day);

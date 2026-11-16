@@ -2,6 +2,12 @@ use crate::kit::days;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
 
+/// `AND <col>=<id>` for one pet, nothing for all. Inlined rather than `?1 IS NULL OR col=?1`,
+/// which keeps SQLite from using the pet's index.
+fn of_pet(col: &str, pet: Option<i64>) -> String {
+    pet.map_or_else(String::new, |id| format!(" AND {col}={id}"))
+}
+
 /// (med or pet id, day, slot) → (who, at what time).
 pub type Given = HashMap<(i64, String, String), (i64, String)>;
 
@@ -212,21 +218,23 @@ impl Med {
     }
 }
 
+const MED: &str = "SELECT m.id,m.pet_id,p.name,m.title,m.dose,m.times,m.start,m.days,m.note,m.stopped FROM med m JOIN pet p ON p.id=m.pet_id";
+
+fn med_row(r: &Row) -> rusqlite::Result<Med> {
+    Ok(Med { id: r.get(0)?, pet_id: r.get(1)?, pet: r.get(2)?, title: r.get(3)?, dose: r.get(4)?, times: r.get(5)?, start: r.get(6)?, days: r.get(7)?, note: r.get(8)?, stopped: r.get(9)? })
+}
+
 /// Newest first; every pet when `pet` is None.
 pub fn meds(c: &Connection, pet: Option<i64>) -> rusqlite::Result<Vec<Med>> {
-    c.prepare("SELECT m.id,m.pet_id,p.name,m.title,m.dose,m.times,m.start,m.days,m.note,m.stopped FROM med m JOIN pet p ON p.id=m.pet_id WHERE ?1 IS NULL OR m.pet_id=?1 ORDER BY m.start DESC,m.id DESC")?
-        .query_map([pet], |r| {
-            Ok(Med { id: r.get(0)?, pet_id: r.get(1)?, pet: r.get(2)?, title: r.get(3)?, dose: r.get(4)?, times: r.get(5)?, start: r.get(6)?, days: r.get(7)?, note: r.get(8)?, stopped: r.get(9)? })
-        })?
-        .collect()
+    c.prepare(&format!("{MED} WHERE 1{} ORDER BY m.start DESC,m.id DESC", of_pet("m.pet_id", pet)))?.query_map([], med_row)?.collect()
 }
 
 pub fn med(c: &Connection, id: i64) -> rusqlite::Result<Option<Med>> {
-    Ok(meds(c, None)?.into_iter().find(|m| m.id == id))
+    c.query_row(&format!("{MED} WHERE m.id=?1"), [id], med_row).optional()
 }
 
 pub fn doses(c: &Connection, from: &str) -> rusqlite::Result<Given> {
-    c.prepare("SELECT med_id,day,slot,by,at FROM dose WHERE day>=?1")?
+    c.prepare_cached("SELECT med_id,day,slot,by,at FROM dose WHERE day>=?1")?
         .query_map([from], |r| Ok(((r.get(0)?, r.get(1)?, r.get(2)?), (r.get(3)?, r.get(4)?))))?
         .collect()
 }
@@ -241,7 +249,7 @@ pub struct Health {
 }
 
 pub fn health(c: &Connection, pet: i64, limit: i64) -> rusqlite::Result<Vec<Health>> {
-    c.prepare("SELECT id,at,kind,mood,note,by FROM health WHERE pet_id=?1 ORDER BY at DESC,id DESC LIMIT ?2")?
+    c.prepare_cached("SELECT id,at,kind,mood,note,by FROM health WHERE pet_id=?1 ORDER BY at DESC,id DESC LIMIT ?2")?
         .query_map(params![pet, limit], |r| Ok(Health { id: r.get(0)?, at: r.get(1)?, kind: r.get(2)?, mood: r.get(3)?, note: r.get(4)?, by: r.get(5)? }))?
         .collect()
 }
@@ -264,8 +272,8 @@ pub fn ids(s: &str) -> Vec<i64> {
 
 /// Newest first, since `from` ("YYYY-MM-DD"); every pet when `pet` is None.
 pub fn walks_since(c: &Connection, pet: Option<i64>, from: &str) -> rusqlite::Result<Vec<Walk>> {
-    c.prepare(&format!("SELECT id,pet_id,at,minutes,CAST({WALKERS} AS TEXT),note FROM walk WHERE (?1 IS NULL OR pet_id=?1) AND at>=?2 ORDER BY at DESC,id DESC"))?
-        .query_map(params![pet, from], |r| {
+    c.prepare(&format!("SELECT id,pet_id,at,minutes,CAST({WALKERS} AS TEXT),note FROM walk WHERE at>=?1{} ORDER BY at DESC,id DESC", of_pet("pet_id", pet)))?
+        .query_map([from], |r| {
             Ok(Walk { id: r.get(0)?, pet_id: r.get(1)?, at: r.get(2)?, minutes: r.get(3)?, people: ids(&r.get::<_, String>(4)?), note: r.get(5)? })
         })?
         .collect()
@@ -283,8 +291,8 @@ pub struct Visit {
 
 /// Every pet when `pet` is None; in date order.
 pub fn visits(c: &Connection, pet: Option<i64>) -> rusqlite::Result<Vec<Visit>> {
-    c.prepare("SELECT id,pet_id,at,title,place,note,remind FROM visit WHERE ?1 IS NULL OR pet_id=?1 ORDER BY at")?
-        .query_map([pet], |r| Ok(Visit { id: r.get(0)?, pet_id: r.get(1)?, at: r.get(2)?, title: r.get(3)?, place: r.get(4)?, note: r.get(5)?, remind: r.get(6)? }))?
+    c.prepare(&format!("SELECT id,pet_id,at,title,place,note,remind FROM visit WHERE 1{} ORDER BY at", of_pet("pet_id", pet)))?
+        .query_map([], |r| Ok(Visit { id: r.get(0)?, pet_id: r.get(1)?, at: r.get(2)?, title: r.get(3)?, place: r.get(4)?, note: r.get(5)?, remind: r.get(6)? }))?
         .collect()
 }
 
@@ -302,23 +310,22 @@ pub struct Task {
 
 /// Pending first, by date; every pet when `pet` is None.
 pub fn tasks(c: &Connection, pet: Option<i64>) -> rusqlite::Result<Vec<Task>> {
-    c.prepare(
+    c.prepare(&format!(
         "SELECT t.id,t.pet_id,t.title,t.icon,t.every,t.due,t.note,
-                (SELECT day FROM task_done WHERE task_id=t.id ORDER BY day DESC,id DESC LIMIT 1),
-                (SELECT by FROM task_done WHERE task_id=t.id ORDER BY day DESC,id DESC LIMIT 1)
-         FROM task t WHERE ?1 IS NULL OR t.pet_id=?1
+                (SELECT day||' '||by FROM task_done WHERE task_id=t.id ORDER BY day DESC,id DESC LIMIT 1)
+         FROM task t WHERE 1{}
          ORDER BY t.due='', t.due, t.id",
-    )?
-    .query_map([pet], |r| {
-        let day: Option<String> = r.get(7)?;
-        let by: Option<i64> = r.get(8)?;
-        Ok(Task { id: r.get(0)?, pet_id: r.get(1)?, title: r.get(2)?, icon: r.get(3)?, every: r.get(4)?, due: r.get(5)?, note: r.get(6)?, last: day.map(|d| (d, by.unwrap_or(0))) })
+        of_pet("t.pet_id", pet)
+    ))?
+    .query_map([], |r| {
+        let last = r.get::<_, Option<String>>(7)?.and_then(|s| s.split_once(' ').map(|(d, by)| (d.to_string(), by.parse().unwrap_or(0))));
+        Ok(Task { id: r.get(0)?, pet_id: r.get(1)?, title: r.get(2)?, icon: r.get(3)?, every: r.get(4)?, due: r.get(5)?, note: r.get(6)?, last })
     })?
     .collect()
 }
 
 pub fn fed(c: &Connection, from: &str) -> rusqlite::Result<Given> {
-    c.prepare("SELECT pet_id,day,slot,by,at FROM fed WHERE day>=?1")?
+    c.prepare_cached("SELECT pet_id,day,slot,by,at FROM fed WHERE day>=?1")?
         .query_map([from], |r| Ok(((r.get(0)?, r.get(1)?, r.get(2)?), (r.get(3)?, r.get(4)?))))?
         .collect()
 }
@@ -358,8 +365,8 @@ impl Record {
 
 /// Newest first; every pet when `pet` is None.
 pub fn records(c: &Connection, pet: Option<i64>) -> rusqlite::Result<Vec<Record>> {
-    c.prepare("SELECT id,pet_id,kind,name,day,next,note FROM record WHERE ?1 IS NULL OR pet_id=?1 ORDER BY day DESC,id DESC")?
-        .query_map([pet], |r| Ok(Record { id: r.get(0)?, pet_id: r.get(1)?, kind: r.get(2)?, name: r.get(3)?, day: r.get(4)?, next: r.get(5)?, note: r.get(6)? }))?
+    c.prepare(&format!("SELECT id,pet_id,kind,name,day,next,note FROM record WHERE 1{} ORDER BY day DESC,id DESC", of_pet("pet_id", pet)))?
+        .query_map([], |r| Ok(Record { id: r.get(0)?, pet_id: r.get(1)?, kind: r.get(2)?, name: r.get(3)?, day: r.get(4)?, next: r.get(5)?, note: r.get(6)? }))?
         .collect()
 }
 
@@ -379,18 +386,21 @@ pub struct Event {
 pub fn feed(c: &Connection, pet: Option<i64>, limit: i64) -> rusqlite::Result<Vec<Event>> {
     c.prepare(
         &format!(
-            "SELECT at,pet_id,k,by,a,b,who FROM (
-               SELECT at, pet_id, 'walk' k, by, COALESCE(minutes,'') a, note b, CAST({WALKERS} AS TEXT) who FROM walk
-               UNION ALL SELECT f.day||' '||f.at, f.pet_id, 'fed', f.by, f.slot, '', f.by FROM fed f
-               UNION ALL SELECT d.day||' '||d.at, m.pet_id, 'dose', d.by, m.title, d.slot, d.by FROM dose d JOIN med m ON m.id=d.med_id
-               UNION ALL SELECT at, pet_id, 'health', by, kind, mood, by FROM health
-               UNION ALL SELECT x.day||' '||x.at, t.pet_id, 'task', x.by, t.title, t.icon, x.by FROM task_done x JOIN task t ON t.id=x.task_id
-               UNION ALL SELECT day, pet_id, 'weight', by, kg, '', by FROM weight
-               UNION ALL SELECT day, pet_id, 'record', 0, kind, name, '' FROM record
-             ) WHERE ?1 IS NULL OR pet_id=?1 ORDER BY at DESC LIMIT ?2"
+            "SELECT * FROM (SELECT at, pet_id, 'walk', by, COALESCE(minutes,''), note, CAST({walkers} AS TEXT) FROM walk WHERE 1{p} ORDER BY at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT day||' '||at, pet_id, 'fed', by, slot, '', by FROM fed WHERE 1{p} ORDER BY day DESC, at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT d.day||' '||d.at, m.pet_id, 'dose', d.by, m.title, d.slot, d.by FROM dose d JOIN med m ON m.id=d.med_id WHERE 1{mp} ORDER BY d.day DESC, d.at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT at, pet_id, 'health', by, kind, mood, by FROM health WHERE 1{p} ORDER BY at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT x.day||' '||x.at, t.pet_id, 'task', x.by, t.title, t.icon, x.by FROM task_done x JOIN task t ON t.id=x.task_id WHERE 1{tp} ORDER BY x.day DESC, x.at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT day, pet_id, 'weight', by, kg, '', by FROM weight WHERE 1{p} ORDER BY day DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT day, pet_id, 'record', 0, kind, name, '' FROM record WHERE 1{p} ORDER BY day DESC LIMIT ?1)
+             ORDER BY 1 DESC LIMIT ?1",
+            walkers = WALKERS,
+            p = of_pet("pet_id", pet),
+            mp = of_pet("m.pet_id", pet),
+            tp = of_pet("t.pet_id", pet),
         ),
     )?
-    .query_map(params![pet, limit], |r| {
+    .query_map([limit], |r| {
         let a: rusqlite::types::Value = r.get(4)?;
         let a = match a {
             rusqlite::types::Value::Text(s) => s,

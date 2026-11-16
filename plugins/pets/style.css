@@ -28,6 +28,14 @@
   margin-top: 0;
 }
 
+.pt-i {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .pt-opt {
   color: var(--faint);
   font-weight: 400;
