@@ -2407,16 +2407,18 @@ form:has(input[name=received]:checked) .received-on {
 }
 
 /* Plugins: the marketplace */
+/* Columns, not rows: each card keeps its own height, so none is padded out to match a neighbour. */
 .mk-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
-  align-items: start;
+  columns: 2 360px;
+  column-gap: 16px;
 }
 
 .mk-card {
+  break-inside: avoid;
+  margin-bottom: 16px;
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   padding: 20px;
   background: var(--surface);
@@ -2540,12 +2542,46 @@ form:has(input[name=received]:checked) .received-on {
 
 .mk-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
   gap: 6px;
+}
+
+.mk-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.mk-choices form {
+  display: contents;
+}
+
+.mk-kept {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--canvas);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.mk-kept .i {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--mute);
 }
 
 @media (max-width: 767px) {
   .mk-grid {
-    grid-template-columns: minmax(0, 1fr);
+    columns: 1;
   }
 }
 

@@ -73,6 +73,8 @@ pub fn flash(code: &str) -> Option<&'static str> {
         "plugin_off" => "Plugin desactivado: sus datos se guardan",
         "plugin_installed" => "Instalado y activado: ya lo tienes en el menú",
         "plugin_removed" => "Desinstalado: sus datos se guardan por si vuelve",
+        "plugin_purged" => "Datos borrados para siempre",
+        "plugin_removed_all" => "Desinstalado y sus datos borrados",
         "plugin_updated" => "Actualizado a la versión de este Nido",
         "update_found" => "Hay una versión nueva de Nido",
         "update_none" => "Ya tienes la última versión",

@@ -17,6 +17,8 @@ use super::*;
 use axum::{extract::RawQuery, http::Method, routing::any};
 use std::{path::PathBuf, process::Child, time::{Duration, Instant}};
 
+mod stored;
+
 /// An plugin the core can offer in the marketplace.
 pub struct Known {
     pub id: &'static str,  // its tab, its `/plugins/<id>/` prefix and its settings key `plugin:<id>`
@@ -91,7 +93,7 @@ pub static ALL: &[Known] = &[
         name: "Mascotas",
         icon: "paw-print",
         tagline: "Los cuidados de vuestras mascotas, entre todos",
-        blurb: "Comidas, paseos, medicinas, salud, vacunas, citas del veterinario y tareas como el baño o el arenero, para cada mascota de casa.",
+        blurb: "Comidas, premios, paseos, medicinas, salud, vacunas, citas del veterinario y tareas como el baño o el arenero, para cada mascota de casa.",
         features: &[
             "Agenda de hoy: quién le ha dado de comer, paseado o dado su medicina",
             "Medicinas por días, toma a toma, con aviso si se olvida",
@@ -102,20 +104,6 @@ pub static ALL: &[Known] = &[
         accent: "#e07b39",
         size: "≈ 3 MB",
         fab: Some(("/?tab=pets#pet-new", "Añadir")),
-    },
-    // Development only (tools/notify-test): copy its binary into the plugins folder by hand.
-    #[cfg(any(debug_assertions, feature = "dev-plugins"))]
-    Known {
-        id: "notifytest",
-        bin: "nido-notifytest",
-        name: "Prueba de avisos",
-        icon: "bell-ring",
-        tagline: "Solo para probar los avisos",
-        blurb: "Manda un aviso de prueba a quien elijas, por el mismo camino que los demás: al móvil y, si no llega, por Telegram.",
-        features: &["Solo existe en compilaciones de prueba"],
-        accent: "#64748b",
-        size: "≈ 2 MB",
-        fab: None,
     },
 ];
 
@@ -708,6 +696,7 @@ pub struct PluginF {
     #[serde(default)]
     action: String,
     on: Option<String>,
+    purge: Option<String>,
     month: String,
     tab: Option<String>, // where the button was: Plugins or settings
 }
@@ -724,6 +713,7 @@ async fn manage(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f)
         "update" => update(State(db), h, Path(id), F(f)).await,
         "toggle" => toggle(State(db), h, Path(id), F(f)).await,
         "uninstall" => uninstall(State(db), h, Path(id), F(f)).await,
+        "purge" => purge(State(db), h, Path(id), F(f)).await,
         _ => bad("Acción desconocida"),
     }
 }
@@ -779,8 +769,21 @@ async fn uninstall(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F
     let Some(k) = find(&id) else { return bad("Ese plugin no existe") };
     stop(k.id);
     set_on(&c, k, false)?;
-    let _ = std::fs::remove_file(bin_path(k)); // its database stays: reinstalling brings everything back
+    let _ = std::fs::remove_file(bin_path(k));
+    if f.purge.is_some() {
+        let _ = stored::purge(&c, k.id);
+        return back_to(&c, &f, "plugin_removed_all");
+    }
     back_to(&c, &f, "plugin_removed")
+}
+
+async fn purge(State(db): State<Db>, h: HeaderMap, Path(id): Path<String>, F(f): F<PluginF>) -> R {
+    let c = lock(&db);
+    require_user!(c, h);
+    if let Err(e) = stored::purge(&c, &id) {
+        return bad(e);
+    }
+    back_to(&c, &f, "plugin_purged")
 }
 
 pub fn routes() -> Router<Db> {
@@ -796,11 +799,13 @@ pub fn routes() -> Router<Db> {
 
 /// Tab "plugins": every plugin as a card, to install, switch on or off, or remove.
 pub fn marketplace(v: &View) -> Markup {
+    let kept = stored::stored();
+    let bytes = |id: &str| kept.iter().find(|s| s.id == id).map_or(0, |s| s.bytes);
     html! {
         div.page-head {
             div {
                 h1 { "Plugins" }
-                p { "Funciones opcionales. Se instalan aparte y, si quitas una, sus datos se guardan." }
+                p { "Funciones opcionales. Se instalan aparte y, si quitas una, puedes conservar sus datos por si vuelve." }
             }
         }
         div.mk-grid {
@@ -832,6 +837,9 @@ pub fn marketplace(v: &View) -> Markup {
                     }
                     p.mk-desc { (k.blurb) }
                     ul.mk-feats { @for f in k.features { li { (icon("check")) (f) } } }
+                    @if !has && bytes(k.id) > 0 {
+                        p.mk-kept { (icon("archive")) span { "Guardas " b { (crate::pages::file_size(bytes(k.id) as i64)) } " de antes: al instalarlo vuelve todo." } }
+                    }
                     div.mk-foot {
                         div.mk-actions {
                             @if let Some(n) = &next {
@@ -840,11 +848,15 @@ pub fn marketplace(v: &View) -> Markup {
                                     button.btn.outline.sm { (icon("refresh-cw")) "Actualizar a v" (n) }
                                 }
                             }
+                            @if has {
+                                a.btn.ghost.sm href={ "#rm-" (k.id) } { "Desinstalar" }
+                            } @else if bytes(k.id) > 0 {
+                                a.btn.ghost.sm href={ "#rm-" (k.id) } { "Borrar datos" }
+                            }
                             @if on {
-                                a.btn.primary.sm href=(v.link(k.id)) { "Abrir" (icon("arrow-right")) }
                                 form.inline method="post" action={ "/plugins/" (k.id) } { (v.ctx()) input type="hidden" name="action" value="toggle"; button.btn.ghost.sm { "Desactivar" } }
+                                a.btn.primary.sm href=(v.link(k.id)) { "Abrir" (icon("arrow-right")) }
                             } @else if has {
-                                form.inline method="post" action={ "/plugins/" (k.id) } { (v.ctx()) input type="hidden" name="action" value="uninstall"; button.btn.ghost.sm { "Desinstalar" } }
                                 form.inline method="post" action={ "/plugins/" (k.id) } {
                                     (v.ctx()) input type="hidden" name="action" value="toggle"; input type="hidden" name="on" value="1";
                                     button.btn.primary.sm { (icon("plus")) "Activar" }
@@ -860,6 +872,11 @@ pub fn marketplace(v: &View) -> Markup {
                 }
             }
         }
+        @for k in ALL {
+            @if installed(k) { (stored::remove_dialog(v, k, bytes(k.id))) }
+            @else if bytes(k.id) > 0 { (stored::forget_dialog(v, k.id, k.name, bytes(k.id))) }
+        }
+        (stored::leftovers(v, &kept))
     }
 }
 

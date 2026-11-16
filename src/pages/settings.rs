@@ -534,7 +534,7 @@ fn telegram(v: &View, tg: &crate::notify::Panel) -> Markup {
 pub fn size(bytes: i64) -> String {
     let (gb, mb) = (bytes as f64 / 1e9, bytes as f64 / 1e6);
     let n = |x: f64| format!("{x:.1}").replace('.', ",").replace(",0", "");
-    if gb >= 1.0 { format!("{} GB", n(gb)) } else if mb >= 1.0 { format!("{} MB", n(mb)) } else { format!("{} KB", (bytes / 1000).max(1)) }
+    if gb >= 1.0 { format!("{}\u{a0}GB", n(gb)) } else if mb >= 1.0 { format!("{}\u{a0}MB", n(mb)) } else { format!("{}\u{a0}KB", (bytes / 1000).max(1)) }
 }
 
 /// "Hoy, 04:00", "Ayer, 04:00" or "13/11, 04:00" from "YYYY-MM-DD HH:MM:SS".

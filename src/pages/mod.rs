@@ -13,6 +13,7 @@ mod copies;
 
 pub use ticket::ticket_page;
 pub use copies::backups_page;
+pub use settings::size as file_size;
 
 pub struct U {
     pub id: i64,
