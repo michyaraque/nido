@@ -35,6 +35,9 @@ pub const FLASHES: &[(&str, &str)] = &[
     ("record_added", "Apuntado en la cartilla"),
     ("record_saved", "Cartilla guardada"),
     ("deleted", "Borrado"),
+    ("treat_saved", "Premio apuntado"),
+    ("treat_updated", "Premio guardado"),
+    ("undone", "Deshecho"),
 ];
 
 type F = Form<Vec<(String, String)>>;
@@ -68,6 +71,10 @@ pub fn routes() -> Router<App> {
         .route("/task/{id}/done", post(task_done))
         .route("/task/{id}/delete", post(task_delete))
         .route("/fed", post(fed))
+        .route("/treat", post(treat))
+        .route("/treat/{id}", post(treat_edit))
+        .route("/treat/{id}/delete", post(treat_delete))
+        .route("/undo", post(undo))
         .route("/assets/pets.js", get(crate::view::script))
         .route("/record", post(record_new))
         .route("/record/{id}", post(record_edit))
@@ -84,12 +91,26 @@ fn bad(msg: &str) -> R {
 
 /// `ret` (our own query, `p=3&s=med`) ends up in a Location header: keep it to safe characters.
 fn back(c: &Connection, f: &[(String, String)], ret: Option<String>, ok: &str) -> R {
+    go(c, f, ret, &format!("ok={ok}"))
+}
+
+/// Quick logs (`quick=1`) come back without a toast: the page shows what was saved with a way to
+/// take it back (`undo`), since one tap is easy to get wrong.
+fn logged(c: &Connection, f: &[(String, String)], ok: &str, undo: &str) -> R {
+    if field(f, "quick") == "1" {
+        go(c, f, None, &format!("undo={undo}"))
+    } else {
+        back(c, f, None, ok)
+    }
+}
+
+fn go(c: &Connection, f: &[(String, String)], ret: Option<String>, tail: &str) -> R {
     let (today, _) = now(c)?;
     let m = month(Some(field(f, "month")), &today);
     let ret = ret.unwrap_or_else(|| field(f, "ret").to_string());
     let ret: String = ret.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '=' | '&' | '_' | '-')).take(80).collect();
     let ret = if ret.is_empty() { String::new() } else { format!("&{ret}") };
-    Ok(Redirect::to(&format!("/?month={m}&tab=pets{ret}&ok={ok}")).into_response())
+    Ok(Redirect::to(&format!("/?month={m}&tab=pets{ret}&{tail}")).into_response())
 }
 
 fn who(h: &HeaderMap) -> Option<i64> {
@@ -461,7 +482,7 @@ async fn health(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
     let Some(pet) = pet_of(&c, &f)? else { return bad("Esa mascota ya no está") };
     let d = health_data(&c, &f)?;
     c.execute("INSERT INTO health(pet_id,at,kind,mood,note,by) VALUES(?1,?2,?3,?4,?5,?6)", params![pet, d.at, d.kind, d.mood, d.note, by])?;
-    back(&c, &f, None, "health_saved")
+    logged(&c, &f, "health_saved", &format!("h{}", c.last_insert_rowid()))
 }
 
 async fn health_edit(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
@@ -520,9 +541,10 @@ async fn walk(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
     let d = walk_data(&c, &f, me)?;
     let tx = c.unchecked_transaction()?;
     tx.execute("INSERT INTO walk(pet_id,at,minutes,by,note) VALUES(?1,?2,?3,?4,?5)", params![pet, d.at, d.minutes, d.people[0], d.note])?;
-    set_walkers(&tx, tx.last_insert_rowid(), &d.people)?;
+    let id = tx.last_insert_rowid();
+    set_walkers(&tx, id, &d.people)?;
     tx.commit()?;
-    back(&c, &f, None, "walk_saved")
+    logged(&c, &f, "walk_saved", &format!("w{id}"))
 }
 
 async fn walk_edit(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
@@ -696,10 +718,11 @@ async fn fed(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
         _ => return bad("Esa comida no está en su horario"),
     };
     let removed = if asked.is_empty() { 0 } else { c.execute("DELETE FROM fed WHERE pet_id=?1 AND day=?2 AND slot=?3", params![pet.id, day, slot])? };
-    if removed == 0 {
-        c.execute("INSERT OR IGNORE INTO fed(pet_id,day,slot,by) VALUES(?1,?2,?3,?4)", params![pet.id, day, slot, by])?;
+    if removed > 0 {
+        return back(&c, &f, None, "fed_undone");
     }
-    back(&c, &f, None, if removed == 0 { "fed" } else { "fed_undone" })
+    c.execute("INSERT OR IGNORE INTO fed(pet_id,day,slot,by) VALUES(?1,?2,?3,?4)", params![pet.id, day, slot, by])?;
+    logged(&c, &f, "fed", &format!("f{}-{}", pet.id, slot.replace(':', "")))
 }
 
 /// "HH:MM" plus `n` minutes, capped at the end of the day.
@@ -767,6 +790,80 @@ async fn record_delete(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>
     back(&c, &f, None, "deleted")
 }
 
+// ---------- treats ----------
+
+struct TreatData {
+    at: String,
+    what: String,
+    amount: String,
+    by: i64,
+}
+
+fn treat_data(c: &Connection, f: &[(String, String)], me: i64) -> rusqlite::Result<Option<TreatData>> {
+    let what = clean(field(f, "what"), 60);
+    if what.is_empty() {
+        return Ok(None);
+    }
+    let by = field(f, "by").parse().unwrap_or(me);
+    Ok(Some(TreatData { at: when(c, f)?, what, amount: clean(field(f, "amount"), 40), by }))
+}
+
+async fn treat(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
+    let me = user!(h);
+    let c = lock(&app.db);
+    let Some(pet) = pet_of(&c, &f)? else { return bad("Esa mascota ya no está") };
+    let Some(d) = treat_data(&c, &f, me)? else { return bad("Escribe qué le habéis dado") };
+    c.execute("INSERT INTO treat(pet_id,at,what,amount,by) VALUES(?1,?2,?3,?4,?5)", params![pet, d.at, d.what, d.amount, d.by])?;
+    logged(&c, &f, "treat_saved", &format!("t{}", c.last_insert_rowid()))
+}
+
+async fn treat_edit(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
+    let me = user!(h);
+    let c = lock(&app.db);
+    let Some(d) = treat_data(&c, &f, me)? else { return bad("Escribe qué le habéis dado") };
+    c.execute("UPDATE treat SET at=?2, what=?3, amount=?4, by=?5 WHERE id=?1", params![id, d.at, d.what, d.amount, d.by])?;
+    back(&c, &f, None, "treat_updated")
+}
+
+async fn treat_delete(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
+    user!(h);
+    let c = lock(&app.db);
+    c.execute("DELETE FROM treat WHERE id=?1", [id])?;
+    back(&c, &f, None, "deleted")
+}
+
+/// Takes back a quick log: only your own, and only for a while, so an old link cannot erase
+/// what someone else wrote since.
+async fn undo(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
+    let me = user!(h);
+    let c = lock(&app.db);
+    let gone = take_back(&c, field(&f, "what"), me)?;
+    if !gone {
+        return bad("Ya no se puede deshacer. Ábrelo en su sección para cambiarlo o borrarlo.");
+    }
+    back(&c, &f, None, "undone")
+}
+
+const RECENT: &str = "strftime('%Y-%m-%d %H:%M','now','localtime','-30 minutes')";
+
+fn take_back(c: &Connection, what: &str, me: i64) -> rusqlite::Result<bool> {
+    let Some((kind, rest)) = what.split_at_checked(1) else { return Ok(false) };
+    let n = match kind {
+        "w" | "h" | "t" => {
+            let table = match kind { "w" => "walk", "h" => "health", _ => "treat" };
+            let id: i64 = rest.parse().unwrap_or(0);
+            c.execute(&format!("DELETE FROM {table} WHERE id=?1 AND by=?2 AND at>={RECENT}"), params![id, me])?
+        }
+        "f" => {
+            let Some((pet, hm)) = rest.split_once('-') else { return Ok(false) };
+            let (Ok(pet), Some(slot)) = (pet.parse::<i64>(), hm.get(..2).zip(hm.get(2..4)).map(|(h, m)| format!("{h}:{m}"))) else { return Ok(false) };
+            c.execute(&format!("DELETE FROM fed WHERE pet_id=?1 AND day=date('now','localtime') AND slot=?2 AND by=?3 AND day||' '||at>={RECENT}"), params![pet, slot, me])?
+        }
+        _ => 0,
+    };
+    Ok(n > 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -787,5 +884,42 @@ mod tests {
         image::RgbImage::from_pixel(900, 600, image::Rgb([200, 120, 40])).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
         let img = image::load_from_memory(&to_webp(&png).unwrap()).unwrap();
         assert_eq!((img.width(), img.height()), (480, 480));
+    }
+
+    #[test]
+    fn undo_takes_back_only_your_recent_logs() {
+        let c = crate::open(":memory:").unwrap();
+        c.execute_batch(
+            "INSERT INTO pet(id,name) VALUES(1,'Toby');
+             INSERT INTO walk(id,pet_id,at,by) VALUES(1,1,strftime('%Y-%m-%d %H:%M','now','localtime'),2),
+               (2,1,strftime('%Y-%m-%d %H:%M','now','localtime','-2 hours'),2),(3,1,strftime('%Y-%m-%d %H:%M','now','localtime'),3);
+             INSERT INTO treat(id,pet_id,at,what,by) VALUES(1,1,strftime('%Y-%m-%d %H:%M','now','localtime'),'Hueso',2);
+             INSERT INTO fed(pet_id,day,slot,by) VALUES(1,date('now','localtime'),'21:00',2);",
+        )
+        .unwrap();
+        assert!(take_back(&c, "w1", 2).unwrap());
+        assert!(!take_back(&c, "w2", 2).unwrap(), "too old");
+        assert!(!take_back(&c, "w3", 2).unwrap(), "someone else's");
+        assert!(take_back(&c, "t1", 2).unwrap());
+        assert!(take_back(&c, "f1-2100", 2).unwrap());
+        assert!(!take_back(&c, "x9", 2).unwrap() && !take_back(&c, "", 2).unwrap());
+        let left: i64 = c.query_row("SELECT (SELECT COUNT(*) FROM walk)+(SELECT COUNT(*) FROM treat)+(SELECT COUNT(*) FROM fed)", [], |r| r.get(0)).unwrap();
+        assert_eq!(left, 2);
+    }
+
+    #[test]
+    fn usual_treats_come_first() {
+        let c = crate::open(":memory:").unwrap();
+        c.execute_batch(
+            "INSERT INTO pet(id,name,kind) VALUES(1,'Toby','dog');
+             INSERT INTO treat(pet_id,at,what) VALUES(1,'2026-11-10 10:00','Zanahoria'),(1,'2026-11-11 10:00','zanahoria'),(1,'2026-11-12 10:00','Hueso');",
+        )
+        .unwrap();
+        let pet = data::pet(&c, 1).unwrap().unwrap();
+        let names = data::treat_names(&c, &pet, "2026-11-01").unwrap();
+        assert_eq!(names[0].to_lowercase(), "zanahoria");
+        assert_eq!(names[1], "Hueso");
+        assert_eq!(names.iter().filter(|n| n.to_lowercase() == "hueso").count(), 1);
+        assert!(names.contains(&"Premio".to_string()) && names.len() <= 6);
     }
 }

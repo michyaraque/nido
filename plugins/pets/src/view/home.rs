@@ -42,20 +42,19 @@ pub(super) fn home(c: &Connection, v: &V, p: &Params) -> rusqlite::Result<Markup
             }
         } @else {
             (kind_filter(v, &all, filter))
-            div.pt-pets {
-                @for pet in &pets {
-                    (pet_card(v, pet, &items, walks.iter().filter(|w| w.pet_id == pet.id).count(), weights.get(&pet.id).copied(), ahead.iter().find(|u| u.pet == pet.id)))
-                }
-                a.pt-pet-add href="#pet-new" {
-                    span.pt-pet-add-ico { (icon("plus")) }
-                    b { "Añadir mascota" }
-                    small { "Perro, gato, pájaro, pez…" }
-                }
-            }
-
             div.pt-home {
                 (agenda_card(v, &items, &by_pet, "", true, html! { "Nada pendiente hoy. Pon las horas de comer en la ficha de cada mascota para verlas aquí." }))
                 div.pt-side {
+                    div.pt-pets {
+                        @for pet in &pets {
+                            (pet_card(v, pet, &items, walks.iter().filter(|w| w.pet_id == pet.id).count(), weights.get(&pet.id).copied(), ahead.iter().find(|u| u.pet == pet.id)))
+                        }
+                        a.pt-pet-add href="#pet-new" {
+                            span.pt-pet-add-ico { (icon("plus")) }
+                            b { "Añadir mascota" }
+                            small { "Perro, gato, pájaro, pez…" }
+                        }
+                    }
                     section.card.pt-card {
                         (sec_head("calendar-clock", "Próximamente", None))
                         @if coming.is_empty() { p.pt-none { "Nada en las próximas tres semanas." } }

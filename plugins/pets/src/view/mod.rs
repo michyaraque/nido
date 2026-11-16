@@ -17,7 +17,8 @@ mod vet;
 mod tasks;
 mod card;
 mod rows;
-use {today::*, home::*, pet::*, care::*, vet::*, tasks::*, card::*, rows::*};
+mod treats;
+use {today::*, home::*, pet::*, care::*, vet::*, tasks::*, card::*, rows::*, treats::*};
 
 const CSS: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 const JS: &str = include_str!("../../pets.js");

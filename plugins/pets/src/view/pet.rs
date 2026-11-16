@@ -1,54 +1,73 @@
-//! One pet's page: its header, quick actions, section tabs and its own day.
+//! One pet's page: its header, quick logs, today, and every section listed with a summary.
 use super::*;
 
 pub(super) const SECTIONS: &[(&str, &str, &str)] = &[
     ("", "Hoy", "sun"),
-    ("diary", "Diario", "history"),
     ("med", "Medicación", "pill"),
-    ("health", "Salud", "heart-pulse"),
     ("walks", "Paseos", "footprints"),
+    ("treats", "Premios", "cookie"),
+    ("health", "Salud", "heart-pulse"),
     ("weight", "Peso", "weight"),
     ("vet", "Veterinario", "stethoscope"),
     ("tasks", "Tareas", "list-todo"),
+    ("diary", "Diario", "history"),
     ("profile", "Ficha", "id-card"),
 ];
 
 pub(super) fn pet_page(c: &Connection, v: &V, pet: &Pet, p: &Params) -> rusqlite::Result<Markup> {
     let s = p.get("s").map(String::as_str).unwrap_or("");
-    let s = SECTIONS.iter().find(|x| x.0 == s).map_or("", |x| x.0);
+    let (s, label, sic) = SECTIONS.iter().find(|x| x.0 == s).copied().unwrap_or(SECTIONS[0]);
     let ret = if s.is_empty() { format!("p={}", pet.id) } else { format!("p={}&s={s}", pet.id) };
-    let (_, kname, kic) = data::kind(&pet.kind);
     let weights = data::weights(c, pet.id)?;
     let walker = data::walks(&pet.kind);
-    let walks_today = if walker { data::walks_since(c, Some(pet.id), &v.today)?.len() } else { 0 };
     let tasks = data::tasks(c, Some(pet.id))?;
-    let bath = tasks.iter().find(|t| t.icon == "bath" && !t.due.is_empty());
-    let slots = pet.meal_slots();
-    let fed = data::fed(c, &v.today)?;
-    let fed_today = slots.iter().filter(|s| fed.contains_key(&(pet.id, v.today.clone(), (*s).clone()))).count();
-    let birthday = next_birthday(&pet.birth, &v.today).filter(|b| *b <= add_days(&v.today, 30));
     let edit = num(p, "e");
     let idea = num(p, "nt").filter(|_| s == "tasks").and_then(|i| data::suggestions(&pet.kind).get(i as usize));
-    let link = |sec: &str| v.link(&format!("p={}&s={sec}", pet.id));
-    let trend = match weights.as_slice() {
-        [.., a, b] if (b.kg - a.kg).abs() >= 0.0005 => Some(b.kg > a.kg),
-        _ => None,
-    };
+    let treat_names = data::treat_names(c, pet, &add_days(&v.today, -90))?;
 
     let body = match s {
         "diary" => diary_section(c, v, pet)?,
         "med" => med_section(c, v, pet, &ret, edit)?,
         "health" => health_section(c, v, pet, &ret, edit)?,
         "walks" => walks_section(c, v, pet, &ret, edit)?,
+        "treats" => treats_section(c, v, pet, &ret, edit)?,
         "weight" => weight_section(v, pet, &weights, &ret, edit),
         "vet" => vet_section(c, v, pet, &ret, edit, num(p, "rec"))?,
         "tasks" => tasks_section(v, pet, &tasks, &ret, edit),
         "profile" => profile_section(v, pet, weights.last().map(|w| w.kg)),
-        _ => overview(c, v, pet, &ret)?,
+        _ => overview(c, v, pet, &ret, &weights, &tasks)?,
     };
 
     Ok(html! {
-        a.back.pt-back href=(v.link("")) { (icon("chevron-left")) "Mascotas" }
+        @if s.is_empty() {
+            a.back.pt-back href=(v.link("")) { (icon("chevron-left")) "Mascotas" }
+            (hero(v, pet, &weights))
+            (quick(v, pet, &ret, walker))
+        } @else {
+            a.back.pt-back href=(v.link(&format!("p={}", pet.id))) { (icon("chevron-left")) (pet.name) }
+            div.pt-sec-page style=(tint(pet)) { span.pt-sec-ico { (icon(sic)) } h1 { (label) } }
+        }
+        @if let Some(u) = p.get("undo") { (undo_bar(v, u, &ret)) }
+
+        div style=(tint(pet)) { (body) }
+
+        (pet_modal(v, Some(pet), weights.last().map(|w| w.kg)))
+        (weight_modal(v, pet, &ret, weights.last().map(|w| w.kg), None))
+        (health_modal(v, pet, &ret, None))
+        @if walker { (walk_modal(v, pet, &ret, None)) }
+        (treat_modal(v, pet, &ret, None, &treat_names))
+        (more_modal(v, pet, &ret, walker))
+        (med_modal(v, pet, &ret, None))
+        (visit_modal(v, pet, &ret, None))
+        (record_modal(v, pet, &ret, None))
+        (task_modal(v, pet, &ret, None, idea))
+    })
+}
+
+fn hero(v: &V, pet: &Pet, weights: &[data::Weight]) -> Markup {
+    let (_, kname, kic) = data::kind(&pet.kind);
+    let birthday = next_birthday(&pet.birth, &v.today).filter(|b| *b <= add_days(&v.today, 30));
+    html! {
         section.pt-hero style=(tint(pet)) {
             div.pt-hero-top {
                 div.pt-hero-pic {
@@ -59,8 +78,9 @@ pub(super) fn pet_page(c: &Connection, v: &V, pet: &Pet, p: &Params) -> rusqlite
                     h1 { (pet.name) }
                     div.pt-tags {
                         span.pt-tag { (kname) }
-                        @if let Some(sx) = pet.sex_label() { span.pt-tag { (sx) } }
                         @if let Some(a) = age(&pet.birth, &v.today) { span.pt-tag { (a) } }
+                        @if let Some(w) = weights.last() { span.pt-tag { (kg(w.kg)) } }
+                        @if let Some(sx) = pet.sex_label() { span.pt-tag { (sx) } }
                         @if !pet.breed.is_empty() { span.pt-tag { (pet.breed) } }
                         @if let Some(b) = &birthday {
                             span.pt-tag.pt-tag-cake { (icon("cake")) @if *b == v.today { "Cumple hoy" } @else { "Cumple " (rel(b, &v.today)) } }
@@ -72,82 +92,171 @@ pub(super) fn pet_page(c: &Connection, v: &V, pet: &Pet, p: &Params) -> rusqlite
                 }
                 a.icon-btn.pt-edit href="#pet-edit" aria-label="Editar la ficha" title="Editar la ficha" { (icon("pencil")) }
             }
-            div.pt-stats {
-                a.pt-stat href=(link("weight")) {
-                    span { (icon("weight")) "Peso" }
-                    b {
-                        @if let Some(w) = weights.last() { (kg(w.kg)) } @else { "—" }
-                        @if let Some(up) = trend { span.pt-trend-ico title=(if up { "Ha subido" } else { "Ha bajado" }) { (icon(if up { "trending-up" } else { "trending-down" })) } }
-                    }
-                }
-                @if !slots.is_empty() {
-                    a.pt-stat href=(v.link(&format!("p={}", pet.id))) {
-                        span { (icon("utensils")) "Comidas" }
-                        b { (fed_today) small { " de " (slots.len()) } }
-                    }
-                }
-                @if walker {
-                    a.pt-stat href=(link("walks")) {
-                        span { (icon("footprints")) "Paseos hoy" }
-                        b { (walks_today) }
-                    }
-                }
-                @if let Some(b) = bath {
-                    a.pt-stat href=(link("tasks")) {
-                        span { (icon("bath")) "Baño" }
-                        b { @if b.due <= v.today { "Hoy" } @else { (rel(&b.due, &v.today)) } }
-                    }
-                }
-            }
         }
+    }
+}
 
+/// The few things people log every day, one tap each; the rest waits in «Más».
+fn quick(v: &V, pet: &Pet, ret: &str, walker: bool) -> Markup {
+    html! {
         div.pt-quick style=(tint(pet)) {
             form method="post" action="/plugins/pets/fed" {
-                (v.ctx(&ret)) input type="hidden" name="pet" value=(pet.id);
+                (v.ctx(ret)) input type="hidden" name="pet" value=(pet.id); input type="hidden" name="quick" value="1";
                 button.pt-q { span.pt-q-ico { (icon("utensils")) } span { "Ha comido" } }
             }
             @if walker {
                 form method="post" action="/plugins/pets/walk" {
-                    (v.ctx(&ret)) input type="hidden" name="pet" value=(pet.id);
+                    (v.ctx(ret)) input type="hidden" name="pet" value=(pet.id); input type="hidden" name="quick" value="1";
                     button.pt-q { span.pt-q-ico { (icon("footprints")) } span { "Paseado" } }
                 }
+            } @else {
+                a.pt-q href="#health" { span.pt-q-ico { (icon("heart-pulse")) } span { "Salud" } }
             }
-            form method="post" action="/plugins/pets/health" {
-                (v.ctx(&ret)) input type="hidden" name="pet" value=(pet.id); input type="hidden" name="kind" value="poop"; input type="hidden" name="mood" value="good";
-                button.pt-q.ok { span.pt-q-ico { (icon("smile")) } span { "Caca bien" } }
-            }
-            form method="post" action="/plugins/pets/health" {
-                (v.ctx(&ret)) input type="hidden" name="pet" value=(pet.id); input type="hidden" name="kind" value="poop"; input type="hidden" name="mood" value="bad";
-                button.pt-q.bad { span.pt-q-ico { (icon("frown")) } span { "Caca mal" } }
-            }
-            a.pt-q href="#health" { span.pt-q-ico { (icon("heart-pulse")) } span { "Salud" } }
-            @if !walker { a.pt-q href="#weight" { span.pt-q-ico { (icon("weight")) } span { "Peso" } } }
+            a.pt-q href="#treat" { span.pt-q-ico { (icon("cookie")) } span { "Premio" } }
+            a.pt-q href="#log-more" { span.pt-q-ico { (icon("ellipsis")) } span { "Más" } }
         }
+    }
+}
 
-        nav.pt-tabs aria-label="Secciones" style=(tint(pet)) {
-            @for (id, label, ic) in SECTIONS {
-                @if *id != "walks" || walker {
-                    a.on[*id == s] href=(if id.is_empty() { v.link(&format!("p={}", pet.id)) } else { link(id) }) aria-current=[(*id == s).then_some("page")] {
-                        (icon(ic)) (label)
+fn more_modal(v: &V, pet: &Pet, ret: &str, walker: bool) -> Markup {
+    let poop = |mood: &str, tone: &str, ic: &str, label: &str| html! {
+        form method="post" action="/plugins/pets/health" {
+            (v.ctx(ret)) input type="hidden" name="pet" value=(pet.id); input type="hidden" name="quick" value="1";
+            input type="hidden" name="kind" value="poop"; input type="hidden" name="mood" value=(mood);
+            button class={ "pt-q " (tone) } { span.pt-q-ico { (icon(ic)) } span { (label) } }
+        }
+    };
+    modal("log-more", &format!("Apuntar de {}", pet.name), html! {
+        div.pt-more-grid style=(tint(pet)) {
+            (poop("good", "ok", "smile", "Caca bien"))
+            (poop("bad", "bad", "frown", "Caca mal"))
+            @if walker { a.pt-q href="#health" { span.pt-q-ico { (icon("heart-pulse")) } span { "Salud" } } }
+            a.pt-q href="#weight" { span.pt-q-ico { (icon("weight")) } span { "Peso" } }
+            @if walker { a.pt-q href="#walk" { span.pt-q-ico { (icon("footprints")) } span { "Paseo con detalles" } } }
+            a.pt-q href="#visit-new" { span.pt-q-ico { (icon("stethoscope")) } span { "Cita" } }
+            a.pt-q href="#med-new" { span.pt-q-ico { (icon("pill")) } span { "Medicina" } }
+            a.pt-q href="#task-new" { span.pt-q-ico { (icon("list-todo")) } span { "Tarea" } }
+        }
+    })
+}
+
+/// What a quick log saved, with the way to take it back.
+fn undo_bar(v: &V, code: &str, ret: &str) -> Markup {
+    let what = match code.get(..1) {
+        Some("w") => "Paseo apuntado",
+        Some("h") => "Apuntado en su salud",
+        Some("t") => "Premio apuntado",
+        Some("f") => "Comida apuntada",
+        _ => return html! {},
+    };
+    html! {
+        div.pt-undo role="status" {
+            span { (icon("circle-check")) (what) }
+            form method="post" action="/plugins/pets/undo" {
+                (v.ctx(ret)) input type="hidden" name="what" value=(code);
+                button.btn.ghost.sm { "Deshacer" }
+            }
+        }
+    }
+}
+
+struct HubRow {
+    id: &'static str,
+    note: String,
+}
+
+/// Every section in sight with what it holds now, instead of tabs that hide half of them.
+fn hub(c: &Connection, v: &V, pet: &Pet, weights: &[data::Weight], tasks: &[Task]) -> rusqlite::Result<Markup> {
+    let mut rows: Vec<HubRow> = Vec::new();
+    let meds: Vec<Med> = data::meds(c, Some(pet.id))?.into_iter().filter(|m| m.active_on(&v.today) && !m.over(&v.today)).collect();
+    let given = data::doses(c, &v.today)?;
+    let next = meds.iter().flat_map(|m| m.slots().into_iter().filter(|s| !s.is_empty() && !given.contains_key(&(m.id, v.today.clone(), s.clone())))).min();
+    let names = meds.iter().map(|m| m.title.as_str()).collect::<Vec<_>>().join(", ");
+    rows.push(HubRow {
+        id: "med",
+        note: match (meds.len(), next) {
+            (0, _) => "Sin medicación ahora".into(),
+            (_, Some(t)) => format!("{names} · toca a las {t}"),
+            _ => format!("{names} · hoy, todo dado"),
+        },
+    });
+    if data::walks(&pet.kind) {
+        let walks = data::walks_since(c, Some(pet.id), &v.today)?;
+        rows.push(HubRow {
+            id: "walks",
+            note: match walks.first() {
+                None => "Ninguno hoy".into(),
+                Some(w) => format!("{} hoy · el último a las {}", walks.len(), &w.at[11..16]),
+            },
+        });
+    }
+    let treats = data::treats_since(c, pet.id, &v.today)?;
+    rows.push(HubRow {
+        id: "treats",
+        note: match treats.first() {
+            None => "Ninguno hoy".into(),
+            Some(t) => format!("{} hoy · el último: {}", treats.len(), t.what.to_lowercase()),
+        },
+    });
+    let health = data::health(c, pet.id, 1)?;
+    rows.push(HubRow {
+        id: "health",
+        note: match health.first() {
+            None => "Nada apuntado".into(),
+            Some(h) => {
+                let (_, k, _) = data::health_kind(&h.kind);
+                let (_, m, _, _) = data::mood(&h.mood);
+                format!("{k} · {}, {} a las {}", m.to_lowercase(), day_label(&h.at[..10], &v.today).to_lowercase(), &h.at[11..16])
+            }
+        },
+    });
+    rows.push(HubRow {
+        id: "weight",
+        note: match weights.last() {
+            None => "Sin pesar todavía".into(),
+            Some(w) => format!("{} · {}", kg(w.kg), rel(&w.day, &v.today)),
+        },
+    });
+    let now = v.now_full();
+    let visit = data::visits(c, Some(pet.id))?.into_iter().find(|x| x.at >= now);
+    rows.push(HubRow {
+        id: "vet",
+        note: match visit {
+            None => "Ninguna cita a la vista".into(),
+            Some(x) => format!("{} · {} a las {}", x.title, day_label(&x.at[..10], &v.today).to_lowercase(), &x.at[11..16]),
+        },
+    });
+    let due = tasks.iter().filter(|t| !t.due.is_empty()).min_by(|a, b| a.due.cmp(&b.due));
+    rows.push(HubRow {
+        id: "tasks",
+        note: match due {
+            None if tasks.is_empty() => "Baño, uñas, arenero… cuando toque".into(),
+            None => format!("{} sin fecha", tasks.len()),
+            Some(t) if t.due <= v.today => format!("{} · toca {}", t.title, rel(&t.due, &v.today)),
+            Some(t) => format!("{} · {}", t.title, rel(&t.due, &v.today)),
+        },
+    });
+    rows.push(HubRow { id: "diary", note: "Todo lo apuntado, día a día".into() });
+    rows.push(HubRow { id: "profile", note: "Chip, seguro, comida y veterinario".into() });
+
+    Ok(html! {
+        section.card.pt-card {
+            (sec_head("layout-grid", &format!("Todo de {}", pet.name), None))
+            nav.pt-hub aria-label={ "Secciones de " (pet.name) } {
+                @for r in &rows {
+                    @let (_, label, ic) = SECTIONS.iter().find(|x| x.0 == r.id).copied().unwrap_or(SECTIONS[0]);
+                    a.pt-hub-row href=(v.link(&format!("p={}&s={}", pet.id, r.id))) {
+                        span.pt-hub-ico { (icon(ic)) }
+                        span.pt-row-main { span.pt-row-title { (label) } span.pt-row-sub { (r.note) } }
+                        span.pt-row-go aria-hidden="true" { (icon("chevron-right")) }
                     }
                 }
             }
         }
-
-        div style=(tint(pet)) { (body) }
-
-        (pet_modal(v, Some(pet), weights.last().map(|w| w.kg)))
-        (weight_modal(v, pet, &ret, weights.last().map(|w| w.kg), None))
-        (health_modal(v, pet, &ret, None))
-        @if walker { (walk_modal(v, pet, &ret, None)) }
-        (med_modal(v, pet, &ret, None))
-        (visit_modal(v, pet, &ret, None))
-        (record_modal(v, pet, &ret, None))
-        (task_modal(v, pet, &ret, None, idea))
     })
 }
 
-pub(super) fn overview(c: &Connection, v: &V, pet: &Pet, ret: &str) -> rusqlite::Result<Markup> {
+pub(super) fn overview(c: &Connection, v: &V, pet: &Pet, ret: &str, weights: &[data::Weight], tasks: &[Task]) -> rusqlite::Result<Markup> {
     let one = std::slice::from_ref(pet);
     let by_pet: HashMap<i64, &Pet> = [(pet.id, pet)].into_iter().collect();
     let items = agenda_items(c, v, one)?;
@@ -164,14 +273,15 @@ pub(super) fn overview(c: &Connection, v: &V, pet: &Pet, ret: &str) -> rusqlite:
         div.pt-home {
             (agenda_card(v, &items, &by_pet, ret, false, hint))
             div.pt-side {
-                section.card.pt-card {
-                    (sec_head("calendar-clock", "Próximamente", Some((link("vet"), "Citas"))))
-                    @if coming.is_empty() {
-                        p.pt-none { "Nada a la vista. " a href="#visit-new" { "Apuntar una cita" } }
-                    } @else { (upcoming_list(v, &coming, &by_pet, false)) }
+                @if !coming.is_empty() {
+                    section.card.pt-card {
+                        (sec_head("calendar-clock", "Próximamente", None))
+                        (upcoming_list(v, &coming, &by_pet, false))
+                    }
                 }
+                (hub(c, v, pet, weights, tasks)?)
                 section.card.pt-card {
-                    (sec_head("history", "Diario", Some((link("diary"), "Todo"))))
+                    (sec_head("history", "Lo último", Some((link("diary"), "Todo"))))
                     @if events.is_empty() { p.pt-none { "Usa los botones de arriba para apuntar lo de cada día." } }
                     @else { (diary(v, &events, &by_pet, false, false, "feed-pet")) }
                 }

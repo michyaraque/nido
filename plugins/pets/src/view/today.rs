@@ -247,6 +247,7 @@ pub(super) fn event_row(v: &V, e: &data::Event, pet: &Pet, show_pet: bool) -> Ma
         }
         "task" => (data::TASK_ICONS.iter().find(|i| **i == e.b).copied().unwrap_or("sparkles"), e.a.clone(), String::new(), ""),
         "weight" => ("weight", format!("Peso: {}", e.a.parse().map(kg).unwrap_or_default()), String::new(), ""),
+        "treat" => ("cookie", e.a.clone(), e.b.clone(), ""),
         _ => {
             let (_, k, kic) = data::record_kind(&e.a);
             (kic, if e.b.is_empty() { k.to_string() } else { format!("{k}: {}", e.b) }, String::new(), "")

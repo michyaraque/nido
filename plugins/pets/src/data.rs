@@ -279,6 +279,40 @@ pub fn walks_since(c: &Connection, pet: Option<i64>, from: &str) -> rusqlite::Re
         .collect()
 }
 
+pub struct Treat {
+    pub id: i64,
+    pub at: String,
+    pub what: String,
+    pub amount: String,
+    pub by: i64,
+}
+
+/// Newest first, since `from` ("YYYY-MM-DD").
+pub fn treats_since(c: &Connection, pet: i64, from: &str) -> rusqlite::Result<Vec<Treat>> {
+    c.prepare_cached("SELECT id,at,what,amount,by FROM treat WHERE pet_id=?1 AND at>=?2 ORDER BY at DESC,id DESC LIMIT 200")?
+        .query_map(params![pet, from], |r| Ok(Treat { id: r.get(0)?, at: r.get(1)?, what: r.get(2)?, amount: r.get(3)?, by: r.get(4)? }))?
+        .collect()
+}
+
+/// One-tap choices: what this pet gets most since `from`, then common ones for its kind.
+pub fn treat_names(c: &Connection, pet: &Pet, from: &str) -> rusqlite::Result<Vec<String>> {
+    let mut names: Vec<String> = c
+        .prepare_cached("SELECT what FROM treat WHERE pet_id=?1 AND at>=?2 GROUP BY lower(what) ORDER BY COUNT(*) DESC, MAX(at) DESC LIMIT 6")?
+        .query_map(params![pet.id, from], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    let common: &[&str] = match pet.kind.as_str() {
+        "dog" => &["Premio", "Hueso", "Snack dental", "Fruta"],
+        "cat" => &["Premio", "Snack cremoso", "Malta"],
+        _ => &["Premio", "Fruta", "Verdura"],
+    };
+    for n in common {
+        if names.len() < 6 && !names.iter().any(|x| x.to_lowercase() == n.to_lowercase()) {
+            names.push(n.to_string());
+        }
+    }
+    Ok(names)
+}
+
 pub struct Visit {
     pub id: i64,
     pub pet_id: i64,
@@ -390,6 +424,7 @@ pub fn feed(c: &Connection, pet: Option<i64>, limit: i64) -> rusqlite::Result<Ve
              UNION ALL SELECT * FROM (SELECT day||' '||at, pet_id, 'fed', by, slot, '', by FROM fed WHERE 1{p} ORDER BY day DESC, at DESC LIMIT ?1)
              UNION ALL SELECT * FROM (SELECT d.day||' '||d.at, m.pet_id, 'dose', d.by, m.title, d.slot, d.by FROM dose d JOIN med m ON m.id=d.med_id WHERE 1{mp} ORDER BY d.day DESC, d.at DESC LIMIT ?1)
              UNION ALL SELECT * FROM (SELECT at, pet_id, 'health', by, kind, mood, by FROM health WHERE 1{p} ORDER BY at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT at, pet_id, 'treat', by, what, amount, by FROM treat WHERE 1{p} ORDER BY at DESC LIMIT ?1)
              UNION ALL SELECT * FROM (SELECT x.day||' '||x.at, t.pet_id, 'task', x.by, t.title, t.icon, x.by FROM task_done x JOIN task t ON t.id=x.task_id WHERE 1{tp} ORDER BY x.day DESC, x.at DESC LIMIT ?1)
              UNION ALL SELECT * FROM (SELECT day, pet_id, 'weight', by, kg, '', by FROM weight WHERE 1{p} ORDER BY day DESC LIMIT ?1)
              UNION ALL SELECT * FROM (SELECT day, pet_id, 'record', 0, kind, name, '' FROM record WHERE 1{p} ORDER BY day DESC LIMIT ?1)

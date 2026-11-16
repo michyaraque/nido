@@ -153,5 +153,17 @@ CREATE TABLE IF NOT EXISTS record (
   sent TEXT NOT NULL DEFAULT ''
 );
 
+-- Treats and snacks outside the meal plan: what, how much and who gave it.
+CREATE TABLE IF NOT EXISTS treat (
+  id INTEGER PRIMARY KEY,
+  pet_id INTEGER NOT NULL REFERENCES pet(id) ON DELETE CASCADE,
+  at TEXT NOT NULL,
+  what TEXT NOT NULL,
+  amount TEXT NOT NULL DEFAULT '',
+  by INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS fed_day ON fed(day, at);
+CREATE INDEX IF NOT EXISTS treat_pet ON treat(pet_id, at);
+CREATE INDEX IF NOT EXISTS treat_at ON treat(at);
 CREATE INDEX IF NOT EXISTS record_pet ON record(pet_id, day);
