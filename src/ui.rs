@@ -34,7 +34,8 @@ pub fn page(title: &str, body_class: &str, body: Markup) -> Response {
 pub fn assets_version() -> &'static str {
     static V: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     V.get_or_init(|| {
-        let h = CSS.bytes().chain(JS.bytes()).fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+        let icons = merchants::ICONS.iter().flat_map(|(n, s)| n.bytes().chain(s.bytes()));
+        let h = CSS.bytes().chain(JS.bytes()).chain(icons).fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
         format!("{h:x}")
     })
 }
@@ -74,12 +75,23 @@ pub fn hue(s: &str) -> &'static str {
     PALETTE[s.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32)) as usize % PALETTE.len()]
 }
 
+/// A reference into `/icons.svg`, which the browser downloads once and keeps: pages repeat the same
+/// icons dozens of times, and fragments loaded into sheets need no sprite of their own.
 pub fn icon(name: &str) -> Markup {
-    let inner = merchants::ICONS.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or("");
-    html! {
-        svg.i.spinning[name == "loader-circle"] viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" { (PreEscaped(inner)) }
-    }
+    let spin = if name == "loader-circle" { " spinning" } else { "" };
+    PreEscaped(format!(r##"<svg class="i{spin}" aria-hidden="true"><use href="/icons.svg?v={}#{name}"/></svg>"##, assets_version()))
+}
+
+/// Every Lucide icon as a `<symbol>`, served at `/icons.svg`.
+pub fn icon_sprite() -> &'static str {
+    static S: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    S.get_or_init(|| {
+        let mut s = String::from(r#"<svg xmlns="http://www.w3.org/2000/svg">"#);
+        for (name, inner) in merchants::ICONS {
+            s += &format!(r#"<symbol id="{name}" viewBox="0 0 24 24">{inner}</symbol>"#);
+        }
+        s + "</svg>"
+    })
 }
 
 pub struct Look {

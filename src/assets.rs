@@ -23,6 +23,7 @@ pub fn routes() -> Router<Db> {
         .route("/fonts/inter.woff2", get(|| async { (cached("font/woff2"), INTER) }))
         .route("/fonts/bricolage.woff2", get(|| async { (cached("font/woff2"), BRICOLAGE) }))
         .route("/manifest.webmanifest", get(|| async { (cached("application/manifest+json"), MANIFEST) }))
+        .route("/icons.svg", get(|| async { (cached("image/svg+xml"), icon_sprite()) }))
         .route("/logos/{file}", get(logo))
         // The service worker lives at the root (its scope) and is never cached, so a new version reaches every phone.
         .route("/sw.js", get(|| async {

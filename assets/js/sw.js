@@ -5,7 +5,7 @@ const FILES = "files-" + V;
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(FILES).then((c) =>
-      c.addAll(["/style.css?v=" + V, "/app.js?v=" + V, "/fonts/inter.woff2", "/fonts/bricolage.woff2", "/icon.png"]),
+      c.addAll(["/style.css?v=" + V, "/app.js?v=" + V, "/icons.svg?v=" + V, "/fonts/inter.woff2", "/fonts/bricolage.woff2", "/icon.png"]),
     ),
   );
   self.skipWaiting();
@@ -20,7 +20,7 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-const FILE = /^\/(style\.css|app\.js|fonts\/|icon\.png|manifest|logos\/|avatars\/|tickets\/\d+\/photo)/;
+const FILE = /^\/(style\.css|app\.js|icons\.svg|fonts\/|icon\.png|manifest|logos\/|avatars\/|tickets\/\d+\/photo)/;
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
