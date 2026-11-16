@@ -21,6 +21,11 @@ These apply to the core and to every plugin. When a core rule breaks a standard,
 
 - **Mobile first.** Design at 375 px, then let wider screens show more. One page scroll: no boxes with their own scroll inside the page.
 - **Long lists fold** behind a button that says what it reveals ("Ver 6 más"): about 4 rows on a phone, 8 on wider screens. Secondary rows of cards slide sideways on a phone with `scroll-snap` and a peek of the next card. Done items fold away; pending ones stay in sight.
+- **Show detail where it belongs, when it is needed.** Information about one item (a plugin's stored data, a technical detail) lives on that item and appears only when the person acts on it or asks for it (a dialog, a "Ver más"). Never gather per-item details into a separate table or summary card for all items.
+- **Nothing people must find scrolls sideways.** Section tabs and main actions all fit on a 375 px screen, or become a visible list with a summary per row (Mascotas: "Todo de Luca"). In Baymard's tests 27–43 % of people missed tabs hidden off-screen. Sideways scrolling is only for secondary card rows.
+- **Card grids with uneven content flow in columns** (`columns: 2 360px` plus `break-inside: avoid`), not rows: rows either stretch cards (empty space inside) or leave gaps between them. No blank space inside a card to match a neighbour.
+- **Choices that change or erase data open a dialog.** Never expand a card in place inside a grid: it reflows or stretches the cards next to it.
+- **Frequent one-tap logs save at once and offer "Apuntado · Deshacer"** instead of asking first. Undo only takes back your own recent entry (30 min), so an old link cannot erase what someone else wrote.
 - **Touch targets: 44 px.** Core `.btn`, `.btn.sm` and `.icon-btn` grow to 44 px under `@media (pointer: coarse)`; a mouse keeps the compact sizes. Custom controls must do the same.
 - **Dialogs** are `div.modal#id` opened by `href="#id"` (`:target`). The core already turns them into bottom sheets on phones, locks the page behind, moves focus inside, keeps Tab inside and gives focus back on close (WAI-ARIA dialog pattern). Do not restyle `.modal` or `.dialog` per screen.
 - **Colour.** Only tokens (`--ink`, `--mute`, `--surface`, `--canvas`, `--line`, `--accent`, `--ok`, `--warn`, `--bad`…) so light, dark and house themes work. Text must pass WCAG AA (4.5:1, 3:1 for large text). On a coloured background (a pet's or category colour) darken it with `color-mix(in srgb, <colour> 72%, #000)` before putting white text on it, and check the contrast of every swatch.
@@ -68,7 +73,11 @@ NIDO_PLUGIN_KEY=k NIDO_PLUGIN_ADDR=127.0.0.1:8199 NIDO_PLUGIN_DB=/tmp/test.db ta
 tools/plugin-shot.sh <id> /tmp/shot.png "p=1&s=vet" 390 dark "#dialog-id"
 ```
 
-Check every change at 375–390 px and at desktop width, in light and dark. Send the screenshots to the person when the change is visual.
+Check every change at 375–390 px and at desktop width, in light and dark. Send the screenshots to the person when the change is visual, and keep them in a folder you do not clean afterwards.
+
+- A plugin's `style.css` is embedded at build time: run `cargo build -p nido-<name>` again before screenshots (`cargo test` and `clippy` do not refresh the binary you run).
+- Core pages need a session: insert `sha256(cookie)` into `sessions` *after* Nido starts, because it re-hashes existing tokens at startup. To screenshot a saved core page from `file://`, give Chrome `--disable-web-security` so `/icons.svg` loads, strip the scripts and turn animations off (or dialogs come out mid-slide).
+- Testing with a copy of the real database: replace `tg_token` in the copy first, or the local Nido polls the same Telegram bot and steals the Pi's updates.
 
 ## Platform notes (Windows development machine)
 
@@ -77,6 +86,8 @@ Check every change at 375–390 px and at desktop width, in light and dark. Send
 - Headless Chrome will not make a window narrower than ~500 px: phone widths need an iframe (`tools/plugin-shot.sh` does it).
 - A running plugin locks its `.exe`: stop it before `cargo build`, or the build fails with "failed to remove file".
 - Git Bash paths (`/tmp/...`) mean nothing to Windows programs: use `pwd -W` or `C:/...` paths when passing them to Chrome.
+- Inline heredoc scripts in Git Bash break on quotes and `\u` escapes: write the script to a file with the editor, then run it.
+- A running `nido.exe` locks the binary just like a plugin: stop it before `cargo build -p nido`.
 
 ## Commits and releases
 

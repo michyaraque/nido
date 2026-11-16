@@ -9,7 +9,7 @@ Read this before creating or changing anything under `plugins/`. The full protoc
 - Server-rendered pages. Every feature must work without JavaScript.
 - Target hardware is any modest device: little RAM (down to 512 MB), slow storage, a few CPU cores. Idle RAM and startup time matter.
 
-Reference implementations: `recipes/` (forms, uploads, core services), `games/` (WebSocket, binary packets), `devices/` (background tasks, LAN protocols, notices, modals, scenes), `pets/` (the UI reference: mobile-first layout, folding lists, carousels, coloured cards with AA contrast, two-step deletes, reminders persisted with `sent` keys, view split into modules).
+Reference implementations: `recipes/` (forms, uploads, core services), `games/` (WebSocket, binary packets), `devices/` (background tasks, LAN protocols, notices, modals, scenes), `pets/` (the UI reference: mobile-first layout, folding lists, carousels, coloured cards with AA contrast, two-step deletes, reminders persisted with `sent` keys, view split into modules, a list of sections with live summaries instead of tabs, and one-tap logs with undo: `quick=1` forms, `logged` and `take_back` in `act.rs`).
 
 ## Files to touch for a new plugin
 
@@ -73,6 +73,7 @@ An plugin has four ways to tell people something. Pick by urgency and audience.
 - Shopping list: a plain browser form `POST /shopping/many` with repeated `item` fields and a `next` URL starting with `/?`.
 - Mobile `+` button: set `fab: Some((href, label))` in the catalog entry to give the plugin's page a floating action on phones.
 - Backups: the plugin's database file is included in Nido's encrypted backups automatically. Keep everything the plugin needs in that file (or regenerable).
+- Stored data: uninstalling asks whether to keep the plugin's data. The Plugins page shows how much it keeps and can erase it later; erasing deletes `<id>.db`, `-wal` and `-shm` and nothing else. Anything kept outside that file would be left behind.
 - Themes: never hard-code light colours; use the tokens so dark mode and house themes work.
 - Real time: for live updates beyond `data-refresh`, open a WebSocket at `/plugins/<id>/<path>`; Nido proxies it after checking the session (see `games/src/net.rs`).
 - Static assets: serve them from the plugin with a long `Cache-Control` and a content hash in the URL (`?v=<hash>`), as `recipes` does for its script.
@@ -148,6 +149,8 @@ ssh <host> 'chmod +x nido-install/plugins/* && sudo -n /usr/local/bin/nido-deplo
 ```
 
 Copy the binary with its executable bit set: `nido-deploy` runs `--version` on it.
+
+`nido-deploy` reinstalls every binary left in `nido-install/plugins/`: delete one there to stop deploying it. There is no other sudo on the Pi, so removing an installed plugin goes through the Plugins page.
 
 ## Versions
 
