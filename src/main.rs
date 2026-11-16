@@ -201,7 +201,7 @@ async fn main() {
     let addr = std::env::var("NIDO_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());
     let listener = tokio::net::TcpListener::bind(&addr).await.expect("no se pudo abrir el puerto");
     println!("nido {VERSION} escuchando en http://{addr}");
-    axum::serve(listener, app).await.expect("servidor");
+    axum::serve(axum::serve::ListenerExt::tap_io(listener, |tcp| { let _ = tcp.set_nodelay(true); }), app).await.expect("servidor");
 }
 
 #[cfg(test)]

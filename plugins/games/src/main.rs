@@ -178,5 +178,5 @@ async fn main() {
     let addr = env("NIDO_PLUGIN_ADDR", "127.0.0.1:8182");
     let listener = tokio::net::TcpListener::bind(&addr).await.expect("no se pudo abrir el puerto");
     println!("nido-games {VERSION} en http://{addr}");
-    axum::serve(listener, app).await.expect("servidor");
+    axum::serve(axum::serve::ListenerExt::tap_io(listener, |tcp| { let _ = tcp.set_nodelay(true); }), app).await.expect("servidor");
 }

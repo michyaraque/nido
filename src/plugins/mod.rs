@@ -430,6 +430,7 @@ async fn websocket(port: u16, key: &str, path: &str, who: &Who<'_>, h: &HeaderMa
     use tokio::io::AsyncWriteExt;
     let get = |n: &str| h.get(n).and_then(|v| v.to_str().ok()).filter(|v| !v.contains(['\r', '\n'])).unwrap_or("");
     let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await?;
+    s.set_nodelay(true)?;
     let head = format!(
         "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: {}\r\nX-Nido-Key: {key}\r\n{}\r\n",
         get("sec-websocket-key"),
@@ -461,6 +462,7 @@ async fn websocket(port: u16, key: &str, path: &str, who: &Who<'_>, h: &HeaderMa
 async fn call(port: u16, key: &str, method: &str, path: &str, who: Option<&Who<'_>>, ctype: Option<&str>, body: &[u8]) -> std::io::Result<Reply> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await?;
+    s.set_nodelay(true)?;
     let mut head = format!("{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\nX-Nido-Key: {key}\r\nContent-Length: {}\r\n", body.len());
     if let Some(w) = who {
         head += &who_headers(w);

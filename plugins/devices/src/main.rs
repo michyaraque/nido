@@ -1432,7 +1432,7 @@ async fn main() {
             tokio::task::spawn_local(hunt(app.clone()));
             tokio::task::spawn_local(autosync(app.clone()));
             tokio::task::spawn_local(poll(app));
-            axum::serve(listener, router).await.expect("servidor");
+            axum::serve(axum::serve::ListenerExt::tap_io(listener, |tcp| { let _ = tcp.set_nodelay(true); }), router).await.expect("servidor");
         })
         .await;
 }

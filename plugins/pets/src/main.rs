@@ -319,7 +319,7 @@ async fn main() {
     local
         .run_until(async move {
             tokio::task::spawn_local(remind(app));
-            axum::serve(listener, router).await.expect("servidor");
+            axum::serve(axum::serve::ListenerExt::tap_io(listener, |tcp| { let _ = tcp.set_nodelay(true); }), router).await.expect("servidor");
         })
         .await;
 }

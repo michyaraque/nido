@@ -177,5 +177,5 @@ async fn main() {
         .await
         .expect("no se pudo abrir el puerto");
     println!("nido-recipes {VERSION} en http://{addr}");
-    axum::serve(listener, app).await.expect("servidor");
+    axum::serve(axum::serve::ListenerExt::tap_io(listener, |tcp| { let _ = tcp.set_nodelay(true); }), app).await.expect("servidor");
 }
