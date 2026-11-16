@@ -1,6 +1,6 @@
 [package]
 name = "nido-games"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 description = "Juegos, un plugin de Nido que va en su propio programa"
 
