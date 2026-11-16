@@ -76,6 +76,9 @@ An plugin has four ways to tell people something. Pick by urgency and audience.
 - Stored data: uninstalling asks whether to keep the plugin's data. The Plugins page shows how much it keeps and can erase it later; erasing deletes `<id>.db`, `-wal` and `-shm` and nothing else. Anything kept outside that file would be left behind.
 - Themes: never hard-code light colours; use the tokens so dark mode and house themes work.
 - Real time: for live updates beyond `data-refresh`, open a WebSocket at `/plugins/<id>/<path>`; Nido proxies it after checking the session (see `games/src/net.rs`).
+- Fast-paced real time (a card game): the server sends each person's view as data, not HTML, and the page patches only what changed. The page applies the person's own move at once and lets the server's answer confirm it or put it back (Colors: `STATE` in `net.rs`, `Colors` in `app.js`). The server still validates every move and never sends what a seat may not see. The first load stays server-rendered HTML, so the game works without JavaScript. The prediction must say exactly what the server will (the same last line, hint and buttons), and the page patches each piece only when its text changes: rebuilding a piece replays its CSS entrance, which reads as a flicker when the confirmation arrives a moment later. Hold back controls the server may take away (Colors' "Pasar" after drawing) until it answers, and give rows that gain or lose a button a fixed height.
+- Game sounds (synthesised in `app.js`, nothing to download): measure a reference before designing. Recorded card games use a dry 20–90 ms snap at 1.5–5 kHz for a card on the pile, a low ~110–160 Hz thump for settling, selecting and losing a turn, and 2–3 s mid-register stings to win or lose. Play the press sound under the finger at once, and the landing sound when the animation lands (`LAND`). Give "it happens to you" its own sound apart from "it happens to someone else", vary pitch and level a few percent on each play (for a cozy game: round tones such as a wooden marimba and bubble pops, soft attacks, a little bounce, and random notes drawn from a major pentatonic scale so variety stays in tune), and give the person an audition page (before/after, ×5) to judge: the verdict is their ear.
+- Sockets: every server sets `TCP_NODELAY` (`ListenerExt::tap_io`), and so does every connection Nido opens to a plugin; otherwise small packets wait ~40 ms for an ACK.
 - Static assets: serve them from the plugin with a long `Cache-Control` and a content hash in the URL (`?v=<hash>`), as `recipes` does for its script.
 
 ## Rust rules
@@ -140,6 +143,8 @@ Design for a 375 px phone first, then let wider screens show more.
 - `cargo test --workspace` must pass with no warnings in the plugin.
 
 ## Build and deploy
+
+The Raspberry Pi is the house's production device. Never run test instances, benchmarks or experiments on it, not even on another port or folder: test on the development PC, and touch the Pi only to deploy what is ready.
 
 ```sh
 cargo test --workspace
