@@ -144,6 +144,12 @@ pub fn send(c: &Connection, user: i64, title: &str, body: &str, url: &str) -> bo
         .and_then(|mut s| s.query_map([user], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect())
         .unwrap_or_default();
     if subs.is_empty() {
+        // Only the phone can ask for permission, after a tap: remember what it missed, so Nido can
+        // offer notifications with this example the next time it is opened.
+        let _ = c.execute(
+            "INSERT INTO settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![format!("push_missed:{user}"), body],
+        );
         return false;
     }
     let key = vapid(c);
@@ -201,6 +207,22 @@ pub async fn subscribe(State(db): State<Db>, h: HeaderMap, axum::Json(s): axum::
          ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth",
         params![s.endpoint, me.id, k.p256dh, k.auth],
     )?;
+    c.execute("DELETE FROM settings WHERE key=?1", [format!("push_missed:{}", me.id)])?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// The last notification this person missed for having no phone subscribed, if any.
+pub async fn missed(State(db): State<Db>, h: HeaderMap) -> R {
+    let c = lock(&db);
+    let me = require_user!(c, h);
+    let text: Option<String> = c.query_row("SELECT value FROM settings WHERE key=?1", [format!("push_missed:{}", me.id)], |r| r.get(0)).optional()?;
+    Ok(([(header::CACHE_CONTROL, "no-store")], text.unwrap_or_default()).into_response())
+}
+
+pub async fn forget_missed(State(db): State<Db>, h: HeaderMap) -> R {
+    let c = lock(&db);
+    let me = require_user!(c, h);
+    c.execute("DELETE FROM settings WHERE key=?1", [format!("push_missed:{}", me.id)])?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
@@ -226,6 +248,7 @@ pub fn routes() -> Router<Db> {
         .route("/push/subscribe", post(subscribe))
         .route("/push/unsubscribe", post(unsubscribe))
         .route("/push/test", post(test))
+        .route("/push/missed", get(missed).post(forget_missed))
 }
 
 #[cfg(test)]
@@ -263,6 +286,15 @@ mod tests {
         hk.expand(b"Content-Encoding: nonce\0", &mut nonce).unwrap();
         let plain = Aes128Gcm::new_from_slice(&cek).unwrap().decrypt(Nonce::from_slice(&nonce), &body[21 + idlen..]).unwrap();
         assert_eq!(plain, b"hola\x02");
+    }
+
+    #[test]
+    fn remembers_what_a_phone_missed() {
+        let c = Connection::open_in_memory().unwrap();
+        crate::db::migrate(&c);
+        assert!(!send(&c, 1, "Mascotas", "Toca Apoquel a Toby", "/?tab=pets"));
+        let missed: String = c.query_row("SELECT value FROM settings WHERE key='push_missed:1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(missed, "Toca Apoquel a Toby");
     }
 
     #[test]

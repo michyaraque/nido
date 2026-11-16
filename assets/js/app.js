@@ -688,17 +688,19 @@ async function pushInvite() {
   document.querySelector(".push-invite")?.remove();
   const main = document.getElementById("main");
   if (!main || document.getElementById("push")) return;
-  try { if (Date.now() < +(localStorage.getItem(LATER) || 0)) return; } catch {}
+  const missed = await fetch("/push/missed", { credentials: "same-origin" }).then((r) => (r.ok ? r.text() : "")).catch(() => "");
+  if (!missed) try { if (Date.now() < +(localStorage.getItem(LATER) || 0)) return; } catch {}
+  const lead = missed ? `No te ha llegado al móvil un aviso: «${missed}». ` : "";
   let text, action = "";
   if (!isSecureContext) {
-    text = "Para que Nido te avise en este móvil aunque esté cerrado, ábrelo con la conexión segura de casa.";
+    text = lead + "Para que Nido te avise en este móvil aunque esté cerrado, ábrelo con la conexión segura de casa.";
     action = `<a class="btn primary sm" href="https://nido.local${location.pathname}${location.search}">Abrir con conexión segura</a>`;
   } else if (iphone && !standalone) {
-    text = "Para que Nido te avise en el iPhone, añádelo a la pantalla de inicio (Compartir → Añadir a pantalla de inicio) y ábrelo desde ese icono.";
+    text = lead + "Para que Nido te avise en el iPhone, añádelo a la pantalla de inicio (Compartir → Añadir a pantalla de inicio) y ábrelo desde ese icono.";
   } else if (pushable && Notification.permission !== "denied") {
     const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(r, 6000))]);
     if (!reg || (await reg.pushManager.getSubscription())) return;
-    text = "¿Te avisamos en este móvil? Invitaciones, tareas y recordatorios de tus plugins, aunque Nido esté cerrado.";
+    text = lead + (missed ? "¿Te avisamos aquí a partir de ahora, aunque Nido esté cerrado?" : "¿Te avisamos en este móvil? Invitaciones, tareas y recordatorios de tus plugins, aunque Nido esté cerrado.");
     action = `<button class="btn primary sm push-yes" type="button">Activar</button>`;
   } else return;
   const box = document.createElement("div");
@@ -715,6 +717,7 @@ document.addEventListener("click", async (e) => {
   if (!b) return;
   if (b.matches(".push-later")) {
     try { localStorage.setItem(LATER, String(Date.now() + 30 * 864e5)); } catch {}
+    fetch("/push/missed", { method: "POST", credentials: "same-origin" }).catch(() => {});
     return b.closest(".push-invite").remove();
   }
   b.disabled = true;
