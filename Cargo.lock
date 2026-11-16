@@ -951,6 +951,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nido-pets"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "image",
+ "maud",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "webp",
+]
+
+[[package]]
 name = "nido-recipes"
 version = "0.3.0"
 dependencies = [

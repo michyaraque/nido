@@ -85,6 +85,24 @@ pub static ALL: &[Known] = &[
         size: "≈ 4 MB",
         fab: Some(("/?tab=devices&add=1", "Añadir")),
     },
+    Known {
+        id: "pets",
+        bin: "nido-pets",
+        name: "Mascotas",
+        icon: "paw-print",
+        tagline: "Los cuidados de vuestras mascotas, entre todos",
+        blurb: "Comidas, paseos, medicinas, salud, vacunas, citas del veterinario y tareas como el baño o el arenero, para cada mascota de casa.",
+        features: &[
+            "Agenda de hoy: quién le ha dado de comer, paseado o dado su medicina",
+            "Medicinas por días, toma a toma, con aviso si se olvida",
+            "Cartilla de vacunas y citas del veterinario con aviso antes",
+            "Salud, peso y diario de todo lo que hace la casa",
+            "Tareas que se repiten: baño, uñas, arenero…",
+        ],
+        accent: "#e07b39",
+        size: "≈ 3 MB",
+        fab: Some(("/?tab=pets#pet-new", "Añadir")),
+    },
 ];
 
 pub fn find(id: &str) -> Option<&'static Known> {

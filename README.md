@@ -173,6 +173,7 @@ Los plugins son funciones opcionales que se instalan desde Plugins, en el menú.
 | Recetas | Recetario con 134 recetas, importación desde webs, editor por bloques, ajuste de raciones y envío de ingredientes a la lista de la compra. |
 | Juegos | Nueve juegos de mesa (parchís, oca, dominó, memoria…) para jugar entre los de casa, cada uno desde su móvil, o contra el ordenador. Ranking por juego. |
 | Domótica | Control local de enchufes, bombillas e interruptores Tuya (Smart Life, Gosund, Teckin, Woox, Lidl…) y de mandos infrarrojos Broadlink. Consumo eléctrico por aparato, escenas y programación horaria. |
+| Mascotas | Agenda de hoy por mascota: comidas, tomas y tareas, marcando quién lo hizo. Ficha con foto, peso, chip, alergias, comida y teléfono del veterinario. Medicinas con sus horas y días, registro de salud (caca, pis, comida, ánimo…), paseos por persona, cartilla de vacunas y desparasitaciones, citas del veterinario, cumpleaños y tareas que se repiten (baño, uñas, arenero…), con avisos a toda la casa. |
 
 Detalles de Domótica:
 
