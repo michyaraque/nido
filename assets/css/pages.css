@@ -766,6 +766,31 @@ a.row-main:hover .row-title {
   border-color: var(--ink);
 }
 
+.push-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
+}
+
+.push-invite p {
+  flex: 1 1 260px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.push-invite-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .launcher {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));

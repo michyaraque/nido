@@ -478,6 +478,7 @@ let refreshTimer, wasCopying = false;
 function ready() {
   updateSum();
   pushPanel();
+  pushInvite();
   // Plugin pages: their script loads once, then re-arms on every view (window.nidoPlugins[id]).
   for (const el of document.querySelectorAll("[data-plugin-js]")) {
     const init = window.nidoPlugins?.[el.dataset.plugin];
@@ -646,21 +647,85 @@ const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent);
 async function pushPanel() {
   const box = document.getElementById("push");
   if (!box) return;
-  const state = box.querySelector(".push-state"), on = box.querySelector(".push-on"), test = box.querySelector(".push-test"), off = box.querySelector(".push-off");
+  const state = box.querySelector(".push-state"), on = box.querySelector(".push-on"), test = box.querySelector(".push-test"), off = box.querySelector(".push-off"), secure = box.querySelector(".push-https");
   const show = (text, buttons = []) => {
     state.textContent = text;
-    for (const b of [on, test, off]) b.hidden = !buttons.includes(b);
+    for (const b of [on, test, off, secure]) b.hidden = !buttons.includes(b);
   };
-  if (!pushable) return show(iphone && !standalone ? "En iPhone: abre Nido desde el icono de la pantalla de inicio (con https://nido.local) y actívalas allí." : "Este navegador no puede recibirlas.");
+  // Browsers only offer service workers and push over https: plain http hides them, it is not a missing feature.
+  if (!isSecureContext) {
+    secure.href = "https://nido.local" + location.pathname + location.search;
+    return show("Solo llegan con la conexión segura de casa. Instala el certificado de casa (pasos abajo) y abre Nido con https.", [secure]);
+  }
+  if (!pushable) return show(iphone && !standalone ? "En iPhone: abre Nido desde el icono de la pantalla de inicio y actívalas allí." : "Este navegador no puede recibirlas.");
   if (Notification.permission === "denied") return show("Las bloqueaste: actívalas en los ajustes del móvil, en Notificaciones.");
   const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(r, 6000))]);
-  if (!reg) return show("Aún se está preparando: recarga la página en unos segundos.");
+  if (!reg) return show(navigator.serviceWorker.controller ? "Aún se está preparando: recarga la página en unos segundos." : "Este móvil todavía no confía en el certificado de casa: instálalo (pasos abajo) y vuelve a abrir Nido.");
   const sub = await reg.pushManager.getSubscription();
   if (sub) show("Activadas en este móvil", [test, off]);
   else show("Desactivadas en este móvil", [on]);
 }
 
 const postJson = (url, body) => fetch(url, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+/// Asks for permission (it must follow a tap: iPhone refuses otherwise) and registers this phone.
+async function enablePush() {
+  if ((await Notification.requestPermission()) !== "granted") return toast("Sin permiso no se pueden enviar", true);
+  const reg = await navigator.serviceWorker.ready;
+  const key = await fetch("/push/key", { credentials: "same-origin" }).then((r) => r.text());
+  const raw = Uint8Array.from(atob(key.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: raw });
+  const r = await postJson("/push/subscribe", sub.toJSON());
+  if (!r.ok) throw new Error(await r.text());
+  toast("Notificaciones activadas");
+}
+
+/* Nobody finds a switch buried in Ajustes: once per phone, Nido offers notifications at the top of
+   the page, with what this phone needs to get them. "Ahora no" hides it for a month. */
+const LATER = "push-later";
+
+async function pushInvite() {
+  document.querySelector(".push-invite")?.remove();
+  const main = document.getElementById("main");
+  if (!main || document.getElementById("push")) return;
+  try { if (Date.now() < +(localStorage.getItem(LATER) || 0)) return; } catch {}
+  let text, action = "";
+  if (!isSecureContext) {
+    text = "Para que Nido te avise en este móvil aunque esté cerrado, ábrelo con la conexión segura de casa.";
+    action = `<a class="btn primary sm" href="https://nido.local${location.pathname}${location.search}">Abrir con conexión segura</a>`;
+  } else if (iphone && !standalone) {
+    text = "Para que Nido te avise en el iPhone, añádelo a la pantalla de inicio (Compartir → Añadir a pantalla de inicio) y ábrelo desde ese icono.";
+  } else if (pushable && Notification.permission !== "denied") {
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(r, 6000))]);
+    if (!reg || (await reg.pushManager.getSubscription())) return;
+    text = "¿Te avisamos en este móvil? Invitaciones, tareas y recordatorios de tus plugins, aunque Nido esté cerrado.";
+    action = `<button class="btn primary sm push-yes" type="button">Activar</button>`;
+  } else return;
+  const box = document.createElement("div");
+  box.className = "push-invite";
+  box.setAttribute("role", "region");
+  box.setAttribute("aria-label", "Notificaciones");
+  box.innerHTML = `<p></p><div class="push-invite-actions">${action}<button class="btn ghost sm push-later" type="button">Ahora no</button></div>`;
+  box.querySelector("p").textContent = text;
+  (main.querySelector(".mtop") || main.firstElementChild)?.after(box);
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest?.(".push-invite button");
+  if (!b) return;
+  if (b.matches(".push-later")) {
+    try { localStorage.setItem(LATER, String(Date.now() + 30 * 864e5)); } catch {}
+    return b.closest(".push-invite").remove();
+  }
+  b.disabled = true;
+  try {
+    await enablePush();
+    b.closest(".push-invite").remove();
+  } catch (err) {
+    toast("No se han podido activar: " + (err.message || err), true);
+    b.disabled = false;
+  }
+});
 
 document.addEventListener("click", async (e) => {
   const b = e.target.closest?.("#push button");
@@ -669,13 +734,7 @@ document.addEventListener("click", async (e) => {
   try {
     const reg = await navigator.serviceWorker.ready;
     if (b.matches(".push-on")) {
-      if ((await Notification.requestPermission()) !== "granted") return toast("Sin permiso no se pueden enviar", true);
-      const key = await fetch("/push/key", { credentials: "same-origin" }).then((r) => r.text());
-      const raw = Uint8Array.from(atob(key.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: raw });
-      const r = await postJson("/push/subscribe", sub.toJSON());
-      if (!r.ok) throw new Error(await r.text());
-      toast("Notificaciones activadas");
+      await enablePush();
     } else if (b.matches(".push-off")) {
       const sub = await reg.pushManager.getSubscription();
       if (sub) { await postJson("/push/unsubscribe", { endpoint: sub.endpoint }); await sub.unsubscribe(); }

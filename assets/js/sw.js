@@ -77,7 +77,7 @@ async function sameTab(c, url) {
 self.addEventListener("push", (e) => {
   let n = {};
   try { n = e.data ? e.data.json() : {}; } catch { n = { body: e.data?.text() }; }
-  e.waitUntil(self.registration.showNotification(n.title || "Nido", { body: n.body || "", icon: "/icon.png", badge: "/icon.png", data: { url: n.url || "/" }, tag: n.url || undefined }));
+  e.waitUntil(self.registration.showNotification(n.title || "Nido", { body: n.body || "", icon: "/icon.png", badge: "/icon.png", data: { url: n.url || "/" } }));
 });
 
 self.addEventListener("notificationclick", (e) => {

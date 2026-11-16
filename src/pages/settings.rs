@@ -88,29 +88,19 @@ pub fn render(v: &View) -> Markup {
                 div.set-item.stacked #push {
                     div.set-item-txt {
                         b { "Notificaciones en este móvil" }
-                        small { "Invitaciones a jugar, tareas que te planifican… aunque Nido esté cerrado. Quien no las active los sigue recibiendo por Telegram." }
+                        small { "Invitaciones a jugar, tareas que te planifican, avisos de los plugins… aunque Nido esté cerrado y el móvil bloqueado. Necesitan internet en casa: pasan por el servicio de avisos de Google o Apple. Quien no las active los sigue recibiendo por Telegram." }
                     }
                     div.push-row {
                         span.push-state { "Comprobando…" }
+                        a.btn.primary.sm.push-https href="https://nido.local" hidden { (icon("lock")) "Abrir con conexión segura" }
                         button.btn.primary.sm.push-on type="button" hidden { (icon("bell-ring")) "Activar" }
                         button.btn.ghost.sm.push-test type="button" hidden { (icon("send")) "Probar" }
                         button.btn.ghost.sm.push-off type="button" hidden { "Desactivar" }
                     }
+                    (cert_steps())
                 }
                 div.set-item.stacked #offline {
-                    div.set-item-txt { b { "Usar sin conexión" } small { "Fuera de casa, Nido abre con lo último que viste y guarda lo que apuntes; al volver a la wifi de casa lo envía solo. El iPhone necesita el certificado de casa (una vez por móvil)." } }
-                    details.steps {
-                        summary { (icon("chevron-right")) "Cómo activarlo en el iPhone" }
-                        ol {
-                            li {
-                                "Abre la app " b { "Safari" } " (no el icono de Nido ni Chrome: no pueden instalar perfiles), pega esta dirección y pulsa " b { "Permitir" } ":"
-                                input.input.mono.top type="text" readonly value="http://nido.local/nido.crt" onfocus="this.select()" aria-label="Dirección del certificado";
-                            }
-                            li { "Ve a Ajustes → General → " b { "VPN y gestión de dispositivos" } ", elige " b { "Nido · certificado de casa" } " e instálalo." }
-                            li { "Ve a Ajustes → General → Información → " b { "Ajustes de confianza de certificados" } " y activa Nido · certificado de casa." }
-                            li { "Abre " a href="https://nido.local" { "https://nido.local" } ", entra y añádela a la pantalla de inicio (Compartir → Añadir a pantalla de inicio). Puedes borrar el icono antiguo." }
-                        }
-                    }
+                    div.set-item-txt { b { "Usar sin conexión" } small { "Fuera de casa, Nido abre con lo último que viste y guarda lo que apuntes; al volver a la wifi de casa lo envía solo. Necesita el certificado de casa, como las notificaciones (pasos arriba)." } }
                 }
                 (item("Cerrar sesión", "Solo afecta a este dispositivo.", html! {
                     form method="post" action="/logout" { button.btn.danger.sm { (icon("log-out")) "Cerrar sesión" } }
@@ -120,6 +110,33 @@ pub fn render(v: &View) -> Markup {
     };
     html! {
         (layout(v, html! { "Tu perfil, tus avisos y este dispositivo" }, main))
+    }
+}
+
+/// Notifications and offline use need https, and https at home needs each phone to trust the
+/// house's own certificate authority (Caddy's, served at /nido.crt) once.
+fn cert_steps() -> Markup {
+    let cert = html! { input.input.mono.top type="text" readonly value="http://nido.local/nido.crt" onfocus="this.select()" aria-label="Dirección del certificado"; };
+    html! {
+        details.steps {
+            summary { (icon("chevron-right")) "Cómo instalar el certificado de casa en Android" }
+            ol {
+                li { "Abre esta dirección en " b { "Chrome" } " y descarga el certificado:" (cert) }
+                li { "Ve a Ajustes → Seguridad y privacidad → Más ajustes de seguridad → " b { "Cifrado y credenciales" } " → " b { "Instalar un certificado" } " → " b { "Certificado de CA" } ", y elige el que has descargado. (El nombre exacto del menú cambia según la marca: busca «certificado» en los ajustes.)" }
+                li { "Abre " a href="https://nido.local" { "https://nido.local" } ", entra y, en el menú de Chrome, pulsa " b { "Añadir a pantalla de inicio" } " o " b { "Instalar aplicación" } "." }
+                li { "Desde ese icono, vuelve aquí y pulsa " b { "Activar" } "." }
+            }
+        }
+        details.steps {
+            summary { (icon("chevron-right")) "Cómo instalar el certificado de casa en el iPhone" }
+            ol {
+                li { "Abre la app " b { "Safari" } " (no el icono de Nido ni Chrome: no pueden instalar perfiles), pega esta dirección y pulsa " b { "Permitir" } ":" (cert) }
+                li { "Ve a Ajustes → General → " b { "VPN y gestión de dispositivos" } ", elige " b { "Nido · certificado de casa" } " e instálalo." }
+                li { "Ve a Ajustes → General → Información → " b { "Ajustes de confianza de certificados" } " y activa Nido · certificado de casa." }
+                li { "Abre " a href="https://nido.local" { "https://nido.local" } ", entra y añádela a la pantalla de inicio (Compartir → Añadir a pantalla de inicio). Puedes borrar el icono antiguo." }
+                li { "Desde ese icono (iOS 16.4 o posterior), vuelve aquí y pulsa " b { "Activar" } "." }
+            }
+        }
     }
 }
 
