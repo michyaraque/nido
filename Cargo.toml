@@ -1,10 +1,14 @@
 [workspace]
-members = [".", "plugins/recipes", "plugins/games", "plugins/devices", "plugins/pets"]
+members = [".", "plugins/recipes", "plugins/games", "plugins/devices", "plugins/pets", "tools/notify-test"]
 
 [package]
 name = "nido"
 version = "0.23.0"
 edition = "2021"
+
+[features]
+# Lists development-only plugins (tools/notify-test) in the catalog. Never on in releases.
+dev-plugins = []
 
 [dependencies]
 axum = { version = "0.8", features = ["multipart"] }

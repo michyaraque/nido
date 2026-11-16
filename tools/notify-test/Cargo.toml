@@ -1,0 +1,17 @@
+[package]
+name = "nido-notifytest"
+version = "0.1.0"
+edition = "2021"
+description = "Prueba de avisos: herramienta de desarrollo de Nido, nunca se publica"
+publish = false
+
+[package.metadata.nido]
+min = "0.23.0"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt", "net", "macros"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+maud = "0.27"
+serde_json = "1"
+serde_urlencoded = "0.7"

@@ -103,6 +103,20 @@ pub static ALL: &[Known] = &[
         size: "≈ 3 MB",
         fab: Some(("/?tab=pets#pet-new", "Añadir")),
     },
+    // Development only (tools/notify-test): copy its binary into the plugins folder by hand.
+    #[cfg(any(debug_assertions, feature = "dev-plugins"))]
+    Known {
+        id: "notifytest",
+        bin: "nido-notifytest",
+        name: "Prueba de avisos",
+        icon: "bell-ring",
+        tagline: "Solo para probar los avisos",
+        blurb: "Manda un aviso de prueba a quien elijas, por el mismo camino que los demás: al móvil y, si no llega, por Telegram.",
+        features: &["Solo existe en compilaciones de prueba"],
+        accent: "#64748b",
+        size: "≈ 2 MB",
+        fab: None,
+    },
 ];
 
 pub fn find(id: &str) -> Option<&'static Known> {
