@@ -240,6 +240,9 @@ impl<'a> Conn<'a> {
             return Err("sin IP: aún no ha aparecido en la red".into());
         }
         let s = TcpStream::connect((d.ip.as_str(), 6668)).await.map_err(|e| e.to_string())?;
+        // 3.4/3.5 write SESS_FINISH and the command back to back; Nagle would hold the
+        // command until the device's delayed ACK (up to ~200 ms on lwIP).
+        s.set_nodelay(true).map_err(|e| e.to_string())?;
         let mut c = Conn { s, d, key: d.key, seq: 0 };
         if d.ver >= Ver::V34 {
             c.negotiate().await?;
