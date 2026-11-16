@@ -1,3 +1,11 @@
+.dv-i {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Domótica (plugin). Inlined only on its own page; built from the house tokens. --amber is the "power" colour. */
 :root {
   --amber: #f59e0b;

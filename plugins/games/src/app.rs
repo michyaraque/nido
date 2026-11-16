@@ -569,10 +569,11 @@ fn gallery(c: &Connection, v: &View, rank: Option<&str>) -> rusqlite::Result<Mar
 
 fn ranking(c: &Connection, v: &View, game: Option<&str>) -> rusqlite::Result<Markup> {
     let game = game.filter(|g| games::info(g).is_some());
-    let rows: Vec<(i64, i64, i64, i64)> = c
-        .prepare("SELECT user_id, sum(points), sum(outcome='win'), count(*) FROM results WHERE ?1 IS NULL OR game=?1 GROUP BY user_id")?
-        .query_map([game], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-        .collect::<Result<_, _>>()?;
+    let row = |r: &rusqlite::Row| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?));
+    let rows: Vec<(i64, i64, i64, i64)> = match game {
+        Some(g) => c.prepare_cached("SELECT user_id, sum(points), sum(outcome='win'), count(*) FROM results WHERE game=?1 GROUP BY user_id")?.query_map([g], row)?.collect::<Result<_, _>>()?,
+        None => c.prepare_cached("SELECT user_id, sum(points), sum(outcome='win'), count(*) FROM results GROUP BY user_id")?.query_map([], row)?.collect::<Result<_, _>>()?,
+    };
     let mut table: Vec<(&Person, i64, i64, i64)> = v
         .me
         .people

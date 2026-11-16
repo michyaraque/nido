@@ -165,6 +165,8 @@ async fn main() {
         std::process::exit(2);
     });
     let conn = Connection::open(env("NIDO_PLUGIN_DB", "games.db")).expect("no se pudo abrir la base de datos");
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(5));
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;").expect("ajustes de la base de datos");
     conn.execute_batch(include_str!("../schema.sql")).expect("tablas");
     let db: Db = Arc::new(Mutex::new(conn));
     let app = app::routes()

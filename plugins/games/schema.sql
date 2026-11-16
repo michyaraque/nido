@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS results (
   at       TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   PRIMARY KEY (match_id, user_id)
 );
+CREATE INDEX IF NOT EXISTS results_game ON results(game);
 
 -- Emoji reactions during a match (shown for a few seconds next to the player).
 CREATE TABLE IF NOT EXISTS reactions (

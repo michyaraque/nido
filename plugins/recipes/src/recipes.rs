@@ -1092,7 +1092,7 @@ fn data(f: &[(String, String)]) -> Result<Data, &'static str> {
     })
 }
 
-/// A photo in any format and orientation → 640×480 WebP (~25 KB): sharp on a phone, light on the Pi.
+/// A photo in any format and orientation → 640×480 WebP (~25 KB): sharp on a phone, light on a small server.
 fn to_webp(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let mut decoder = ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()
@@ -1555,7 +1555,7 @@ fn curl(url: &str) -> Result<Vec<u8>, String> {
     }
 }
 
-/// Only public web pages: not the Pi itself, the router or anything else on the home network.
+/// Only public web pages: not this server, the router or anything else on the home network.
 // Checks the written host only (no DNS lookup); a public name pointing inside the house
 // would pass. Everyone who can use this is already a person of the house.
 fn public_url(url: &str) -> Option<&str> {

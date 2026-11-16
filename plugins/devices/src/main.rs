@@ -43,12 +43,30 @@ const FLASHES: &[(&str, &str)] = &[
 
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 
+thread_local! {
+    static USED: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// A reference to the icon's symbol; each icon's paths travel once per page, in `icon_sprite`.
 fn icon(name: &str) -> Markup {
-    let inner = ICONS.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or("");
-    html! {
-        svg.i viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" { (PreEscaped(inner)) }
+    let Some(i) = ICONS.iter().position(|(n, _)| *n == name) else { return html! {} };
+    USED.with(|u| {
+        let mut u = u.borrow_mut();
+        if !u.contains(&i) {
+            u.push(i);
+        }
+    });
+    PreEscaped(format!(r##"<svg class="i dv-i" aria-hidden="true"><use href="#dv-i-{name}"/></svg>"##))
+}
+
+fn icon_sprite() -> Markup {
+    let used = USED.with(|u| std::mem::take(&mut *u.borrow_mut()));
+    let mut s = String::from(r#"<svg width="0" height="0" style="position:absolute" aria-hidden="true">"#);
+    for i in used {
+        let (name, inner) = ICONS[i];
+        s += &format!(r#"<symbol id="dv-i-{name}" viewBox="0 0 24 24">{inner}</symbol>"#);
     }
+    PreEscaped(s + "</svg>")
 }
 
 type Db = Arc<Mutex<Connection>>;
@@ -1326,6 +1344,7 @@ fn manual(c: &Connection, p: &Params) -> rusqlite::Result<Markup> {
 async fn page(State(app): State<App>, h: HeaderMap, Query(p): Query<Params>) -> Response {
     remember_people(&app, &h);
     let c = lock(&app.db);
+    USED.with(|u| u.borrow_mut().clear());
     let body = if p.contains_key("add") {
         add_view(&c, &app, &p)
     } else if let Some(d) = p.get("d").and_then(|s| s.parse().ok()).and_then(|id| one(&c, id).ok().flatten()) {
@@ -1338,7 +1357,7 @@ async fn page(State(app): State<App>, h: HeaderMap, Query(p): Query<Params>) -> 
         list(&c, &app, &p)
     };
     match body {
-        Ok(b) => Html(html! { style { (PreEscaped(CSS)) } (b) }.into_string()).into_response(),
+        Ok(b) => Html(html! { style { (PreEscaped(CSS)) } (icon_sprite()) (b) }.into_string()).into_response(),
         Err(e) => {
             eprintln!("error: {e}");
             (StatusCode::INTERNAL_SERVER_ERROR, "Error interno").into_response()
@@ -1372,6 +1391,7 @@ async fn main() {
     });
     let conn = Connection::open(env("NIDO_PLUGIN_DB", "devices.db")).expect("no se pudo abrir la base de datos");
     let _ = conn.busy_timeout(Duration::from_secs(5));
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;").expect("ajustes de la base de datos");
     conn.execute_batch(include_str!("../schema.sql")).expect("tablas");
     let _ = conn.execute("ALTER TABLE ir_button ADD COLUMN icon TEXT NOT NULL DEFAULT ''", []);
     let app = App { db: Arc::new(Mutex::new(conn)), live: Default::default(), seen: Default::default(), qr: Default::default(), people: Default::default(), notes: Default::default(), want_sync: Default::default(), bl: Default::default(), learn: Default::default() };

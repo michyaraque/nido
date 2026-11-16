@@ -162,6 +162,8 @@ async fn main() {
     });
     let conn =
         Connection::open(env("NIDO_PLUGIN_DB", "recipes.db")).expect("no se pudo abrir recipes.db");
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(5));
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;").expect("ajustes de la base de datos");
     recipes::prepare(&conn, std::env::var("NIDO_CORE_DB").ok().as_deref())
         .expect("preparar el recetario");
     let db: Db = Arc::new(Mutex::new(conn));
