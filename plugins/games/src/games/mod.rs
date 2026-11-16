@@ -140,6 +140,11 @@ pub trait Game: Serialize + DeserializeOwned {
     fn log(&self) -> Vec<(usize, String)> {
         Vec::new()
     }
+    /// The sound of a move that leaves no line in the log (a first card turned over, a hidden
+    /// choice): without it the page would replay the sound of the line before.
+    fn sound(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 pub struct Info {
@@ -285,6 +290,18 @@ impl Call {
 
 pub fn call(game: &str, state: &str) -> Option<Call> {
     with_game!(game, G, serde_json::from_str::<G>(state).ok().and_then(|g| g.call())).flatten()
+}
+
+/// The table as one seat sees it, for games whose page draws itself (only Colors so far).
+pub fn seen(game: &str, state: &str, me: Option<usize>) -> Option<serde_json::Value> {
+    match game {
+        "colores" => serde_json::from_str::<colors::Colors>(state).ok().map(|g| g.seen_by(me)),
+        _ => None,
+    }
+}
+
+pub fn sound(game: &str, state: &str) -> Option<&'static str> {
+    with_game!(game, G, serde_json::from_str::<G>(state).ok().and_then(|g| g.sound())).flatten()
 }
 
 pub fn rolls(game: &str, state: &str) -> u32 {

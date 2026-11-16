@@ -769,7 +769,8 @@
 }
 
 .gm-player.on .avatar {
-  animation: gm-breathe 1.6s ease-in-out infinite;
+  --ring: var(--c);
+  animation: gm-breath 2.8s ease-in-out infinite;
 }
 
 .gm-player.won {
@@ -2966,9 +2967,11 @@ button.gm-water:hover::before {
   opacity: 1;
 }
 
-.gm-other.on .avatar {
-  box-shadow: 0 0 0 3px #2dd4bf;
-  animation: gm-breathe 1.4s ease-in-out infinite;
+/* Whose turn it is breathes: slowly, a soft halo swelling and fading with it (not a pulse). */
+.gm-other.on .avatar,
+.gm-mine.on .gm-me-who .avatar {
+  --ring: #2dd4bf;
+  animation: gm-breath 2.8s ease-in-out infinite;
 }
 
 .gm-backs {
@@ -3035,8 +3038,8 @@ button.gm-water:hover::before {
   animation: gm-turn 14s linear infinite;
 }
 
+/* The mirror turns the heads and the spin around together. */
 .gm-arrows.back {
-  animation-direction: reverse;
   scale: -1 1;
 }
 
@@ -3067,12 +3070,20 @@ button.gm-deck {
   animation: gm-breathe 1.4s ease-in-out infinite;
 }
 
+/* Fixed height: "Pasar" comes and goes without moving the table. */
 .gm-now {
+  min-height: 32px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 10px;
+}
+
+@media (pointer: coarse) {
+  .gm-now {
+    min-height: 44px;
+  }
 }
 
 .gm-color-pill {
@@ -4280,4 +4291,17 @@ button.gm-mem-card:focus-visible {
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: .9;
+}
+
+@keyframes gm-breath {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 3px var(--ring), 0 0 0 0 color-mix(in srgb, var(--ring) 45%, transparent);
+  }
+
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 3px var(--ring), 0 0 14px 6px color-mix(in srgb, var(--ring) 35%, transparent);
+  }
 }

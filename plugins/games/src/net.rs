@@ -9,7 +9,7 @@
 //!
 //! | op   | direction | payload |
 //! |------|-----------|---------|
-//! | 0x01 HELLO    | → server | u32 match · u32 version the page has |
+//! | 0x01 HELLO    | → server | u32 match · u32 version the page has · u8 caps (optional; 1 = draws the table itself) |
 //! | 0x02 MOVE     | → server | u32 match · str move |
 //! | 0x03 REACT    | → server | u32 match · str reaction (an icon id like "heart"; an emoji in Colors) |
 //! | 0x04 PING     | → server | — |
@@ -17,9 +17,15 @@
 //! | 0x82 REACTION | → phone  | u32 match · u8 seat · str reaction id |
 //! | 0x83 ERROR    | → phone  | str message |
 //! | 0x84 PONG     | → phone  | — |
+//! | 0x85 STATE    | → phone  | u32 match · u32 version · u8 sound · u8 flags · text json |
 //!
 //! VIEW flags: 1 my turn · 2 finished · 4 I won · 8 I lost. The html is that viewer's own view
 //! (cards and ships stay hidden from the others), drawn by the server like any other page.
+//!
+//! A page that says it draws the table itself (caps 1) gets STATE instead while a game that
+//! supports it is being played (Colors): this seat's view as data, a few hundred bytes, which the
+//! page patches in place. It moves my own cards before the answer comes (see app.js). The end of
+//! a match, and every other game, still come as VIEW.
 use crate::*;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use std::sync::OnceLock;
@@ -34,6 +40,7 @@ pub mod op {
     pub const REACTION: u8 = 0x82;
     pub const ERROR: u8 = 0x83;
     pub const PONG: u8 = 0x84;
+    pub const STATE: u8 = 0x85;
 }
 
 /// A buffer with a reading position, like a game server's NetworkMessage.
@@ -146,6 +153,7 @@ async fn session(db: Db, me: Me, month: Option<String>, mut socket: WebSocket) {
     let mut rx = hub().subscribe();
     let mut watching: Option<i64> = None;
     let mut sent: i64 = -1; // version of the last view this phone got
+    let mut draws = false; // the page draws the table itself from STATE
     loop {
         let out: Vec<u8> = tokio::select! {
             msg = socket.recv() => {
@@ -156,9 +164,11 @@ async fn session(db: Db, me: Me, month: Option<String>, mut socket: WebSocket) {
                     match opcode {
                         op::HELLO => {
                             let (Some(id), Some(v)) = (m.get_u32(), m.get_u32()) else { break };
+                            draws = m.get_u8() == Some(1);
                             watching = Some(id as i64);
-                            sent = v as i64;
-                            out.extend(view(&db, &me, &month, id as i64, &mut sent));
+                            // A page that draws itself needs the data even for the version it shows.
+                            sent = if draws { -1 } else { v as i64 };
+                            out.extend(view(&db, &me, &month, id as i64, &mut sent, draws));
                         }
                         op::MOVE => {
                             let (Some(id), Some(mv)) = (m.get_u32(), m.get_str()) else { break };
@@ -186,9 +196,9 @@ async fn session(db: Db, me: Me, month: Option<String>, mut socket: WebSocket) {
                 out
             }
             ev = rx.recv() => match ev {
-                Ok(Hub::Changed(id)) if Some(id) == watching => view(&db, &me, &month, id, &mut sent),
+                Ok(Hub::Changed(id)) if Some(id) == watching => view(&db, &me, &month, id, &mut sent, draws),
                 Ok(Hub::Reaction(id, seat, e)) if Some(id) == watching => packet(op::REACTION, |m| { m.add_u32(id as u32); m.add_u8(seat); m.add_str(&e) }),
-                Err(broadcast::error::RecvError::Lagged(_)) => watching.map(|id| { sent = -1; view(&db, &me, &month, id, &mut sent) }).unwrap_or_default(),
+                Err(broadcast::error::RecvError::Lagged(_)) => watching.map(|id| { sent = -1; view(&db, &me, &month, id, &mut sent, draws) }).unwrap_or_default(),
                 Err(broadcast::error::RecvError::Closed) => return,
                 _ => continue,
             },
@@ -199,11 +209,27 @@ async fn session(db: Db, me: Me, month: Option<String>, mut socket: WebSocket) {
     }
 }
 
-/// This viewer's VIEW packet, unless the phone already has this version.
-fn view(db: &Db, me: &Me, month: &Option<String>, id: i64, sent: &mut i64) -> Vec<u8> {
+/// This viewer's STATE (when the page draws itself and the game allows) or VIEW packet, unless
+/// the phone already has this version.
+fn view(db: &Db, me: &Me, month: &Option<String>, id: i64, sent: &mut i64, draws: bool) -> Vec<u8> {
     let c = lock(db);
     let Ok(m) = crate::month(&c, month.as_deref()) else { return Vec::new() };
     let v = View { m, me: me.clone() };
+    if draws {
+        if let Ok(Some((s, json))) = app::state_snapshot(&c, &v, id) {
+            if s.version == *sent {
+                return Vec::new();
+            }
+            *sent = s.version;
+            return packet(op::STATE, |m| {
+                m.add_u32(id as u32);
+                m.add_u32(s.version as u32);
+                m.add_u8(s.sound);
+                m.add_u8(s.flags);
+                m.add_text(&json);
+            });
+        }
+    }
     match app::snapshot(&c, &v, id) {
         Ok(Some(s)) if s.version != *sent => {
             *sent = s.version;

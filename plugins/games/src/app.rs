@@ -298,7 +298,12 @@ pub struct Snapshot {
     pub html: String,
 }
 
-pub const SOUNDS: [&str; 15] = ["tap", "card", "draw", "dice", "drop", "splash", "hit", "sink", "eat", "reveal", "skip", "two", "turn-around", "wild", "one"];
+/// Sound names by index, as the packets carry them; app.js keeps the same list in the same order.
+pub const SOUNDS: [&str; 31] = [
+    "tap", "card", "draw", "dice", "drop", "splash", "hit", "sink", "eat", "reveal", "skip", "two", "turn-around", "wild", "one",
+    "skip-other", "select", "return", "shuffle", "deal", "picker-select", "picker-show", "picker-hide",
+    "tile", "tile-draw", "pass", "miss", "flip", "place", "ready", "home",
+];
 
 pub fn snapshot(c: &Connection, v: &View, id: i64) -> rusqlite::Result<Option<Snapshot>> {
     let Some(m) = load(c, id)? else { return Ok(None) };
@@ -306,7 +311,7 @@ pub fn snapshot(c: &Connection, v: &View, id: i64) -> rusqlite::Result<Option<Sn
     let seats = seats(v, &m.players);
     let cx = Ctx { me, seats: &seats };
     let log = games::render(&m.game, &m.state, &cx).map(|r| r.1).unwrap_or_default();
-    let sound = sfx(&m.game, log.last().map(|l| l.1.as_str()));
+    let sound = games::sound(&m.game, &m.state).unwrap_or_else(|| sfx(&m.game, log.last().map(|l| l.1.as_str())));
     let mut flags = 0u8;
     if !m.done && me == Some(m.turn) {
         flags |= 1;
@@ -323,6 +328,41 @@ pub fn snapshot(c: &Connection, v: &View, id: i64) -> rusqlite::Result<Option<Sn
         flags,
         html: live_part(c, v, &m)?.into_string(),
     }))
+}
+
+/// For pages that draw the table themselves: this seat's view of a match still being played, as
+/// data (`games::seen`) plus the few lines around the table. None when the page needs the HTML
+/// view instead (other games, or the end with its trophy).
+pub fn state_snapshot(c: &Connection, v: &View, id: i64) -> rusqlite::Result<Option<(Snapshot, String)>> {
+    let Some(m) = load(c, id)? else { return Ok(None) };
+    if m.done {
+        return Ok(None);
+    }
+    let me = m.players.iter().position(|&p| p == v.me.id);
+    let Some(seen) = games::seen(&m.game, &m.state, me) else { return Ok(None) };
+    let seats = seats(v, &m.players);
+    let cx = Ctx { me, seats: &seats };
+    let log = games::render(&m.game, &m.state, &cx).map(|r| r.1).unwrap_or_default();
+    let my_turn = me == Some(m.turn);
+    let again = my_turn && games::again(&m.game, &m.state, m.turn);
+    let call = games::call(&m.game, &m.state).and_then(|k| k.for_seat(me).map(|t| (k.seat, t.to_string(), k.good)));
+    let json = serde_json::json!({
+        "g": seen,
+        "me": me,
+        "last": log.last(),
+        "call": call,
+        "hint": games::turn_hint(&m.game, &m.state, m.turn),
+        "again": again,
+        "cue": if again { "¡Otra vez tú!" } else { "¡Te toca!" },
+    });
+    let sound = games::sound(&m.game, &m.state).unwrap_or_else(|| sfx(&m.game, log.last().map(|l| l.1.as_str())));
+    let snap = Snapshot {
+        version: m.version,
+        sound: SOUNDS.iter().position(|s| *s == sound).unwrap_or(0) as u8,
+        flags: if my_turn { 1 } else { 0 },
+        html: String::new(),
+    };
+    Ok(Some((snap, json.to_string())))
 }
 
 async fn mv(State(db): State<Db>, h: HeaderMap, Path(id): Path<i64>, Query(q): Query<Partial>, F(f): F<Pairs>) -> R {
@@ -711,13 +751,13 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
     let again = my_turn && games::again(&m.game, &m.state, m.turn);
     let call = if again { "¡Otra vez tú!" } else { "¡Te toca!" };
     html_ok(html! {
-        div #gm-live data-id=(m.id) data-v=(m.version) data-game=(m.game) data-sfx=(sfx(&m.game, log.last().map(|l| l.1.as_str())))
+        div #gm-live data-id=(m.id) data-v=(m.version) data-game=(m.game) data-sfx=(games::sound(&m.game, &m.state).unwrap_or_else(|| sfx(&m.game, log.last().map(|l| l.1.as_str()))))
             data-live=[(!m.done).then_some("1")] data-turn=[my_turn.then_some("1")] data-again=[again.then_some("1")]
             data-roll=(games::rolls(&m.game, &m.state))
             data-end=[m.done.then(|| if me.is_some() && m.winner == me { "win" } else if me.is_some() { "lose" } else { "end" })] {
             div.gm-players {
                 @for (i, s) in seats.iter().enumerate() {
-                    div.gm-player.on[!m.done && m.turn == i].me[me == Some(i)].won[m.winner == Some(i)] style={ "--c:" (s.color) } {
+                    div.gm-player.on[!m.done && m.turn == i].me[me == Some(i)].won[m.winner == Some(i)] style={ "--c:" (s.color) } data-bot=[s.bot.then_some("1")] {
                         (cx.face(i))
                         span.gm-player-name { (s.name) }
                         @if m.winner == Some(i) { (icon("crown")) }
@@ -805,6 +845,10 @@ fn live_part(c: &Connection, v: &View, m: &Match) -> rusqlite::Result<Markup> {
                 }
             }
             form.gm-move.gm-live-form method="post" action=(action("move")) { (v.ctx()) (board) }
+            @if m.game == "colores" {
+                // The icons app.js needs to draw cards itself, once per page.
+                template #gm-kit { @for i in ["ban", "refresh-cw", "layers"] { span data-i=(i) { (icon(i)) } } }
+            }
             div.gm-foot {
                 @if me.is_some() {
                     div.gm-tools {
@@ -845,9 +889,13 @@ fn sfx(game: &str, last: Option<&str>) -> &'static str {
     let t = last.unwrap_or("");
     match () {
         _ if t.contains("encuentra la pareja") => "reveal",
-        _ if t.contains("no encuentra") => "skip",
-        _ if t.contains("pone el") => "card",
-        _ if t.contains("pasa") && game == "domino" => "skip",
+        _ if t.contains("no encuentra") => "miss",
+        _ if t.contains("pone el") => "tile",
+        _ if t.contains("roba una ficha") => "tile-draw",
+        _ if t.contains("pasa") && game == "domino" => "pass",
+        _ if t.contains("pierde el turno") || t.contains("sigue en el pozo") => "pass",
+        _ if t.contains("flota lista") => "ready",
+        _ if t.contains("llega a casa") => "home",
         _ if t.contains("ronda") => "reveal",
         _ if t.contains("le queda una") => "one",
         _ if t.contains("roba dos") => "two",
@@ -860,8 +908,10 @@ fn sfx(game: &str, last: Option<&str>) -> &'static str {
         _ if t.contains("come") || t.contains("calavera") || t.contains("pozo") || t.contains("cárcel") => "eat",
         _ if t.contains("roba") => "draw",
         _ if t.contains("echa") => "card",
+        _ if t.contains("saca una ficha") || t.contains("sale de casa") => "place",
         _ if t.contains("saca") || t.contains("mueve") || t.contains("avanza") || t.contains("oca") => "dice",
         _ if game == "c4" => "drop",
+        _ if game == "ttt" => "place",
         _ => "tap",
     }
 }
@@ -880,6 +930,17 @@ mod tests {
             Person { id: 2, name: "Leo".into(), color: "#2f6bff".into(), photo: 0 },
         ];
         View { m: "2026-11".into(), me: Me { id, name: "Ana".into(), people } }
+    }
+
+    #[test]
+    fn page_and_server_number_sounds_alike() {
+        let at = JS.find("const SOUNDS = [").expect("app.js lists SOUNDS");
+        let list = &JS[at..at + JS[at..].find("];").unwrap()];
+        let names: Vec<&str> = list.split('"').skip(1).step_by(2).collect();
+        assert_eq!(names, SOUNDS, "app.js SOUNDS must match app.rs SOUNDS, in order");
+        for s in SOUNDS {
+            assert!(JS.contains(&format!("    {s}: ")) || JS.contains(&format!("    \"{s}\": ")), "app.js has no sound for {s}");
+        }
     }
 
     #[test]

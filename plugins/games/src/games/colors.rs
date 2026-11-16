@@ -83,6 +83,24 @@ impl Colors {
         self.turn = self.step(self.turn, 1 + extra);
         self.drew = false;
     }
+    /// What one seat may see, for the page to draw the table itself (app.js): its own hand, how
+    /// many cards the others hold, the last cards of the pile. Never another seat's cards.
+    pub fn seen_by(&self, me: Option<usize>) -> serde_json::Value {
+        let cards = |v: &[Card]| v.iter().map(|k| [k.c, k.v]).collect::<Vec<_>>();
+        serde_json::json!({
+            "turn": self.turn,
+            "dir": self.dir,
+            "color": self.color,
+            "drew": self.drew,
+            "deck": self.deck.len(),
+            "pile": cards(&self.pile[self.pile.len().saturating_sub(4)..]),
+            "hand": me.and_then(|m| self.hands.get(m)).map(|h| cards(h)).unwrap_or_default(),
+            "counts": self.hands.iter().map(Vec::len).collect::<Vec<_>>(),
+            "skipped": self.skipped,
+            "victim": self.victim,
+            "act": self.act,
+        })
+    }
     /// Colour the robot (or anyone in a hurry) would pick: the one it holds most of.
     fn best_color(hand: &[Card]) -> u8 {
         (0..4u8).max_by_key(|&c| hand.iter().filter(|k| k.c == c).count()).unwrap_or(0)
@@ -392,6 +410,19 @@ mod tests {
         g.play(2, "play:0:3", &mut rng).unwrap();
         assert_eq!((g.color, g.turn), (3, 0));
         assert!(g.play(0, "play:0", &mut rng).is_err(), "green 5 does not follow blue");
+    }
+
+    #[test]
+    fn each_seat_sees_only_its_own_hand() {
+        let mut rng = Rng::seeded(3);
+        let g = Colors::new(3, "", &mut rng);
+        let s = g.seen_by(Some(1));
+        let hand: Vec<[u8; 2]> = serde_json::from_value(s["hand"].clone()).unwrap();
+        assert_eq!(hand, g.hands[1].iter().map(|k| [k.c, k.v]).collect::<Vec<_>>());
+        assert_eq!(s["counts"], serde_json::json!([7, 7, 7]));
+        assert_eq!(s["pile"].as_array().unwrap().len(), 1);
+        assert!(!s.to_string().contains("deck\":["), "the deck travels as a number");
+        assert_eq!(g.seen_by(None)["hand"], serde_json::json!([]), "someone watching sees no hand");
     }
 
     #[test]

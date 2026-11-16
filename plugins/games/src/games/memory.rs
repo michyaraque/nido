@@ -119,6 +119,9 @@ impl Game for Memory {
         }
         Ok(())
     }
+    fn sound(&self) -> Option<&'static str> {
+        (self.up.len() == 1).then_some("flip")
+    }
     fn bot(&self, _seat: usize, rng: &mut Rng) -> String {
         let memory = LEVELS[self.level].3;
         let sure = rng.below(100) < memory;

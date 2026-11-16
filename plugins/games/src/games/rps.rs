@@ -41,6 +41,9 @@ impl Game for Rps {
     fn outcome(&self) -> Option<Outcome> {
         (0..2).find(|&s| self.score[s] >= TO_WIN).map(Outcome::Win)
     }
+    fn sound(&self) -> Option<&'static str> {
+        self.pick.iter().any(Option::is_some).then_some("tap")
+    }
     fn play(&mut self, seat: usize, mv: &str, _: &mut Rng) -> Result<(), &'static str> {
         if seat > 1 {
             return Err("No juegas en esta partida");
