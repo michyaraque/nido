@@ -26,7 +26,7 @@ pub(super) fn pet_page(c: &Connection, v: &V, pet: &Pet, p: &Params) -> rusqlite
     let treat_names = data::treat_names(c, pet, &add_days(&v.today, -90))?;
 
     let body = match s {
-        "diary" => diary_section(c, v, pet)?,
+        "diary" => diary_section(c, v, pet, &ret)?,
         "med" => med_section(c, v, pet, &ret, edit)?,
         "health" => health_section(c, v, pet, &ret, edit)?,
         "walks" => walks_section(c, v, pet, &ret, edit)?,
@@ -61,6 +61,8 @@ pub(super) fn pet_page(c: &Connection, v: &V, pet: &Pet, p: &Params) -> rusqlite
         (visit_modal(v, pet, &ret, None))
         (record_modal(v, pet, &ret, None))
         (task_modal(v, pet, &ret, None, idea))
+        (fed_modal(v, pet, &ret, None))
+        (entry_modal(c, v, p.get("x"), &ret)?)
     })
 }
 
@@ -133,6 +135,7 @@ fn more_modal(v: &V, pet: &Pet, ret: &str, walker: bool) -> Markup {
             @if walker { a.pt-q href="#health" { span.pt-q-ico { (icon("heart-pulse")) } span { "Salud" } } }
             a.pt-q href="#weight" { span.pt-q-ico { (icon("weight")) } span { "Peso" } }
             @if walker { a.pt-q href="#walk" { span.pt-q-ico { (icon("footprints")) } span { "Paseo con detalles" } } }
+            a.pt-q href="#fed-new" { span.pt-q-ico { (icon("utensils")) } span { "Comida con detalles" } }
             a.pt-q href="#visit-new" { span.pt-q-ico { (icon("stethoscope")) } span { "Cita" } }
             a.pt-q href="#med-new" { span.pt-q-ico { (icon("pill")) } span { "Medicina" } }
             a.pt-q href="#task-new" { span.pt-q-ico { (icon("list-todo")) } span { "Tarea" } }
@@ -149,12 +152,19 @@ fn undo_bar(v: &V, code: &str, ret: &str) -> Markup {
         Some("f") => "Comida apuntada",
         _ => return html! {},
     };
+    let key = match code.split_at_checked(1) {
+        Some(("f", rest)) => rest.split_once('-').map(|(pet, hm)| format!("f{pet}.{}.{}:{}", v.today, hm.get(..2).unwrap_or(""), hm.get(2..).unwrap_or(""))),
+        _ => Some(code.to_string()),
+    };
     html! {
         div.pt-undo role="status" {
             span { (icon("circle-check")) (what) }
-            form method="post" action="/plugins/pets/undo" {
-                (v.ctx(ret)) input type="hidden" name="what" value=(code);
-                button.btn.ghost.sm { "Deshacer" }
+            div.pt-undo-acts {
+                @if let Some(href) = key.and_then(|k| edit_href(v, ret, &k)) { a.btn.ghost.sm href=(href) { "Cambiar hora" } }
+                form method="post" action="/plugins/pets/undo" {
+                    (v.ctx(ret)) input type="hidden" name="what" value=(code);
+                    button.btn.ghost.sm { "Deshacer" }
+                }
             }
         }
     }
@@ -283,21 +293,21 @@ pub(super) fn overview(c: &Connection, v: &V, pet: &Pet, ret: &str, weights: &[d
                 section.card.pt-card {
                     (sec_head("history", "Lo último", Some((link("diary"), "Todo"))))
                     @if events.is_empty() { p.pt-none { "Usa los botones de arriba para apuntar lo de cada día." } }
-                    @else { (diary(v, &events, &by_pet, false, false, "feed-pet")) }
+                    @else { (diary(v, &events, &by_pet, false, false, "feed-pet", ret)) }
                 }
             }
         }
     })
 }
 
-pub(super) fn diary_section(c: &Connection, v: &V, pet: &Pet) -> rusqlite::Result<Markup> {
+pub(super) fn diary_section(c: &Connection, v: &V, pet: &Pet, ret: &str) -> rusqlite::Result<Markup> {
     let events = data::feed(c, Some(pet.id), 80)?;
     let by_pet: HashMap<i64, &Pet> = [(pet.id, pet)].into_iter().collect();
     Ok(html! {
-        p.hint.pt-lead { "Todo lo que habéis apuntado de " (pet.name) ", y quién lo hizo." }
+        p.hint.pt-lead { "Todo lo que habéis apuntado de " (pet.name) ", y quién lo hizo. Toca una línea para cambiarla." }
         section.card.pt-card {
             @if events.is_empty() { (empty("history", "El diario está vacío", "Cada comida, paseo, toma o visita que apuntéis aparecerá aquí.")) }
-            @else { (diary(v, &events, &by_pet, false, true, "feed-all")) }
+            @else { (diary(v, &events, &by_pet, false, true, "feed-all", ret)) }
         }
     })
 }

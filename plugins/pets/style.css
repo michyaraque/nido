@@ -1990,7 +1990,7 @@ a.pt-row-title:hover {
 }
 
 .pt-kinds span:hover,
-.pt-chip span:hover {
+.pt-chip>span:hover {
   background: var(--hover);
 }
 
@@ -2006,7 +2006,7 @@ a.pt-row-title:hover {
   gap: 6px;
 }
 
-.pt-chip span {
+.pt-chip>span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2031,7 +2031,15 @@ a.pt-row-title:hover {
   color: var(--surface);
 }
 
-.pt-who span {
+/* A date and time needs the width: the minutes take only what three digits need. */
+.pt-when-min {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  align-items: end;
+  gap: 12px;
+}
+
+.pt-who>span {
   padding-left: 6px;
 }
 
@@ -2660,6 +2668,7 @@ a.pt-row-title:hover {
 
 .pt-undo {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -2686,6 +2695,13 @@ a.pt-row-title:hover {
 
 .pt-undo form {
   margin: 0;
+}
+
+.pt-undo-acts {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 2px;
 }
 
 /* ---------- every section of a pet, in sight ---------- */

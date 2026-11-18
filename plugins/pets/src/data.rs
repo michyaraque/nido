@@ -172,6 +172,11 @@ pub fn weights(c: &Connection, pet: i64) -> rusqlite::Result<Vec<Weight>> {
         .collect()
 }
 
+/// One weight and its pet.
+pub fn weight(c: &Connection, id: i64) -> rusqlite::Result<Option<(i64, Weight)>> {
+    c.query_row("SELECT id,day,kg,by,pet_id FROM weight WHERE id=?1", [id], |r| Ok((r.get(4)?, Weight { id: r.get(0)?, day: r.get(1)?, kg: r.get(2)?, by: r.get(3)? }))).optional()
+}
+
 pub fn last_weights(c: &Connection) -> rusqlite::Result<HashMap<i64, f64>> {
     c.prepare("SELECT pet_id,kg FROM weight w WHERE id=(SELECT id FROM weight WHERE pet_id=w.pet_id ORDER BY day DESC,id DESC LIMIT 1)")?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
@@ -248,10 +253,17 @@ pub struct Health {
     pub by: i64,
 }
 
+fn health_row(r: &Row) -> rusqlite::Result<Health> {
+    Ok(Health { id: r.get(0)?, at: r.get(1)?, kind: r.get(2)?, mood: r.get(3)?, note: r.get(4)?, by: r.get(5)? })
+}
+
 pub fn health(c: &Connection, pet: i64, limit: i64) -> rusqlite::Result<Vec<Health>> {
-    c.prepare_cached("SELECT id,at,kind,mood,note,by FROM health WHERE pet_id=?1 ORDER BY at DESC,id DESC LIMIT ?2")?
-        .query_map(params![pet, limit], |r| Ok(Health { id: r.get(0)?, at: r.get(1)?, kind: r.get(2)?, mood: r.get(3)?, note: r.get(4)?, by: r.get(5)? }))?
-        .collect()
+    c.prepare_cached("SELECT id,at,kind,mood,note,by FROM health WHERE pet_id=?1 ORDER BY at DESC,id DESC LIMIT ?2")?.query_map(params![pet, limit], health_row)?.collect()
+}
+
+/// One health note and its pet.
+pub fn health_one(c: &Connection, id: i64) -> rusqlite::Result<Option<(i64, Health)>> {
+    c.query_row("SELECT id,at,kind,mood,note,by,pet_id FROM health WHERE id=?1", [id], |r| Ok((r.get(6)?, health_row(r)?))).optional()
 }
 
 pub struct Walk {
@@ -271,12 +283,16 @@ pub fn ids(s: &str) -> Vec<i64> {
 }
 
 /// Newest first, since `from` ("YYYY-MM-DD"); every pet when `pet` is None.
+fn walk_row(r: &Row) -> rusqlite::Result<Walk> {
+    Ok(Walk { id: r.get(0)?, pet_id: r.get(1)?, at: r.get(2)?, minutes: r.get(3)?, people: ids(&r.get::<_, String>(4)?), note: r.get(5)? })
+}
+
 pub fn walks_since(c: &Connection, pet: Option<i64>, from: &str) -> rusqlite::Result<Vec<Walk>> {
-    c.prepare(&format!("SELECT id,pet_id,at,minutes,CAST({WALKERS} AS TEXT),note FROM walk WHERE at>=?1{} ORDER BY at DESC,id DESC", of_pet("pet_id", pet)))?
-        .query_map([from], |r| {
-            Ok(Walk { id: r.get(0)?, pet_id: r.get(1)?, at: r.get(2)?, minutes: r.get(3)?, people: ids(&r.get::<_, String>(4)?), note: r.get(5)? })
-        })?
-        .collect()
+    c.prepare(&format!("SELECT id,pet_id,at,minutes,CAST({WALKERS} AS TEXT),note FROM walk WHERE at>=?1{} ORDER BY at DESC,id DESC", of_pet("pet_id", pet)))?.query_map([from], walk_row)?.collect()
+}
+
+pub fn walk(c: &Connection, id: i64) -> rusqlite::Result<Option<Walk>> {
+    c.query_row(&format!("SELECT id,pet_id,at,minutes,CAST({WALKERS} AS TEXT),note FROM walk WHERE id=?1"), [id], walk_row).optional()
 }
 
 pub struct Treat {
@@ -288,10 +304,17 @@ pub struct Treat {
 }
 
 /// Newest first, since `from` ("YYYY-MM-DD").
+fn treat_row(r: &Row) -> rusqlite::Result<Treat> {
+    Ok(Treat { id: r.get(0)?, at: r.get(1)?, what: r.get(2)?, amount: r.get(3)?, by: r.get(4)? })
+}
+
 pub fn treats_since(c: &Connection, pet: i64, from: &str) -> rusqlite::Result<Vec<Treat>> {
-    c.prepare_cached("SELECT id,at,what,amount,by FROM treat WHERE pet_id=?1 AND at>=?2 ORDER BY at DESC,id DESC LIMIT 200")?
-        .query_map(params![pet, from], |r| Ok(Treat { id: r.get(0)?, at: r.get(1)?, what: r.get(2)?, amount: r.get(3)?, by: r.get(4)? }))?
-        .collect()
+    c.prepare_cached("SELECT id,at,what,amount,by FROM treat WHERE pet_id=?1 AND at>=?2 ORDER BY at DESC,id DESC LIMIT 200")?.query_map(params![pet, from], treat_row)?.collect()
+}
+
+/// One treat and its pet.
+pub fn treat(c: &Connection, id: i64) -> rusqlite::Result<Option<(i64, Treat)>> {
+    c.query_row("SELECT id,at,what,amount,by,pet_id FROM treat WHERE id=?1", [id], |r| Ok((r.get(5)?, treat_row(r)?))).optional()
 }
 
 /// One-tap choices: what this pet gets most since `from`, then common ones for its kind.
@@ -397,11 +420,49 @@ impl Record {
     }
 }
 
+fn record_row(r: &Row) -> rusqlite::Result<Record> {
+    Ok(Record { id: r.get(0)?, pet_id: r.get(1)?, kind: r.get(2)?, name: r.get(3)?, day: r.get(4)?, next: r.get(5)?, note: r.get(6)? })
+}
+
 /// Newest first; every pet when `pet` is None.
 pub fn records(c: &Connection, pet: Option<i64>) -> rusqlite::Result<Vec<Record>> {
-    c.prepare(&format!("SELECT id,pet_id,kind,name,day,next,note FROM record WHERE 1{} ORDER BY day DESC,id DESC", of_pet("pet_id", pet)))?
-        .query_map([], |r| Ok(Record { id: r.get(0)?, pet_id: r.get(1)?, kind: r.get(2)?, name: r.get(3)?, day: r.get(4)?, next: r.get(5)?, note: r.get(6)? }))?
-        .collect()
+    c.prepare(&format!("SELECT id,pet_id,kind,name,day,next,note FROM record WHERE 1{} ORDER BY day DESC,id DESC", of_pet("pet_id", pet)))?.query_map([], record_row)?.collect()
+}
+
+pub fn record(c: &Connection, id: i64) -> rusqlite::Result<Option<Record>> {
+    c.query_row("SELECT id,pet_id,kind,name,day,next,note FROM record WHERE id=?1", [id], record_row).optional()
+}
+
+/// A meal or a dose given: which one (`day`, `slot`), and who gave it at what time.
+pub struct GivenOne {
+    pub day: String,
+    pub slot: String,
+    pub by: i64,
+    pub at: String,
+}
+
+pub fn fed_one(c: &Connection, pet: i64, day: &str, slot: &str) -> rusqlite::Result<Option<GivenOne>> {
+    c.query_row("SELECT by,at FROM fed WHERE pet_id=?1 AND day=?2 AND slot=?3", params![pet, day, slot], |r| Ok(GivenOne { day: day.into(), slot: slot.into(), by: r.get(0)?, at: r.get(1)? })).optional()
+}
+
+pub fn dose_one(c: &Connection, med: i64, day: &str, slot: &str) -> rusqlite::Result<Option<GivenOne>> {
+    c.query_row("SELECT by,at FROM dose WHERE med_id=?1 AND day=?2 AND slot=?3", params![med, day, slot], |r| Ok(GivenOne { day: day.into(), slot: slot.into(), by: r.get(0)?, at: r.get(1)? })).optional()
+}
+
+/// A chore marked as done.
+pub struct Done {
+    pub id: i64,
+    pub title: String,
+    pub day: String,
+    pub at: String,
+    pub by: i64,
+}
+
+pub fn done(c: &Connection, id: i64) -> rusqlite::Result<Option<Done>> {
+    c.query_row("SELECT x.id,t.title,x.day,x.at,x.by FROM task_done x JOIN task t ON t.id=x.task_id WHERE x.id=?1", [id], |r| {
+        Ok(Done { id: r.get(0)?, title: r.get(1)?, day: r.get(2)?, at: r.get(3)?, by: r.get(4)? })
+    })
+    .optional()
 }
 
 pub struct Event {
@@ -414,20 +475,22 @@ pub struct Event {
     pub people: Vec<i64>,
     pub a: String,
     pub b: String,
+    /// Which entry it is, as `view::entries` reads it to open its edit dialog.
+    pub key: String,
 }
 
 /// Newest first.
 pub fn feed(c: &Connection, pet: Option<i64>, limit: i64) -> rusqlite::Result<Vec<Event>> {
     c.prepare(
         &format!(
-            "SELECT * FROM (SELECT at, pet_id, 'walk', by, COALESCE(minutes,''), note, CAST({walkers} AS TEXT) FROM walk WHERE 1{p} ORDER BY at DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT day||' '||at, pet_id, 'fed', by, slot, '', by FROM fed WHERE 1{p} ORDER BY day DESC, at DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT d.day||' '||d.at, m.pet_id, 'dose', d.by, m.title, d.slot, d.by FROM dose d JOIN med m ON m.id=d.med_id WHERE 1{mp} ORDER BY d.day DESC, d.at DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT at, pet_id, 'health', by, kind, mood, by FROM health WHERE 1{p} ORDER BY at DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT at, pet_id, 'treat', by, what, amount, by FROM treat WHERE 1{p} ORDER BY at DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT x.day||' '||x.at, t.pet_id, 'task', x.by, t.title, t.icon, x.by FROM task_done x JOIN task t ON t.id=x.task_id WHERE 1{tp} ORDER BY x.day DESC, x.at DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT day, pet_id, 'weight', by, kg, '', by FROM weight WHERE 1{p} ORDER BY day DESC LIMIT ?1)
-             UNION ALL SELECT * FROM (SELECT day, pet_id, 'record', 0, kind, name, '' FROM record WHERE 1{p} ORDER BY day DESC LIMIT ?1)
+            "SELECT * FROM (SELECT at, pet_id, 'walk', by, COALESCE(minutes,''), note, CAST({walkers} AS TEXT), 'w'||id FROM walk WHERE 1{p} ORDER BY at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT day||' '||at, pet_id, 'fed', by, slot, '', by, 'f'||pet_id||'.'||day||'.'||slot FROM fed WHERE 1{p} ORDER BY day DESC, at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT d.day||' '||d.at, m.pet_id, 'dose', d.by, m.title, d.slot, d.by, 'd'||d.med_id||'.'||d.day||'.'||d.slot FROM dose d JOIN med m ON m.id=d.med_id WHERE 1{mp} ORDER BY d.day DESC, d.at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT at, pet_id, 'health', by, kind, mood, by, 'h'||id FROM health WHERE 1{p} ORDER BY at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT at, pet_id, 'treat', by, what, amount, by, 't'||id FROM treat WHERE 1{p} ORDER BY at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT x.day||' '||x.at, t.pet_id, 'task', x.by, t.title, t.icon, x.by, 'c'||x.id FROM task_done x JOIN task t ON t.id=x.task_id WHERE 1{tp} ORDER BY x.day DESC, x.at DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT day, pet_id, 'weight', by, kg, '', by, 'k'||id FROM weight WHERE 1{p} ORDER BY day DESC LIMIT ?1)
+             UNION ALL SELECT * FROM (SELECT day, pet_id, 'record', 0, kind, name, '', 'r'||id FROM record WHERE 1{p} ORDER BY day DESC LIMIT ?1)
              ORDER BY 1 DESC LIMIT ?1",
             walkers = WALKERS,
             p = of_pet("pet_id", pet),
@@ -449,7 +512,7 @@ pub fn feed(c: &Connection, pet: Option<i64>, limit: i64) -> rusqlite::Result<Ve
             rusqlite::types::Value::Integer(n) if n > 0 => vec![n],
             _ => Vec::new(),
         };
-        Ok(Event { at: r.get(0)?, pet_id: r.get(1)?, kind: r.get(2)?, by: r.get(3)?, people, a, b: r.get(5)? })
+        Ok(Event { at: r.get(0)?, pet_id: r.get(1)?, kind: r.get(2)?, by: r.get(3)?, people, a, b: r.get(5)?, key: r.get(7)? })
     })?
     .collect()
 }
@@ -493,6 +556,8 @@ mod tests {
         assert_eq!((f[1].a.as_str(), f[2].a.as_str()), ("30", "12.5"));
         assert_eq!(f[1].people, [2, 3], "a walk lists everyone who went");
         assert_eq!(f[0].people, [1]);
+        let keys: Vec<&str> = f.iter().map(|e| e.key.as_str()).collect();
+        assert_eq!(keys, ["f1.2026-11-16.20:00", "w1", "k1"], "each line names the entry it opens");
         let w = walks_since(&c, Some(1), "2026-11-01").unwrap();
         assert_eq!(w[0].people, [2, 3]);
     }

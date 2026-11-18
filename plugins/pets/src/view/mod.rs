@@ -18,7 +18,8 @@ mod tasks;
 mod card;
 mod rows;
 mod treats;
-use {today::*, home::*, pet::*, care::*, vet::*, tasks::*, card::*, rows::*, treats::*};
+mod entries;
+use {today::*, home::*, pet::*, care::*, vet::*, tasks::*, card::*, rows::*, treats::*, entries::*};
 
 const CSS: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 const JS: &str = include_str!("../../pets.js");
@@ -228,11 +229,17 @@ fn day_groups<T>(v: &V, items: &[T], at: impl Fn(&T) -> &str, row: impl Fn(&T) -
 }
 
 fn delete_form(v: &V, action: &str, ret: &str, label: &str) -> Markup {
+    delete_form_with(v, action, ret, label, &[])
+}
+
+/// For entries named by several fields instead of an id in the path (a meal, a dose).
+fn delete_form_with(v: &V, action: &str, ret: &str, label: &str, fields: &[(&str, String)]) -> Markup {
     html! {
         details.pt-confirm {
             summary.btn.ghost.sm { (icon("trash-2")) (label) }
             form method="post" action=(action) {
                 (v.ctx(ret))
+                @for (k, val) in fields { input type="hidden" name=(k) value=(val); }
                 span { "¿Seguro? No se puede deshacer." }
                 button.btn.danger.sm { "Sí, borrar" }
             }

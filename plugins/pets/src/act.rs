@@ -32,6 +32,9 @@ pub const FLASHES: &[(&str, &str)] = &[
     ("task_done", "Hecho. Apuntado"),
     ("fed", "Comida apuntada"),
     ("fed_undone", "Comida desmarcada"),
+    ("fed_updated", "Comida guardada"),
+    ("dose_updated", "Toma guardada"),
+    ("done_updated", "Guardado"),
     ("record_added", "Apuntado en la cartilla"),
     ("record_saved", "Cartilla guardada"),
     ("deleted", "Borrado"),
@@ -71,6 +74,12 @@ pub fn routes() -> Router<App> {
         .route("/task/{id}/done", post(task_done))
         .route("/task/{id}/delete", post(task_delete))
         .route("/fed", post(fed))
+        .route("/fed/save", post(fed_save))
+        .route("/fed/delete", post(fed_delete))
+        .route("/dose/save", post(dose_save))
+        .route("/dose/delete", post(dose_delete))
+        .route("/done/{id}", post(done_edit))
+        .route("/done/{id}/delete", post(done_delete))
         .route("/treat", post(treat))
         .route("/treat/{id}", post(treat_edit))
         .route("/treat/{id}/delete", post(treat_delete))
@@ -463,6 +472,35 @@ async fn dose(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
     back(&c, &f, None, if removed == 0 { "dose_given" } else { "dose_undone" })
 }
 
+/// Who gave it, when it was not the one writing it down.
+fn giver(f: &[(String, String)], me: i64) -> i64 {
+    field(f, "by").parse().ok().filter(|b| *b > 0).unwrap_or(me)
+}
+
+fn dose_key(f: &[(String, String)]) -> (i64, &str, &str) {
+    (field(f, "med").parse().unwrap_or(0), field(f, "day"), field(f, "slot"))
+}
+
+/// Fixes who gave a dose and at what time: ticked late, or by someone else.
+async fn dose_save(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
+    let me = user!(h);
+    let c = lock(&app.db);
+    let Some(at) = hhmm(field(&f, "at")) else { return bad("Escribe la hora a la que se la disteis") };
+    let (med, day, slot) = dose_key(&f);
+    if c.execute("UPDATE dose SET at=?1,by=?2 WHERE med_id=?3 AND day=?4 AND slot=?5", params![at, giver(&f, me), med, day, slot])? == 0 {
+        return bad("Esa toma ya no está apuntada");
+    }
+    back(&c, &f, None, "dose_updated")
+}
+
+async fn dose_delete(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
+    user!(h);
+    let c = lock(&app.db);
+    let (med, day, slot) = dose_key(&f);
+    c.execute("DELETE FROM dose WHERE med_id=?1 AND day=?2 AND slot=?3", params![med, day, slot])?;
+    back(&c, &f, None, "deleted")
+}
+
 // ---------- health and walks ----------
 
 struct HealthData {
@@ -684,6 +722,54 @@ async fn task_done(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Fo
     back(&c, &f, None, "task_done")
 }
 
+fn last_done(c: &Connection, task: i64) -> rusqlite::Result<Option<String>> {
+    c.query_row("SELECT max(day) FROM task_done WHERE task_id=?1", [task], |r| r.get(0))
+}
+
+/// A chore comes back `every` days after the last time it was done, so moving or erasing that
+/// time moves its next date too. With no time left, it is pending again from `fallback`.
+fn reschedule(c: &Connection, task: i64, before: Option<String>, fallback: &str) -> rusqlite::Result<()> {
+    let latest = last_done(c, task)?;
+    if latest == before {
+        return Ok(());
+    }
+    let every: i64 = c.query_row("SELECT every FROM task WHERE id=?1", [task], |r| r.get(0))?;
+    let due = match latest {
+        Some(d) if every > 0 => add_days(&d, every),
+        Some(_) => String::new(),
+        None => fallback.to_string(),
+    };
+    c.execute("UPDATE task SET due=?1 WHERE id=?2", params![due, task])?;
+    Ok(())
+}
+
+async fn done_edit(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
+    let me = user!(h);
+    let c = lock(&app.db);
+    let Some(task): Option<i64> = c.query_row("SELECT task_id FROM task_done WHERE id=?1", [id], |r| r.get(0)).optional()? else { return bad("Eso ya no está apuntado") };
+    let (today, time) = now(&c)?;
+    let Some(day) = date(field(&f, "day")).filter(|d| *d <= today) else { return bad("Elige un día que no sea futuro") };
+    let at = hhmm(field(&f, "at")).unwrap_or(time);
+    let tx = c.unchecked_transaction()?;
+    let before = last_done(&tx, task)?;
+    tx.execute("UPDATE task_done SET day=?1,at=?2,by=?3 WHERE id=?4", params![day, at, giver(&f, me), id])?;
+    reschedule(&tx, task, before, &day)?;
+    tx.commit()?;
+    back(&c, &f, None, "done_updated")
+}
+
+async fn done_delete(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
+    user!(h);
+    let c = lock(&app.db);
+    let Some((task, day)): Option<(i64, String)> = c.query_row("SELECT task_id,day FROM task_done WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()? else { return back(&c, &f, None, "deleted") };
+    let tx = c.unchecked_transaction()?;
+    let before = last_done(&tx, task)?;
+    tx.execute("DELETE FROM task_done WHERE id=?1", [id])?;
+    reschedule(&tx, task, before, &day)?;
+    tx.commit()?;
+    back(&c, &f, None, "deleted")
+}
+
 async fn task_delete(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Form(f): F) -> R {
     user!(h);
     let c = lock(&app.db);
@@ -723,6 +809,43 @@ async fn fed(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
     }
     c.execute("INSERT OR IGNORE INTO fed(pet_id,day,slot,by) VALUES(?1,?2,?3,?4)", params![pet.id, day, slot, by])?;
     logged(&c, &f, "fed", &format!("f{}-{}", pet.id, slot.replace(':', "")))
+}
+
+/// A meal written down by hand: one nobody ticked at the time, or a fix to which meal it was,
+/// who gave it and when. `oday` and `oslot` name the meal being changed; without them it is new.
+async fn fed_save(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
+    let me = user!(h);
+    let c = lock(&app.db);
+    let Some(pet) = pet_of(&c, &f)?.map(|id| data::pet(&c, id)).transpose()?.flatten() else { return bad("Esa mascota ya no está") };
+    let (today, time) = now(&c)?;
+    let Some(day) = date(field(&f, "day")).filter(|d| *d <= today) else { return bad("Elige un día que no sea futuro") };
+    let at = hhmm(field(&f, "at")).unwrap_or(time);
+    let asked = field(&f, "slot");
+    let slot = if pet.meal_slots().iter().any(|s| s == asked) { asked.to_string() } else { at.clone() };
+    let by = giver(&f, me);
+    let editing = !field(&f, "oday").is_empty();
+    let saved = if editing {
+        c.execute(
+            "UPDATE fed SET day=?1,slot=?2,by=?3,at=?4 WHERE pet_id=?5 AND day=?6 AND slot=?7",
+            params![day, slot, by, at, pet.id, field(&f, "oday"), field(&f, "oslot")],
+        )
+    } else {
+        c.execute("INSERT INTO fed(pet_id,day,slot,by,at) VALUES(?1,?2,?3,?4,?5)", params![pet.id, day, slot, by, at])
+    };
+    match saved {
+        Ok(_) => back(&c, &f, None, if editing { "fed_updated" } else { "fed" }),
+        Err(rusqlite::Error::SqliteFailure(e, _)) if e.code == rusqlite::ErrorCode::ConstraintViolation => {
+            bad("Esa comida ya está apuntada ese día. Ábrela en el diario para cambiarla.")
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+async fn fed_delete(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
+    user!(h);
+    let c = lock(&app.db);
+    c.execute("DELETE FROM fed WHERE pet_id=?1 AND day=?2 AND slot=?3", params![field(&f, "pet").parse::<i64>().unwrap_or(0), field(&f, "day"), field(&f, "slot")])?;
+    back(&c, &f, None, "deleted")
 }
 
 /// "HH:MM" plus `n` minutes, capped at the end of the day.
@@ -905,6 +1028,34 @@ mod tests {
         assert!(!take_back(&c, "x9", 2).unwrap() && !take_back(&c, "", 2).unwrap());
         let left: i64 = c.query_row("SELECT (SELECT COUNT(*) FROM walk)+(SELECT COUNT(*) FROM treat)+(SELECT COUNT(*) FROM fed)", [], |r| r.get(0)).unwrap();
         assert_eq!(left, 2);
+    }
+
+    #[test]
+    fn fixing_when_a_chore_was_done_moves_its_next_date() {
+        let c = crate::open(":memory:").unwrap();
+        c.execute_batch(
+            "INSERT INTO pet(id,name) VALUES(1,'Toby');
+             INSERT INTO task(id,pet_id,title,every,due) VALUES(1,1,'Baño',30,'2026-12-18'),(2,1,'Vacuna',0,'');
+             INSERT INTO task_done(id,task_id,day) VALUES(1,1,'2026-10-01'),(2,1,'2026-11-18'),(3,2,'2026-11-18');",
+        )
+        .unwrap();
+        let due = |id: i64| c.query_row("SELECT due FROM task WHERE id=?1", [id], |r| r.get::<_, String>(0)).unwrap();
+
+        let before = last_done(&c, 1).unwrap();
+        c.execute("UPDATE task_done SET day='2026-11-15' WHERE id=2", []).unwrap();
+        reschedule(&c, 1, before, "2026-11-15").unwrap();
+        assert_eq!(due(1), "2026-12-15", "forgotten on the day, written down three days later");
+
+        c.execute("UPDATE task SET due='2027-01-01' WHERE id=1", []).unwrap();
+        let before = last_done(&c, 1).unwrap();
+        c.execute("UPDATE task_done SET day='2026-09-30' WHERE id=1", []).unwrap();
+        reschedule(&c, 1, before, "2026-09-30").unwrap();
+        assert_eq!(due(1), "2027-01-01", "an older time leaves a date set by hand alone");
+
+        let before = last_done(&c, 2).unwrap();
+        c.execute("DELETE FROM task_done WHERE id=3", []).unwrap();
+        reschedule(&c, 2, before, "2026-11-18").unwrap();
+        assert_eq!(due(2), "2026-11-18", "a one-off chore erased by mistake is pending again");
     }
 
     #[test]

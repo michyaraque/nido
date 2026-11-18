@@ -63,12 +63,13 @@ pub(super) fn home(c: &Connection, v: &V, p: &Params) -> rusqlite::Result<Markup
                     section.card.pt-card {
                         (sec_head("history", "Lo último en casa", None))
                         @if events.is_empty() { p.pt-none { "Aquí saldrá lo que vaya apuntando cada uno." } }
-                        @else { (diary(v, &events, &by_pet, true, false, "feed-home")) }
+                        @else { (diary(v, &events, &by_pet, true, false, "feed-home", "")) }
                     }
                 }
             }
         }
         (pet_modal(v, None, None))
+        (entry_modal(c, v, p.get("x"), "")?)
     })
 }
 

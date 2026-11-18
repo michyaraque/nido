@@ -332,7 +332,7 @@ pub(super) fn walk_modal(v: &V, pet: &Pet, ret: &str, w: Option<&data::Walk>) ->
                     p.hint { "Marca a todos los que fueron." }
                 }
             }
-            div.two {
+            div.pt-when-min {
                 div.field {
                     label for={ (id) "-at" } { "Cuándo" }
                     input.input id={ (id) "-at" } type="datetime-local" name="at" value=(w.map_or_else(|| v.now_local(), |w| w.at.replace(' ', "T")));

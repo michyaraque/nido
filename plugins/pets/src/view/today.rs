@@ -11,6 +11,8 @@ pub(super) struct Ag {
     pub(super) late: bool,
     pub(super) post: Option<(String, Vec<(&'static str, String)>)>,
     pub(super) href: String,
+    /// The entry to open when it is done, to fix who did it or when (`entries`).
+    pub(super) entry: Option<String>,
 }
 
 pub(super) fn agenda_items(c: &Connection, v: &V, pets: &[Pet]) -> rusqlite::Result<Vec<Ag>> {
@@ -21,10 +23,11 @@ pub(super) fn agenda_items(c: &Connection, v: &V, pets: &[Pet]) -> rusqlite::Res
     let link = |p: i64, s: &str| v.link(&format!("p={p}{s}"));
     for p in pets {
         if next_birthday(&p.birth, &v.today).as_deref() == Some(v.today.as_str()) {
-            out.push(Ag { time: String::new(), pet: p.id, icon: "cake", title: format!("Cumple {}", age(&p.birth, &v.today).unwrap_or_default()), sub: "Su cumpleaños".into(), done: None, late: false, post: None, href: link(p.id, "") });
+            out.push(Ag { time: String::new(), pet: p.id, icon: "cake", title: format!("Cumple {}", age(&p.birth, &v.today).unwrap_or_default()), sub: "Su cumpleaños".into(), done: None, late: false, post: None, href: link(p.id, ""), entry: None });
         }
         for slot in p.meal_slots() {
             let done = fed.get(&(p.id, v.today.clone(), slot.clone())).cloned();
+            let entry = done.is_some().then(|| format!("f{}.{}.{slot}", p.id, v.today));
             let sub = match (p.portion.is_empty(), p.food.is_empty()) {
                 (true, _) => p.food.clone(),
                 (false, true) => p.portion.clone(),
@@ -40,12 +43,14 @@ pub(super) fn agenda_items(c: &Connection, v: &V, pets: &[Pet]) -> rusqlite::Res
                 done,
                 post: Some(("/plugins/pets/fed".into(), vec![("pet", p.id.to_string()), ("day", v.today.clone()), ("slot", slot)])),
                 href: link(p.id, ""),
+                entry,
             });
         }
     }
     for m in data::meds(c, None)?.into_iter().filter(|m| ids.contains(&m.pet_id) && m.active_on(&v.today)) {
         for slot in m.slots() {
             let done = doses.get(&(m.id, v.today.clone(), slot.clone())).cloned();
+            let entry = done.is_some().then(|| format!("d{}.{}.{slot}", m.id, v.today));
             out.push(Ag {
                 late: done.is_none() && !slot.is_empty() && slot < v.time,
                 time: slot.clone(),
@@ -56,6 +61,7 @@ pub(super) fn agenda_items(c: &Connection, v: &V, pets: &[Pet]) -> rusqlite::Res
                 done,
                 post: Some(("/plugins/pets/dose".into(), vec![("med", m.id.to_string()), ("day", v.today.clone()), ("slot", slot)])),
                 href: link(m.pet_id, "&s=med"),
+                entry,
             });
         }
     }
@@ -71,6 +77,7 @@ pub(super) fn agenda_items(c: &Connection, v: &V, pets: &[Pet]) -> rusqlite::Res
             late,
             post: Some((format!("/plugins/pets/task/{}/done", t.id), vec![])),
             href: link(t.pet_id, &format!("&s=tasks&e={}#task-edit", t.id)),
+            entry: None,
         });
     }
     for x in data::visits(c, None)?.into_iter().filter(|x| ids.contains(&x.pet_id) && x.at.starts_with(v.today.as_str())) {
@@ -84,6 +91,7 @@ pub(super) fn agenda_items(c: &Connection, v: &V, pets: &[Pet]) -> rusqlite::Res
             late: false,
             post: None,
             href: link(x.pet_id, &format!("&s=vet&e={}#visit-edit", x.id)),
+            entry: None,
         });
     }
     out.sort_by(|a, b| a.time.cmp(&b.time));
@@ -99,7 +107,7 @@ pub(super) fn agenda(v: &V, items: &[Ag], pets: &HashMap<i64, &Pet>, ret: &str, 
                         span.pt-ag-time { @if a.time.is_empty() { (icon("sun")) } @else { (a.time) } }
                         @if show_pet { (face(pet, "xs")) } @else { span.pt-ag-ico { (icon(a.icon)) } }
                         div.pt-row-main {
-                            a.pt-row-title href=(a.href) { @if show_pet { span.pt-ag-kind { (icon(a.icon)) } } (a.title) @if show_pet { span.pt-ev-pet { (pet.name) } } }
+                            a.pt-row-title href=(a.entry.as_deref().and_then(|k| edit_href(v, ret, k)).unwrap_or_else(|| a.href.clone())) { @if show_pet { span.pt-ag-kind { (icon(a.icon)) } } (a.title) @if show_pet { span.pt-ev-pet { (pet.name) } } }
                             span.pt-row-sub {
                                 @match &a.done {
                                     Some((by, at)) if *by > 0 => { (v.name(*by)) " · a las " (at) }
@@ -234,7 +242,7 @@ pub(super) fn upcoming_list<'a>(v: &V, items: impl IntoIterator<Item = &'a Up>, 
 
 // ---------- the diary ----------
 
-pub(super) fn event_row(v: &V, e: &data::Event, pet: &Pet, show_pet: bool) -> Markup {
+pub(super) fn event_row(v: &V, e: &data::Event, pet: &Pet, show_pet: bool, ret: &str) -> Markup {
     let time = e.at.get(11..16).unwrap_or("");
     let (ic, title, extra, tone): (&str, String, String, &str) = match e.kind.as_str() {
         "walk" => ("footprints", "Paseo".into(), if e.a.is_empty() { e.b.clone() } else { format!("{} min", e.a) }, ""),
@@ -265,19 +273,21 @@ pub(super) fn event_row(v: &V, e: &data::Event, pet: &Pet, show_pet: bool) -> Ma
     if !extra.is_empty() {
         sub.push(extra);
     }
+    let href = edit_href(v, ret, &e.key).unwrap_or_default();
     html! {
-        div.pt-event style=(tint(pet)) {
+        a.pt-event.pt-editable href=(href) style=(tint(pet)) aria-label={ "Editar: " (title) @if !time.is_empty() { ", " (time) } } {
             span class={ "pt-ev-ico " (tone) } { (icon(ic)) }
             div.pt-row-main {
                 span.pt-row-title { (title) @if show_pet { span.pt-ev-pet { (pet.name) } } }
                 @if !sub.is_empty() { span.pt-row-sub { (sub.join(" · ")) } }
             }
+            span.pt-row-go aria-hidden="true" { (icon("pencil")) }
         }
     }
 }
 
-pub(super) fn diary(v: &V, events: &[data::Event], pets: &HashMap<i64, &Pet>, show_pet: bool, by_day: bool, id: &str) -> Markup {
-    let row = |e: &data::Event| pets.get(&e.pet_id).map_or_else(|| html! {}, |pet| event_row(v, e, pet, show_pet));
+pub(super) fn diary(v: &V, events: &[data::Event], pets: &HashMap<i64, &Pet>, show_pet: bool, by_day: bool, id: &str, ret: &str) -> Markup {
+    let row = |e: &data::Event| pets.get(&e.pet_id).map_or_else(|| html! {}, |pet| event_row(v, e, pet, show_pet, ret));
     let rows = if by_day { day_groups(v, events, |e| e.at.as_str(), row) } else { events.iter().map(row).collect() };
     clamp(id, rows, by_day)
 }
