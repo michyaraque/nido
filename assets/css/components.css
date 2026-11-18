@@ -727,13 +727,17 @@ input::-webkit-outer-spin-button {
   margin: 0;
 }
 
-input[type=date]::-webkit-calendar-picker-indicator {
+input[type=date]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-calendar-picker-indicator,
+input[type=datetime-local]::-webkit-calendar-picker-indicator {
   opacity: .45;
   cursor: pointer;
 }
 
 @media (prefers-color-scheme: dark) {
-  input[type=date]::-webkit-calendar-picker-indicator {
+  input[type=date]::-webkit-calendar-picker-indicator,
+  input[type=time]::-webkit-calendar-picker-indicator,
+  input[type=datetime-local]::-webkit-calendar-picker-indicator {
     filter: invert(1);
   }
 }
