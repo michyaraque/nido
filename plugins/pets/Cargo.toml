@@ -1,6 +1,6 @@
 [package]
 name = "nido-pets"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Mascotas, un plugin de Nido que va en su propio programa"
 
