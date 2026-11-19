@@ -3,6 +3,11 @@
   margin: 0;
 }
 
+/* `hidden` must win over a class's display (a `.btn` the script shows only when it can work). */
+[hidden] {
+  display: none !important;
+}
+
 html {
   scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
