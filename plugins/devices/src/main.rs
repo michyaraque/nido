@@ -708,6 +708,10 @@ fn list(c: &Connection, app: &App, p: &Params) -> rusqlite::Result<Markup> {
             None => rooms.push((&d.room, vec![d])),
         }
     }
+    let is_on = |d: &Device| live.get(&d.id).is_some_and(|l| l.online && switches(d, &l.dps).iter().any(|k| l.dps[k] == Value::Bool(true)));
+    for (_, v) in &mut rooms {
+        v.sort_by_cached_key(|d| (!is_on(d), d.name.to_lowercase()));
+    }
     Ok(html! {
         span hidden data-refresh="5" {}
         div.page-head {
@@ -816,6 +820,7 @@ fn detail(c: &Connection, app: &App, d: &Device, p: &Params) -> rusqlite::Result
                 h1 { (d.name) }
                 p { @if d.room.is_empty() { "Sin habitación" } @else { (d.room) } }
             }
+            a.icon-btn.outline href="#dv-edit" aria-label="Ajustes del aparato" { (icon("settings")) }
         }
         (alert(p))
         section.card.dv-hero.on[any_on].off[!online] {
@@ -850,19 +855,26 @@ fn detail(c: &Connection, app: &App, d: &Device, p: &Params) -> rusqlite::Result
                 (bars(&days, [days[0].0.as_str(), days[15].0.as_str(), "Hoy"], "Consumo de los últimos 30 días"))
             }
         }
-        details.card.dv-settings {
-            summary { (icon("settings")) "Ajustes del aparato" (icon("chevron-down")) }
-            form.form method="post" action={ "/plugins/devices/" (d.id) } {
-                div.two {
+        div.modal #dv-edit role="dialog" aria-modal="true" aria-labelledby="dv-edit-t" {
+            a.scrim href="#_" aria-label="Cerrar" tabindex="-1" {}
+            div.dialog {
+                div.dialog-top {
+                    h2 #dv-edit-t { "Ajustes del aparato" }
+                    a.icon-btn href="#_" aria-label="Cerrar" { (icon("x")) }
+                }
+                form.form method="post" action={ "/plugins/devices/" (d.id) } {
                     div.field { label for="name" { "Nombre" } input #name.input name="name" value=(d.name) required; }
                     div.field { label for="room" { "Habitación" } input #room.input name="room" value=(d.room) placeholder="Salón, cocina…" list="dv-rooms"; }
+                    (rooms_list(c)?)
+                    (advanced(&d.ip, &d.version, Some((&d.uid, &d.secret))))
+                    div { button.btn.primary type="submit" { "Guardar" } }
                 }
-                (rooms_list(c)?)
-                (advanced(&d.ip, &d.version, Some((&d.uid, &d.secret))))
-                div { button.btn.primary type="submit" { "Guardar" } }
-            }
-            form.dv-del method="post" action={ "/plugins/devices/" (d.id) "/delete" } {
-                button.btn.danger type="submit" { (icon("trash-2")) "Quitar de Nido" }
+                details.dv-del {
+                    summary.btn.ghost { (icon("trash-2")) "Quitar de Nido" }
+                    form method="post" action={ "/plugins/devices/" (d.id) "/delete" } {
+                        button.btn.danger type="submit" { "Quitar " (d.name) }
+                    }
+                }
             }
         }
     })

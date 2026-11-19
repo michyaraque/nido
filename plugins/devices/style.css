@@ -12,6 +12,12 @@
   --amber-ink: #b45309;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --amber-ink: #fbbf24;
+  }
+}
+
 .dv-sec-head {
   display: flex;
   align-items: center;
@@ -148,8 +154,7 @@
 }
 
 .dv-card.on {
-  border-color: color-mix(in srgb, var(--amber) 50%, var(--line));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--amber) 10%, var(--surface)), var(--surface) 70%);
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--line));
 }
 
 .dv-card.off {
@@ -188,9 +193,8 @@
 
 .dv-card.on .dv-ico,
 .dv-hero.on .dv-ico {
-  background: var(--amber);
-  color: #fff;
-  box-shadow: 0 8px 16px -8px var(--amber);
+  background: color-mix(in srgb, var(--amber) 20%, var(--surface));
+  color: var(--amber-ink);
 }
 
 .dv-card-main {
@@ -236,7 +240,7 @@
 }
 
 .dv-sub b {
-  color: var(--amber-ink);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -283,11 +287,21 @@
   outline-offset: 2px;
 }
 
+.dv-power,
+.dv-sw {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+}
+
+.dv-power:hover {
+  color: var(--bad);
+}
+
 .dv-power.on {
-  background: var(--amber);
-  border-color: var(--amber);
+  background: color-mix(in srgb, var(--ok) 72%, #000);
+  border-color: color-mix(in srgb, var(--ok) 72%, #000);
   color: #fff;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--amber) 18%, transparent), 0 8px 18px -8px var(--amber);
+  box-shadow: none;
 }
 
 .dv-power.big {
@@ -358,8 +372,8 @@
 }
 
 .dv-sw.on {
-  background: var(--amber);
-  border-color: var(--amber);
+  background: color-mix(in srgb, var(--ok) 72%, #000);
+  border-color: color-mix(in srgb, var(--ok) 72%, #000);
   color: #fff;
 }
 
@@ -386,8 +400,7 @@
 }
 
 .dv-hero.on {
-  border-color: color-mix(in srgb, var(--amber) 50%, var(--line));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--amber) 12%, var(--surface)), var(--surface));
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--line));
 }
 
 .dv-hero-top {
@@ -534,52 +547,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-.dv-settings {
+.dv-del {
   margin-top: 16px;
-  padding: 0;
 }
 
-.dv-settings>summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 20px;
-  cursor: pointer;
+.dv-del>summary {
   list-style: none;
-  font-size: 15px;
-  font-weight: 600;
 }
 
-.dv-settings>summary::-webkit-details-marker {
+.dv-del>summary::-webkit-details-marker {
   display: none;
 }
 
-.dv-settings>summary .i {
-  width: 18px;
-  height: 18px;
-  color: var(--mute);
-}
-
-.dv-settings>summary .i:last-child {
-  margin-left: auto;
-  transition: transform .2s;
-}
-
-.dv-settings[open]>summary .i:last-child {
-  transform: rotate(180deg);
-}
-
-.dv-settings>form {
-  padding: 0 20px 20px;
-}
-
-.dv-settings .dv-del {
-  padding: 0 20px 16px;
-  margin: 0;
-}
-
-.dv-del {
-  margin-top: 16px;
+.dv-del>form {
+  margin-top: 8px;
 }
 
 .dv-month {
