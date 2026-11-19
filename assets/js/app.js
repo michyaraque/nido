@@ -511,7 +511,11 @@ function ready() {
   }
   wasCopying = copying;
   const reading = document.querySelector("[data-refresh]");
-  if (reading) refreshTimer = setTimeout(() => visit(location.href, {}, { keepScroll: true }), reading.dataset.refresh * 1000);
+  // An open dialog holds what someone is typing: wait until it closes before reloading the view.
+  const tick = () => document.querySelector(".modal:target")
+    ? (refreshTimer = setTimeout(tick, 1000))
+    : visit(location.href, {}, { keepScroll: true });
+  if (reading) refreshTimer = setTimeout(tick, reading.dataset.refresh * 1000);
 }
 
 /* ---------- concept suggestions ----------
