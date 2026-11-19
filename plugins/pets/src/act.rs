@@ -722,13 +722,13 @@ async fn task_done(State(app): State<App>, h: HeaderMap, Path(id): Path<i64>, Fo
     back(&c, &f, None, "task_done")
 }
 
-fn last_done(c: &Connection, task: i64) -> rusqlite::Result<Option<String>> {
+pub(crate) fn last_done(c: &Connection, task: i64) -> rusqlite::Result<Option<String>> {
     c.query_row("SELECT max(day) FROM task_done WHERE task_id=?1", [task], |r| r.get(0))
 }
 
 /// A chore comes back `every` days after the last time it was done, so moving or erasing that
 /// time moves its next date too. With no time left, it is pending again from `fallback`.
-fn reschedule(c: &Connection, task: i64, before: Option<String>, fallback: &str) -> rusqlite::Result<()> {
+pub(crate) fn reschedule(c: &Connection, task: i64, before: Option<String>, fallback: &str) -> rusqlite::Result<()> {
     let latest = last_done(c, task)?;
     if latest == before {
         return Ok(());
@@ -849,7 +849,7 @@ async fn fed_delete(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
 }
 
 /// "HH:MM" plus `n` minutes, capped at the end of the day.
-fn add_minutes(t: &str, n: i64) -> String {
+pub(crate) fn add_minutes(t: &str, n: i64) -> String {
     let m = (t[..2].parse::<i64>().unwrap_or(0) * 60 + t[3..5].parse::<i64>().unwrap_or(0) + n).min(23 * 60 + 59);
     format!("{:02}:{:02}", m / 60, m % 60)
 }
@@ -967,9 +967,9 @@ async fn undo(State(app): State<App>, h: HeaderMap, Form(f): F) -> R {
     back(&c, &f, None, "undone")
 }
 
-const RECENT: &str = "strftime('%Y-%m-%d %H:%M','now','localtime','-30 minutes')";
+pub(crate) const RECENT: &str = "strftime('%Y-%m-%d %H:%M','now','localtime','-30 minutes')";
 
-fn take_back(c: &Connection, what: &str, me: i64) -> rusqlite::Result<bool> {
+pub(crate) fn take_back(c: &Connection, what: &str, me: i64) -> rusqlite::Result<bool> {
     let Some((kind, rest)) = what.split_at_checked(1) else { return Ok(false) };
     let n = match kind {
         "w" | "h" | "t" => {
@@ -981,6 +981,33 @@ fn take_back(c: &Connection, what: &str, me: i64) -> rusqlite::Result<bool> {
             let Some((pet, hm)) = rest.split_once('-') else { return Ok(false) };
             let (Ok(pet), Some(slot)) = (pet.parse::<i64>(), hm.get(..2).zip(hm.get(2..4)).map(|(h, m)| format!("{h}:{m}"))) else { return Ok(false) };
             c.execute(&format!("DELETE FROM fed WHERE pet_id=?1 AND day=date('now','localtime') AND slot=?2 AND by=?3 AND day||' '||at>={RECENT}"), params![pet, slot, me])?
+        }
+        // A dose: `d<med>-<hhmm>`, with no time for a dose that has none.
+        "d" => {
+            let Some((med, hm)) = rest.split_once('-') else { return Ok(false) };
+            let slot = match (hm.get(..2), hm.get(2..4)) {
+                (Some(h), Some(m)) => format!("{h}:{m}"),
+                _ if hm.is_empty() => String::new(),
+                _ => return Ok(false),
+            };
+            let Ok(med) = med.parse::<i64>() else { return Ok(false) };
+            c.execute(&format!("DELETE FROM dose WHERE med_id=?1 AND day=date('now','localtime') AND slot=?2 AND by=?3 AND day||' '||at>={RECENT}"), params![med, slot, me])?
+        }
+        // A chore done: its next date goes back to what it was.
+        "k" => {
+            let id: i64 = rest.parse().unwrap_or(0);
+            let Some((task, day)): Option<(i64, String)> = c
+                .query_row(&format!("SELECT task_id,day FROM task_done WHERE id=?1 AND by=?2 AND day||' '||at>={RECENT}"), params![id, me], |r| Ok((r.get(0)?, r.get(1)?)))
+                .optional()?
+            else {
+                return Ok(false);
+            };
+            let tx = c.unchecked_transaction()?;
+            let before = last_done(&tx, task)?;
+            let n = tx.execute("DELETE FROM task_done WHERE id=?1", [id])?;
+            reschedule(&tx, task, before, &day)?;
+            tx.commit()?;
+            n
         }
         _ => 0,
     };

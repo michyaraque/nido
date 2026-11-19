@@ -18,6 +18,7 @@ use std::{
 };
 
 mod act;
+mod actions;
 mod data;
 mod kit;
 mod view;
@@ -306,6 +307,7 @@ async fn main() {
     let conn = open(&env("NIDO_PLUGIN_DB", "pets.db")).expect("no se pudo abrir la base de datos");
     let app = App { db: Arc::new(Mutex::new(conn)), notes: Default::default() };
     let router = act::routes()
+        .merge(actions::routes())
         .route("/manifest", get(manifest))
         .route("/page", get(page))
         .route("/notices", get(notices))
