@@ -1,10 +1,11 @@
 use super::*;
 
-fn sections(v: &View) -> Markup {
+pub(super) fn sections(v: &View) -> Markup {
     html! {
         nav.seg.settings-seg aria-label="Ajustes" {
             a.on[v.t == "settings"] href=(v.link("settings")) aria-current=[(v.t == "settings").then_some("page")] { (icon("users")) "Mis ajustes" }
             a.on[v.t == "household"] href=(v.link("household")) aria-current=[(v.t == "household").then_some("page")] { (icon("house")) "La casa" }
+            a.on[v.t == "shortcuts"] href=(v.link("shortcuts")) aria-current=[(v.t == "shortcuts").then_some("page")] { (icon("nfc")) "Atajos" }
         }
     }
 }
@@ -198,12 +199,12 @@ fn finance(v: &View) -> Markup {
 }
 
 /// Shared by both settings tabs: one centred column of blocks.
-fn layout(v: &View, sub: Markup, main: Markup) -> Markup {
+pub(super) fn layout(v: &View, sub: Markup, main: Markup) -> Markup {
     html! { div.set-page { (v.head("Ajustes", sub)) (sections(v)) div.set-list { (main) } } }
 }
 
 /// One settings block: heading above, its card below.
-fn sec(id: &str, title: &str, desc: Markup, body: Markup) -> Markup {
+pub(super) fn sec(id: &str, title: &str, desc: Markup, body: Markup) -> Markup {
     html! {
         section.set-group id=(id) aria-labelledby={ (id) "-t" } {
             div.set-head { h2 id={ (id) "-t" } { (title) } p { (desc) } }

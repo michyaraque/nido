@@ -13,7 +13,7 @@ Aplicación web para gestionar una casa desde un equipo modesto en casa (una Ras
 | Gastos | Gastos diarios con logo y categoría para más de 200 comercios españoles, comentarios, filtros por persona y gasto por categoría. |
 | Compra | Lista compartida con iconos por producto y sugerencias según lo que más se compra. |
 | Tareas | Tareas con icono, color y frecuencia, ordenadas por urgencia. Calendario para asignarlas a alguien o dejarlas libres, y marcador mensual. |
-| Ajustes | Por persona: foto, sueldo, avisos y atajo de iPhone. De la casa: permisos, bot de Telegram, copias de seguridad y cuentas mensuales. |
+| Ajustes | Por persona: foto, sueldo, avisos y atajo de iPhone. De la casa: permisos, bot de Telegram, copias de seguridad, cuentas mensuales y Atajos. |
 
 Además:
 
@@ -22,6 +22,7 @@ Además:
 - Lectura de tickets: a partir de una foto obtiene comercio, fecha, total y líneas de producto. El resultado se revisa antes de guardarlo como gasto.
 - Avisos por Telegram: tareas asignadas, recordatorio diario con botón para marcarlas como hechas y resumen semanal.
 - Atajo de iPhone para registrar automáticamente cada pago con Apple Pay.
+- Atajos: etiquetas NFC (o enlaces) que apuntan cosas al acercar el móvil, a nombre de quien la lee. Cada etiqueta hace una o varias cosas, del núcleo o de los plugins: la comida del perro, algo a la lista de la compra, una tarea hecha… Avisa si otra persona acaba de hacerlo y se puede deshacer.
 - Copias de seguridad diarias cifradas a un disco USB, a almacenamiento compatible con S3 o a un servidor WebDAV.
 - Plugins: funciones opcionales que se instalan desde el menú (ver [Plugins](#plugins)).
 
@@ -138,7 +139,20 @@ Registra cada pago con Apple Pay. En Atajos → Automatización → Transacción
 
 Respuesta: `201` con `{"id", "description", "merchant", "category", "amount_cents", "amount_display", "month"}`. Errores: `401 invalid_token`, `400 invalid_json`, `422 invalid_amount`. El iPhone debe estar en la red de casa en ese momento.
 
-### 7. Copias de seguridad
+### 7. Etiquetas NFC (opcional)
+
+En Ajustes → Atajos, crea un atajo y elige qué hace. La etiqueta solo guarda un enlace (`http://nido.local/t/<código>`): lo que hace se cambia en Nido sin volver a grabarla.
+
+- Desde Nido: «Grabar con este móvil» la graba sin instalar nada. Funciona en Chrome para Android, con Nido abierto en `https://` (los navegadores solo permiten NFC con conexión segura).
+- Desde cualquier móvil: copia el enlace y grábalo con una app de NFC, como NFC Tools (Escribir → URL).
+
+Para usarla no hace falta ninguna app: al acercar el móvil se abre el enlace, en Android directamente (en la app de Nido si está instalada) y en iPhone tocando el aviso que aparece arriba. El navegador que lo abra necesita haber iniciado sesión en Nido una vez.
+
+Avanzado: una app de automatización (Tasker, MacroDroid, Atajos…) puede usar la etiqueta sin abrir el navegador con un `POST` a `http://nido.local/api/t/<código>` y la cabecera `Authorization: Bearer <token>` de cada persona; la respuesta es un texto con lo que se ha apuntado.
+
+Todo se apunta a nombre de quien lee la etiqueta. Si la lee dos veces seguidas, no se repite; si otra persona acaba de hacerlo, avisa en vez de apuntarlo otra vez.
+
+### 8. Copias de seguridad
 
 Se configuran en Ajustes → La casa → Copias de seguridad:
 
@@ -261,6 +275,7 @@ src/
   pages/           una pantalla por archivo
   actions.rs       formularios
   api.rs           API del atajo de iPhone
+  shortcuts/       Atajos: etiquetas NFC, sus acciones y lo que ve el móvil al leerlas
   chores.rs        tareas y calendario
   notify.rs        avisos por Telegram
   push.rs          notificaciones Web Push

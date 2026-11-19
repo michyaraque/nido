@@ -26,6 +26,8 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
   if (url.pathname === "/ping" || url.pathname === "/sw.js") return;
+  // A tag does something each time it is read: never answer it from what was saved.
+  if (url.pathname.startsWith("/t/")) return;
   e.respondWith(FILE.test(url.pathname) ? file(e) : page(e.request, url));
 });
 

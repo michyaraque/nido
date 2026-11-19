@@ -7,6 +7,7 @@ mod home;
 mod house;
 mod settings;
 mod shopping;
+mod shortcuts;
 mod tasks;
 mod ticket;
 mod copies;
@@ -604,7 +605,7 @@ impl View {
         html! {
             div.page-head {
                 div { h1 { (title) } p { (sub) } }
-                @if !matches!(self.t, "shopping" | "settings" | "household" | "plugins" | "update") && self.plugin().is_none() { (self.month_nav()) }
+                @if !matches!(self.t, "shopping" | "settings" | "household" | "shortcuts" | "plugins" | "update") && self.plugin().is_none() { (self.month_nav()) }
             }
         }
     }
@@ -636,7 +637,7 @@ impl View {
         }
     }
     fn side_link(&self, id: &str, label: &str, ic: &str) -> Markup {
-        let on = id == self.t || (id == "settings" && self.t == "household");
+        let on = id == self.t || (id == "settings" && matches!(self.t, "household" | "shortcuts"));
         let (n, tone) = self.badge(id);
         html! {
             a.on[on] href=(self.link(id)) aria-current=[on.then_some("page")] {
@@ -836,9 +837,12 @@ pub async fn dashboard(State(db): State<Db>, h: HeaderMap, Query(q): Query<DashQ
         Some((p, _)) => format!("{} · Nido", p.name),
         None if v.t == "plugins" => "Plugins · Nido".to_string(),
         None if v.t == "update" => "Actualizar · Nido".to_string(),
+        None if v.t == "shortcuts" => "Atajos · Nido".to_string(),
         None => format!("{} {} · Nido", v.month_name(), v.year()),
     };
-    let content = if let Some((_, page)) = plugin { page } else { match v.t {
+    // Atajos lists what every active plugin can do: asked over HTTP, so also outside the lock.
+    let shortcuts = if v.t == "shortcuts" { Some(shortcuts::render(&db, &v, &h, raw.as_deref().unwrap_or("")).await?) } else { None };
+    let content = if let Some((_, page)) = plugin { page } else if let Some(page) = shortcuts { page } else { match v.t {
         "house" => house::render(&v),
         "expenses" => expenses::render(&v),
         "settings" => settings::render(&v),

@@ -30,6 +30,7 @@ Reference implementations: `recipes/` (forms, uploads, core services), `games/` 
 - `GET /page` returns only the content area. Read the user from `X-Nido-User`, and the household from `X-Nido-People` (percent-encoded).
 - Browser paths are `/plugins/<id>/<path>`; they reach the plugin as `/<path>`. `POST /plugins/<id>` with nothing after it is Nido's (install, toggle, uninstall).
 - Optional `GET /notices` and `GET /notices/late`: see [Notifications and messages](#notifications-and-messages).
+- Optional `GET /actions`, `POST /actions/run`, `POST /actions/undo`: see [Actions for Atajos](#actions-for-atajos).
 
 ## Notifications and messages
 
@@ -65,6 +66,17 @@ An plugin has four ways to tell people something. Pick by urgency and audience.
 - In-memory is fine for short-lived notices (an invitation, "la lavadora ha terminado"). Persist them in the plugin's database only if losing them on restart matters.
 - Do not notify for things the person just did themselves; use a flash for that.
 - Keep `text` short, in Spanish, with no Markdown: it is shown as a banner, a phone notification or a Telegram message.
+
+## Actions for Atajos
+
+Atajos (Ajustes → Atajos) are NFC tags or links that do things as whoever scans them. A plugin offers its own by answering three routes; the full contract is in [README.md](README.md#acciones-para-los-atajos) and the reference is `pets/src/actions.rs`.
+
+- `GET /actions` lists concrete actions already resolved with your data ("Comida de Luca", `meal:3`), not templates with parameters. Ids must keep working while the thing exists: use database ids, never positions. Leave out what cannot be done now (a finished treatment).
+- `ask` only for a short text written once when setting up the tag (which treat). Anything that changes the real world (a plug, a payment) sets `confirm: true`.
+- `POST /actions/run` checks first whether someone already did it a moment ago and then answers `already` **without writing**, saying who and when ("La comida de las 20:00 ya está apuntada: Ana, a las 20:02"). With `force=1` it writes anyway. Pick what "it" is the way a person would: the meal due now, not a breakfast that was missed this morning.
+- Write as `X-Nido-User` and return an `undo` token. `POST /actions/undo` takes back only that person's own entry from the last 30 minutes (reuse the quick-log `take_back`).
+- Answer within a couple of seconds: Nido gives up after 8 and a phone is waiting in front of the tag.
+- Offer "Crear atajo" where it helps with a link to `/?tab=shortcuts&add=<id>%7C<action>#tag-new`.
 
 ## Other core integrations
 
@@ -173,6 +185,7 @@ One English ASCII title line in conventional form (`feat(devices): …`, `fix(ga
 
 - [ ] `cargo test --workspace` passes, no new warnings.
 - [ ] Every redirect `ok` code is in `/manifest`.
+- [ ] If the plugin offers actions: ids survive edits, `already` writes nothing, `undo` only takes back the same person's recent entry.
 - [ ] If the plugin notifies: `/notices` answers `200` (never `404`), each notice is returned once, and the household ids come from `X-Nido-People`.
 - [ ] The page works at 375 px wide and in dark mode, checked with `tools/plugin-shot.sh` (see the root [AGENTS.md](../AGENTS.md#checking-your-work)).
 - [ ] No list grows without limit on a phone: long ones fold, secondary rows slide sideways.

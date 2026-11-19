@@ -55,7 +55,9 @@ async function visit(url, init = {}, { keepScroll = false, push = true, y = null
     // The flash code is for this view only; reloading should not show it again.
     final.searchParams.delete("ok");
     const hash = new URL(url, location.href).hash;
-    const next = final.pathname + final.search + (hash && !keepScroll ? hash : "");
+    // A form whose action names a dialog opens it after saving (a new atajo shows how to write it).
+    const keepHash = hash && (!keepScroll || init.method === "POST");
+    const next = final.pathname + final.search + (keepHash ? hash : "");
     if (push) {
       history.replaceState({ y: before }, "");
       history.pushState({}, "", next);
@@ -64,7 +66,7 @@ async function visit(url, init = {}, { keepScroll = false, push = true, y = null
       document.title = doc.title;
       document.body.className = doc.body.className;
       document.body.replaceChildren(...[...doc.body.childNodes].map((n) => document.importNode(n, true)));
-      const target = hash && !keepScroll && document.querySelector(hash);
+      const target = keepHash && document.querySelector(hash);
       if (target) target.scrollIntoView();
       else scrollTo(0, y ?? (keepScroll ? before : 0));
     };
@@ -494,6 +496,10 @@ function ready() {
   }
   for (let d = target?.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
   if (target?.closest("details")) target.scrollIntoView({ block: "center" });
+  if ("NDEFReader" in window) {
+    document.querySelectorAll("[data-nfc-write]").forEach((b) => (b.hidden = false));
+    document.querySelectorAll("[data-nfc-none]").forEach((p) => (p.hidden = true));
+  }
   sync();
   followUpdate();
   clearTimeout(refreshTimer);
@@ -752,6 +758,50 @@ document.addEventListener("click", async (e) => {
     b.disabled = false;
     pushPanel();
   }
+});
+
+/* ---------- Atajos: copying a tag's link, writing it from this phone, asking for a detail ---------- */
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest?.("[data-copy]");
+  if (!b) return;
+  try {
+    await navigator.clipboard.writeText(b.dataset.copy);
+    toast("Enlace copiado");
+  } catch {
+    b.previousElementSibling?.select?.(); // plain http has no clipboard: leave it selected to copy by hand
+  }
+});
+
+// Chrome on Android writes NFC tags (Web NFC); other browsers keep the button hidden.
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest?.("[data-nfc-write]");
+  if (!b) return;
+  const say = (t) => { const s = b.parentElement.querySelector("[data-nfc-status]"); if (s) s.textContent = t; };
+  b.disabled = true;
+  say("Acerca la etiqueta a la parte de atrás del móvil…");
+  try {
+    await new NDEFReader().write({ records: [{ recordType: "url", data: b.dataset.nfcWrite }] });
+    say("Grabada. Acerca el móvil a la etiqueta para probarla.");
+    toast("Etiqueta grabada");
+  } catch (err) {
+    say(err.name === "NotAllowedError" ? "Chrome necesita permiso para usar NFC. Actívalo y vuelve a probar."
+      : err.name === "NotSupportedError" ? "Este móvil no puede grabar etiquetas desde el navegador."
+      : "No se ha podido grabar. Mantén la etiqueta quieta y vuelve a probar.");
+  } finally {
+    b.disabled = false;
+  }
+});
+
+// Some actions need a short text ("Leche", "1,20 Pan"): the field asks for it only then.
+document.addEventListener("change", (e) => {
+  const s = e.target.closest?.("select[data-asks]");
+  const field = s?.closest("li")?.querySelector("input[data-ask-field]");
+  if (!field) return;
+  const ask = s.selectedOptions[0]?.dataset.ask || "";
+  field.placeholder = ask || "Detalle";
+  field.required = !!ask;
+  if (ask && !field.value) field.focus();
 });
 
 /* ---------- start: everything above is declared, so the first page can be prepared ---------- */

@@ -78,6 +78,49 @@ Nido valida la sesión antes de reenviar. El plugin solo debe confiar en estas c
 | WebSocket en `/<ruta>` | El navegador abre `ws(s)://<host>/plugins/<id>/<ruta>`. Nido valida la sesión, reenvía el handshake con las cabeceras `X-Nido-*` y, tras el `101`, pasa los bytes sin interpretarlos. El formato de los mensajes lo define el plugin (Juegos usa paquetes binarios, ver `games/src/net.rs`). |
 | `GET /notices` (opcional) | Avisos para la persona de `X-Nido-User`: `[{"text":"Ana te invita…","href":"/?tab=<id>&…","action":"Jugar"}]`. Nido lo consulta cada 3 s con la app en primer plano y los muestra en la parte superior. Lo devuelto se considera visto. `href` debe empezar por `/?`. |
 | `GET /notices/late` (opcional) | Avisos no vistos a tiempo, con destinatario: `[{"user":2,"text":"…","href":"/?…"}]`. Nido lo consulta cada 30 s y los envía como notificación push y, si ningún móvil de esa persona confirma haberla mostrado en 3 minutos, también por Telegram. Cada aviso debe devolverse una sola vez. |
+| `GET /actions` (opcional) | Lo que los Atajos (etiquetas NFC, enlaces) pueden hacer con este plugin. Ver [Acciones para los Atajos](#acciones-para-los-atajos). |
+| `POST /actions/run`, `POST /actions/undo` (opcional) | Hacer una acción a nombre de `X-Nido-User` y deshacerla. |
+
+### Acciones para los Atajos
+
+En Ajustes → Atajos la casa crea etiquetas NFC (o enlaces) que hacen una o varias cosas al acercar el móvil, a nombre de quien la lee. Cada plugin ofrece las suyas; un plugin sin `/actions` simplemente no ofrece ninguna (un `404` basta).
+
+**`GET /actions`**: la lista de acciones concretas, ya resueltas con los datos del plugin (no plantillas con parámetros). Se pide al abrir Ajustes → Atajos y al guardar un atajo.
+
+```json
+[
+  {"id": "meal:3", "group": "Luca", "name": "Comida de Luca", "icon": "utensils"},
+  {"id": "treat:3", "group": "Luca", "name": "Premio a Luca", "icon": "bone", "ask": "Qué premio, como Galleta"},
+  {"id": "scene:2", "group": "Escenas", "name": "Modo cine", "icon": "tv", "confirm": true}
+]
+```
+
+| Campo | Descripción |
+|---|---|
+| `id` | Lo elige el plugin; Nido lo guarda y lo devuelve tal cual. Hasta 80 caracteres, sin `|`. Debe seguir valiendo mientras exista lo que nombra (usar ids de la base de datos, no posiciones). |
+| `name` | Lo que ve la persona en la lista y en la etiqueta. Corto y concreto. |
+| `group` | Opcional. Agrupa la lista: Nido la muestra como «Mascotas · Luca». |
+| `icon` | Opcional. Un icono de `assets/icons`; uno desconocido se cambia por `zap`. |
+| `ask` | Opcional. La acción necesita un texto corto que la persona escribe una vez al crear el atajo (qué premio, qué producto). Es el texto de ayuda del campo. Llega como `arg`. |
+| `confirm` | Opcional. Cambia algo fuera de Nido (enciende un aparato, paga): la etiqueta pregunta antes de hacerlo. |
+
+**`POST /actions/run`** (`application/x-www-form-urlencoded`: `id`, `arg`, `force`), con `X-Nido-User` y `X-Nido-People`. Responde `200` con:
+
+```json
+{"status": "done", "text": "Comida de las 20:00 apuntada", "undo": "f3-2000", "href": "/?tab=pets&p=3"}
+```
+
+| `status` | Cuándo |
+|---|---|
+| `done` | Hecho. `text` dice qué se ha apuntado; `undo` (opcional) es lo que Nido enviará para deshacerlo. |
+| `already` | Alguien lo acaba de hacer y **no se ha escrito nada** (dos personas dando de comer al perro). `text` dice quién y cuándo: «La comida de las 20:00 ya está apuntada: Ana, a las 20:02». Nido ofrece «Apuntar igualmente», que repite la petición con `force=1`. |
+| `error` | No se ha podido. `text` explica qué hacer, en español y sin tecnicismos. |
+
+`href` (opcional, empieza por `/?`) es a dónde lleva «Ver en …». Nido espera la respuesta como mucho 8 segundos: hay un móvil esperando delante de la etiqueta.
+
+**`POST /actions/undo`** (`undo`), con `X-Nido-User`. Responde `{"ok": true}` si lo ha deshecho. Solo debe deshacer lo que escribió esa misma persona hace menos de 30 minutos: un enlace viejo no puede borrar lo que escribió otra.
+
+Para ofrecer un atajo desde el propio plugin, basta un enlace: `/?tab=shortcuts&add=<id-del-plugin>%7C<id-de-la-acción>#tag-new` abre «Nuevo atajo» con esa acción ya elegida. Ejemplo completo: `pets/src/actions.rs`.
 
 ### Reglas de la página
 
@@ -95,6 +138,7 @@ Nido valida la sesión antes de reenviar. El plugin solo debe confiar en estas c
 | Ruta | Descripción |
 |---|---|
 | `POST /shopping/many` | Añade a la lista de la compra cada campo `item` (repetible) y redirige a `next`, que debe empezar por `/?`. Es un formulario del navegador; el plugin no necesita llamar a Nido. |
+| `/?tab=shortcuts&add=<id>%7C<acción>#tag-new` | Abre «Nuevo atajo» con una acción del plugin ya elegida (ver [Acciones para los Atajos](#acciones-para-los-atajos)). |
 
 ### Seguridad
 
@@ -209,4 +253,4 @@ Compila para la placa, copia el binario a `~/nido-install/plugins/` y ejecuta `s
 | [`recipes/`](recipes/) | Recetas: recetario con importación desde webs, editor por bloques y envío de ingredientes a la lista de la compra. Ejemplo completo de formularios, subida de archivos y servicios del núcleo. |
 | [`games/`](games/) | Juegos: nueve juegos de mesa entre personas de la casa o contra el ordenador, con ranking. Ejemplo de tiempo real con WebSocket y paquetes binarios (`games/src/net.rs`). |
 | [`devices/`](devices/) | Domótica: control local de aparatos Tuya y mandos infrarrojos Broadlink, consumo eléctrico, escenas y avisos. Ejemplo de tareas en segundo plano, protocolos de red propios y `/notices`. |
-| [`pets/`](pets/) | Mascotas: agenda de hoy (comidas, tomas, tareas), peso, salud, paseos, premios, cartilla, citas del veterinario, diario de la casa y tareas que se repiten. Ejemplo de recordatorios en segundo plano con `/notices` y `/notices/late`, y de fotos subidas por la casa. |
+| [`pets/`](pets/) | Mascotas: agenda de hoy (comidas, tomas, tareas), peso, salud, paseos, premios, cartilla, citas del veterinario, diario de la casa y tareas que se repiten. Ejemplo de recordatorios en segundo plano con `/notices` y `/notices/late`, de fotos subidas por la casa y de acciones para los Atajos (`/actions`). |

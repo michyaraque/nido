@@ -20,6 +20,7 @@ mod ocr;
 mod plugins;
 mod push;
 mod receipt;
+mod shortcuts;
 mod tickets;
 mod text;
 mod ui;
@@ -195,6 +196,7 @@ async fn main() {
         .merge(assets::routes())
         .merge(plugins::routes())
         .merge(push::routes())
+        .merge(shortcuts::routes())
         .merge(update::routes())
         .with_state(db);
 

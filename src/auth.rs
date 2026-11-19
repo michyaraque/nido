@@ -165,6 +165,12 @@ pub struct LoginQ {
     u: Option<i64>,
     error: Option<String>,
     wait: Option<u64>,
+    next: Option<String>,
+}
+
+/// Where to go after signing in: only back to a tag that sent the person here (`/t/<code>`).
+fn safe_next(next: Option<&str>) -> Option<&str> {
+    next.filter(|n| n.len() <= 64 && n.strip_prefix("/t/").is_some_and(|c| !c.is_empty() && c.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')))
 }
 
 pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
@@ -191,6 +197,8 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
     let only = (people.len() == 1).then_some(0);
     let me = q.u.and_then(|id| people.iter().position(|u| u.id == id)).or(only);
     let wait = q.wait.filter(|w| *w > 0);
+    let next = safe_next(q.next.as_deref());
+    let then = next.map(|n| format!("&next={n}")).unwrap_or_default();
     let body = html! {
         (wallpaper())
         main.login {
@@ -207,6 +215,7 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
                         p.muted { "Escribe tu contraseña para entrar." }
                     }
                     input.vh type="text" name="name" value=(u.name) autocomplete="username" readonly tabindex="-1" aria-hidden="true";
+                    @if let Some(n) = next { input type="hidden" name="next" value=(n); }
                     div.field {
                         label for="password" { "Contraseña" }
                         input #password.input type="password" name="password" autocomplete="current-password" required autofocus
@@ -219,7 +228,7 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
                     }
                     button.btn.primary.wide.lg { "Entrar" }
                     @if people.len() > 1 {
-                        a.not-me href="/login" { (icon("arrow-left")) "No soy " (u.name) }
+                        a.not-me href={ "/login" @if let Some(n) = next { "?next=" (n) } } { (icon("arrow-left")) "No soy " (u.name) }
                     }
                 }
             } @else {
@@ -233,7 +242,7 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
                     } @else {
                         ul.who-list role="list" {
                             @for u in &people {
-                                li { a.login-who href={ "/login?u=" (u.id) } style={ "--pc:" (u.color) } { (face(u, "md")) span.who-name { (u.name) } } }
+                                li { a.login-who href={ "/login?u=" (u.id) (then) } style={ "--pc:" (u.color) } { (face(u, "md")) span.who-name { (u.name) } } }
                             }
                         }
                     }
@@ -249,6 +258,7 @@ pub async fn login_page(State(db): State<Db>, Query(q): Query<LoginQ>) -> R {
 pub struct LoginF {
     name: String,
     password: String,
+    next: Option<String>,
 }
 
 pub async fn login(State(db): State<Db>, h: HeaderMap, F(f): F<LoginF>) -> R {
@@ -260,9 +270,11 @@ pub async fn login(State(db): State<Db>, h: HeaderMap, F(f): F<LoginF>) -> R {
         Some((id, _)) => vec![ip, format!("user:{id}")],
         None => vec![ip],
     };
+    let next = safe_next(f.next.as_deref()).map(str::to_string);
+    let then = next.as_deref().map(|n| format!("&next={n}")).unwrap_or_default();
     let back = |q: &str| match &row {
-        Some((id, _)) => Redirect::to(&format!("/login?u={id}&{q}")).into_response(),
-        None => Redirect::to(&format!("/login?{q}")).into_response(),
+        Some((id, _)) => Redirect::to(&format!("/login?u={id}&{q}{then}")).into_response(),
+        None => Redirect::to(&format!("/login?{q}{then}")).into_response(),
     };
     let wait = wait_secs(&keys);
     if wait > 0 {
@@ -276,7 +288,7 @@ pub async fn login(State(db): State<Db>, h: HeaderMap, F(f): F<LoginF>) -> R {
             let sid = rand_hex(32);
             lock(&db).execute("INSERT INTO sessions(token,user_id) VALUES(?1,?2)", params![token_hash(&sid), id])?;
             let cookie = format!("sid={sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000");
-            Ok(([(header::SET_COOKIE, cookie)], Redirect::to("/")).into_response())
+            Ok(([(header::SET_COOKIE, cookie)], Redirect::to(next.as_deref().unwrap_or("/"))).into_response())
         }
         _ => {
             strike(&keys);
@@ -325,4 +337,18 @@ pub async fn change_password(State(db): State<Db>, h: HeaderMap, F(f): F<Passwor
     c.execute("UPDATE users SET pass=?2 WHERE id=?1", params![me.id, hashed])?;
     c.execute("DELETE FROM sessions WHERE user_id=?1 AND token!=?2", params![me.id, token_hash(sid(&h).unwrap_or_default())])?;
     back(&month(&c, Some(&f.month))?, Some("settings"), "password_saved")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn next_only_goes_back_to_a_tag() {
+        assert_eq!(safe_next(Some("/t/0a1b2c3d4e5f6a7b")), Some("/t/0a1b2c3d4e5f6a7b"));
+        for bad in ["/", "/t/", "//evil.com", "/t/x?y=1", "/t/../login", "https://evil.com/t/x", "/?tab=x"] {
+            assert_eq!(safe_next(Some(bad)), None, "{bad}");
+        }
+        assert_eq!(safe_next(None), None);
+    }
 }

@@ -9,6 +9,7 @@ Nido is a household app (expenses, shopping, chores, bills…) that runs on mode
 | `src/` | The core: Rust 2021, `axum` 0.8, `maud` HTML, `rusqlite`. Server-rendered pages; every feature works without JavaScript. |
 | `src/pages/` | One module per screen. Shared markup helpers in `src/ui.rs`. |
 | `src/plugins/mod.rs` | The plugin catalog (`ALL`) and how Nido starts and proxies plugins. |
+| `src/shortcuts/` | Atajos: NFC tags and links (`/t/<code>`), their actions (core ones in `builtin.rs`, plugins' through `/actions`) and the page a phone sees after reading one. |
 | `assets/css/` | `tokens.css` (colours, light and dark), `base.css`, `components.css` (buttons, cards, dialogs…), `layout.css`, `pages.css`. |
 | `assets/js/app.js` | Progressive enhancement: in-place navigation, dialogs, toasts, notices, plugin scripts. |
 | `assets/icons/` | Lucide SVGs, embedded at build time. Add missing ones from `lucide-static@0.460.0`, keeping its license header. |
@@ -38,6 +39,9 @@ These apply to the core and to every plugin. When a core rule breaks a standard,
 - **Copy** is Spanish, short and factual: no jargon, no slogans, no emoji as icons. Code, identifiers and comments are English.
 - **Motion** stays under 300 ms and respects `prefers-reduced-motion` (the core turns animations off globally).
 - **Accessibility.** Icon-only buttons have `aria-label`; form fields have visible labels; a hidden checkbox used to fold content takes its name from its `label`, not from an `aria-label`.
+- **`hidden` always hides.** `base.css` makes `[hidden]` win over any class's `display`; before, a `.btn` marked `hidden` (the push buttons in Mis ajustes) still showed. Controls that only work with a browser feature (Web NFC) start `hidden` and the script shows them.
+- **Saving from a dialog can reopen a dialog.** A form whose `action` ends in `#<dialog-id>` (`/shortcuts#tag-edit`) lands on that dialog after the redirect, with and without JavaScript. Use it when the next step lives there (a new tag shows how to write it).
+- **Something done by a link or a tag** answers with a redirect to its own result page (`/t/<code>` → `/t/r/<id>`), so reloading shows what happened instead of doing it again. The service worker never answers `/t/` from its cache.
 
 ## Performance
 

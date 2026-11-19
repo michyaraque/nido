@@ -1199,7 +1199,7 @@ hr.sep {
 }
 
 .settings-seg {
-  max-width: 360px;
+  max-width: 460px;
   margin-bottom: 16px;
 }
 
@@ -2815,4 +2815,620 @@ form:has(input[name=received]:checked) .received-on {
 
 [data-update="running"] .upd-steps li:last-child .i:not(.spinning) {
   color: var(--accent);
+}
+
+/* ---------- Atajos: Ajustes → Atajos ---------- */
+
+.sc-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sc-top .btn {
+  flex: none;
+}
+
+.sc-list,
+.sc-tag-steps,
+.sc-how,
+.sc-acts ol,
+.tap-lines {
+  padding: 0;
+}
+
+.sc-list {
+  list-style: none;
+  columns: 2 360px;
+  column-gap: 12px;
+}
+
+.sc-list>li {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+
+.sc-tag {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  color: inherit;
+  transition: border-color .15s;
+}
+
+.sc-tag:hover {
+  border-color: var(--line-strong);
+}
+
+.sc-tag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sc-tag-top,
+.sc-write-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sc-tag-ico,
+.sc-intro-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sc-tag-ico .i {
+  width: 20px;
+  height: 20px;
+}
+
+.sc-tag-name {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.sc-tag-name b {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-tag-name small,
+.sc-tag-foot {
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.sc-tag-go {
+  color: var(--faint);
+}
+
+.sc-tag-go .i {
+  width: 16px;
+  height: 16px;
+}
+
+.sc-tag-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sc-tag-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.sc-tag-steps li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-tag-steps .i {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--mute);
+}
+
+.sc-intro {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.sc-intro-ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+}
+
+.sc-intro-ico .i {
+  width: 28px;
+  height: 28px;
+}
+
+.sc-intro h3 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.sc-intro>p {
+  max-width: 44ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--mute);
+}
+
+.sc-how {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  margin: 8px 0 4px;
+  text-align: left;
+}
+
+.sc-how li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sc-how li div {
+  display: grid;
+  gap: 2px;
+}
+
+.sc-how b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sc-how small {
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.sc-n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sc-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.sc-form legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.sc-acts ol {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.sc-act {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sc-act .sc-n {
+  margin-top: 7px;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  color: var(--ink-2);
+}
+
+.sc-act-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.sc-select {
+  position: relative;
+  display: block;
+}
+
+.sc-select select {
+  padding-right: 36px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.sc-select>.i {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 16px;
+  height: 16px;
+  color: var(--mute);
+  pointer-events: none;
+}
+
+/* Only the rows in use and one empty row show; the detail field only when the action needs one. */
+@supports selector(:has(a)) {
+  .sc-arg {
+    display: none;
+  }
+
+  .sc-act:has(option[data-ask]:checked) .sc-arg {
+    display: block;
+  }
+
+  .sc-act:has(option[value=""]:checked)~.sc-act:has(option[value=""]:checked) {
+    display: none;
+  }
+}
+
+.sc-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sc-write {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--canvas);
+}
+
+.sc-write .input.mono {
+  background: var(--surface);
+}
+
+.sc-nfc-status:empty {
+  display: none;
+}
+
+.sc-del {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.sc-del summary.btn {
+  width: fit-content;
+  list-style: none;
+  color: var(--bad);
+}
+
+.sc-del summary::-webkit-details-marker {
+  display: none;
+}
+
+.sc-del form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+@media (pointer: coarse) {
+  .sc-select select,
+  .sc-arg {
+    height: 44px;
+  }
+
+  .sc-act .sc-n {
+    margin-top: 9px;
+  }
+}
+
+/* ---------- Atajos: what a phone shows after reading a tag ---------- */
+
+.tap-body {
+  min-height: 100dvh;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  background: var(--canvas);
+}
+
+.tap-page {
+  display: grid;
+  gap: 12px;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.tap-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tap-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tap-home img {
+  border-radius: 8px;
+}
+
+.tap-me {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.tap-me .avatar {
+  width: 28px;
+  height: 28px;
+  border: 0;
+}
+
+.tap-card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  animation: pop .2s var(--ease-out);
+}
+
+.tap-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tap-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--frame);
+  color: var(--mute);
+}
+
+.tap-mark .i {
+  width: 26px;
+  height: 26px;
+}
+
+.tap-mark.ok,
+.tap-line.done .tap-ico,
+.tap-line.open .tap-ico {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.tap-mark.warn,
+.tap-line.already .tap-ico {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.tap-mark.bad,
+.tap-line.failed .tap-ico {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.tap-mark.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tap-place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.tap-place .i {
+  width: 14px;
+  height: 14px;
+}
+
+.tap-head h1 {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.tap-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.tap-lines {
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.tap-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tap-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--frame);
+  color: var(--ink-2);
+}
+
+.tap-ico .i {
+  width: 20px;
+  height: 20px;
+}
+
+.tap-txt {
+  flex: 1 1 160px;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tap-txt b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tap-txt small {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--mute);
+}
+
+.tap-line.failed small {
+  color: var(--bad);
+}
+
+.tap-line.undone {
+  color: var(--mute);
+}
+
+.tap-line.undone b {
+  text-decoration: line-through;
+}
+
+.tap-line>form,
+.tap-line>.btn {
+  margin-left: auto;
+}
+
+.tap-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.tap-actions form,
+.tap-picks form {
+  display: grid;
+}
+
+.tap-foot {
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--mute);
+}
+
+.tap-foot a {
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tap-picks {
+  display: grid;
+  gap: 10px;
+}
+
+.tap-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+
+.tap-pick:hover {
+  background: var(--hover);
+}
+
+.tap-pick:active {
+  transform: scale(.98);
+}
+
+.tap-pick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tap-pick>span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.tap-pick>.i {
+  color: var(--mute);
 }

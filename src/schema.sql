@@ -178,3 +178,41 @@ CREATE INDEX IF NOT EXISTS settlements_month ON settlements(month);
 CREATE INDEX IF NOT EXISTS shopping_pending ON shopping(cleared, done);
 CREATE INDEX IF NOT EXISTS chore_logs_chore ON chore_logs(chore_id, day);
 CREATE INDEX IF NOT EXISTS chore_plans_day ON chore_plans(day);
+
+-- Atajos: an NFC tag, QR or link holds only `code`; what it does lives here and can change.
+CREATE TABLE IF NOT EXISTS tags (
+  id         INTEGER PRIMARY KEY,
+  code       TEXT NOT NULL UNIQUE,
+  name       TEXT NOT NULL,
+  mode       TEXT NOT NULL DEFAULT 'all',      -- 'all': do every action | 'choose': pick one
+  confirm    INTEGER NOT NULL DEFAULT 0,       -- ask before doing anything
+  created_by INTEGER REFERENCES users(id),
+  created    TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- What a tag does, in order. `label` and `icon` are kept so the tag shows without asking a plugin.
+CREATE TABLE IF NOT EXISTS tag_actions (
+  tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  pos     INTEGER NOT NULL,
+  source  TEXT NOT NULL,                       -- 'core' | plugin id
+  action  TEXT NOT NULL,                       -- the action id its source gave, e.g. 'meal:3'
+  arg     TEXT NOT NULL DEFAULT '',            -- what the person wrote for it ("Leche")
+  label   TEXT NOT NULL,
+  icon    TEXT NOT NULL DEFAULT 'zap',
+  confirm INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (tag_id, pos)
+);
+
+-- Each scan: who, when, what happened (JSON lines for its page) and how to take it back
+-- (JSON [[source, token], ...]).
+CREATE TABLE IF NOT EXISTS tag_runs (
+  id      INTEGER PRIMARY KEY,
+  tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  at      TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+  result  TEXT NOT NULL DEFAULT '[]',
+  undo    TEXT NOT NULL DEFAULT '[]',
+  undone  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS tag_runs_tag ON tag_runs(tag_id, at);
+CREATE INDEX IF NOT EXISTS tag_runs_at ON tag_runs(at);

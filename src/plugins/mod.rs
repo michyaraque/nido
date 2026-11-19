@@ -380,7 +380,7 @@ pub fn people(users: &[(i64, &str, &str, i64)]) -> String {
 }
 
 /// The same list straight from the database (colours fall back to the palette, as Nido draws them).
-fn house(c: &Connection) -> rusqlite::Result<String> {
+pub(crate) fn house(c: &Connection) -> rusqlite::Result<String> {
     let rows: Vec<(i64, String, Option<String>, i64)> = c
         .prepare("SELECT id,name,color,photo FROM users ORDER BY id")?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
@@ -503,6 +503,20 @@ fn dechunk(mut b: &[u8]) -> Option<Vec<u8>> {
         }
         out.extend_from_slice(b.get(eol + 2..eol + 2 + size)?);
         b = b.get(eol + 4 + size..)?;
+    }
+}
+
+/// A short request to a plugin on behalf of someone (Atajos asks for and runs actions this way).
+/// `None` when the plugin is off, will not start or takes more than a few seconds: a tag waiting
+/// on a phone must answer quickly, whatever the plugin is doing.
+pub async fn ask(c: &Db, id: &str, who: &Who<'_>, method: &str, path: &str, form: &str) -> Option<Reply> {
+    let k = enabled(&lock(c)).ok()?.into_iter().find(|k| k.id == id)?;
+    let (port, key) = ensure(k).await?;
+    let ctype = (!form.is_empty()).then_some("application/x-www-form-urlencoded");
+    let reply = tokio::time::timeout(Duration::from_secs(8), call(port, &key, method, path, Some(who), ctype, form.as_bytes())).await;
+    match reply {
+        Ok(Ok(r)) => Some(r),
+        _ => None,
     }
 }
 
